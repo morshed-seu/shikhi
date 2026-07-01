@@ -1,0 +1,562 @@
+openapi: 3.1.0
+info:
+  title: Shikhi API
+  version: 0.1.0-draft
+  description: >
+    REST API contract for Shikhi (শিখি) — a Bengali→English learning platform.
+    Single source of truth for the Spring Boot backend and the React SPA (ADR-0002/0007).
+    Status: DRAFT — reviewed at Gate B. Endpoints marked `x-phase: post-pilot` are
+    designed-for but may ship after the curated pilot (D6). AI grading is NOT in this
+    contract (D4) — it is additive behind the grading seam and does not change these
+    shapes (ADR-0006, NFR-M6).
+servers:
+  - url: https://api.shikhi.example/v1
+    description: Production (placeholder; region/provider per ADR-0008)
+  - url: http://localhost:8080/v1
+    description: Local dev
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: auth
+  - name: account
+  - name: curriculum
+  - name: learning
+  - name: progress
+  - name: review
+  - name: admin-content
+  - name: ops
+
+paths:
+  # ---------------- AUTH (identity module, D5) ----------------
+  /auth/register:
+    post:
+      tags: [auth]
+      summary: Register with email + password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterEmailRequest' }
+      responses:
+        '201': { description: Created; verification email sent, content: { application/json: { schema: { $ref: '#/components/schemas/TokenPair' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Login with email + password
+      security: []
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/LoginEmailRequest' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/TokenPair' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /auth/otp/request:
+    post:
+      tags: [auth]
+      summary: Request a phone OTP
+      x-phase: post-pilot
+      security: []
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/OtpRequest' } } }
+      responses:
+        '202': { description: OTP sent }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /auth/otp/verify:
+    post:
+      tags: [auth]
+      summary: Verify a phone OTP and sign in
+      x-phase: post-pilot
+      security: []
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/OtpVerifyRequest' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/TokenPair' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /auth/oauth/google:
+    post:
+      tags: [auth]
+      summary: Sign in with Google (OAuth2 authorization code)
+      x-phase: post-pilot
+      security: []
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/OAuthCodeRequest' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/TokenPair' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /auth/refresh:
+    post:
+      tags: [auth]
+      summary: Rotate tokens using a refresh token
+      security: []
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/RefreshRequest' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/TokenPair' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: Revoke the current refresh token
+      responses:
+        '204': { description: No content }
+  /auth/verify-email:
+    post:
+      tags: [auth]
+      summary: Confirm email using a verification token
+      security: []
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/TokenOnlyRequest' } } }
+      responses:
+        '204': { description: Verified }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /auth/password/forgot:
+    post:
+      tags: [auth]
+      summary: Begin password reset (always 202 to avoid account enumeration)
+      security: []
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/EmailOnlyRequest' } } }
+      responses:
+        '202': { description: If the account exists, a reset email is sent }
+  /auth/password/reset:
+    post:
+      tags: [auth]
+      summary: Complete password reset with a token
+      security: []
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/PasswordResetRequest' } } }
+      responses:
+        '204': { description: Password changed }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  # ---------------- ACCOUNT / PROFILE / PRIVACY (E1/E11) ----------------
+  /me:
+    get:
+      tags: [account]
+      summary: Get my profile
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/User' } } } }
+    patch:
+      tags: [account]
+      summary: Update my profile (display name, UI locale)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/UpdateProfileRequest' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/User' } } } }
+    delete:
+      tags: [account]
+      summary: Delete/anonymize my account and data (NFR-PR2)
+      responses:
+        '204': { description: Scheduled/completed per retention policy }
+  /me/identities:
+    get:
+      tags: [account]
+      summary: List my linked sign-in methods
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Identity' } } } } }
+  /me/export:
+    get:
+      tags: [account]
+      summary: Export my data (NFR-PR2)
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object } } } }
+
+  # ---------------- CURRICULUM (content module, read) ----------------
+  /curriculum:
+    get:
+      tags: [curriculum]
+      summary: Get the published curriculum tree with my progress overlay
+      responses:
+        '200':
+          description: OK
+          headers: { ETag: { schema: { type: string }, description: Content version tag for caching } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/CurriculumTree' } } }
+  /lessons/{lessonId}:
+    get:
+      tags: [curriculum]
+      summary: Get a lesson's exercises (published version)
+      parameters:
+        - { name: lessonId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Lesson' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  # ---------------- LEARNING (lesson sessions) ----------------
+  /sessions:
+    post:
+      tags: [learning]
+      summary: Start a lesson session (pins to current content version, F4)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/StartSessionRequest' } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/LessonSession' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /sessions/{sessionId}/answers:
+    post:
+      tags: [learning]
+      summary: Submit an answer (idempotent; returns verdict + updated stats)
+      parameters:
+        - { name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/SubmitAnswerRequest' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/AnswerResult' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /sessions/{sessionId}/complete:
+    post:
+      tags: [learning]
+      summary: Complete a session (idempotent; finalizes score, XP, unlocks)
+      parameters:
+        - { name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/IdempotentRequest' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/LessonResult' } } } }
+
+  # ---------------- PROGRESS / STATS ----------------
+  /stats:
+    get:
+      tags: [progress]
+      summary: Get my stats (XP, streak, hearts, accuracy by L1 pattern)
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Stats' } } } }
+  /progress/sync:
+    post:
+      tags: [progress]
+      summary: Reconcile a buffered batch of idempotent progress events (D2/NFR-N2)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/SyncBatchRequest' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Stats' } } } }
+
+  # ---------------- REVIEW (spaced repetition) ----------------
+  /review/due:
+    get:
+      tags: [review]
+      summary: Get due review items
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/ReviewItem' } } } } }
+  /review/results:
+    post:
+      tags: [review]
+      summary: Record review outcomes (updates scheduling)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ReviewResultsRequest' } } }
+      responses:
+        '204': { description: Recorded }
+
+  # ---------------- ADMIN CONTENT (authoring; role-gated) ----------------
+  /admin/content/drafts:
+    post:
+      tags: [admin-content]
+      summary: Create a content draft (role AUTHOR/ADMIN)
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/ContentVersion' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /admin/content/drafts/{versionId}/validate:
+    post:
+      tags: [admin-content]
+      summary: Validate a draft (US-9.3 rules)
+      parameters:
+        - { name: versionId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/ValidationResult' } } } }
+  /admin/content/drafts/{versionId}/publish:
+    post:
+      tags: [admin-content]
+      summary: Publish a validated draft (immutable; invalidates cache, F4)
+      parameters:
+        - { name: versionId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Published, content: { application/json: { schema: { $ref: '#/components/schemas/ContentVersion' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  # ---------------- OPS ----------------
+  /health:
+    get: { tags: [ops], summary: Liveness, security: [], responses: { '200': { description: OK } } }
+  /ready:
+    get: { tags: [ops], summary: Readiness (dependencies reachable), security: [], responses: { '200': { description: OK }, '503': { description: Not ready } } }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    BadRequest: { description: Validation error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Unauthorized: { description: Not authenticated, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Forbidden: { description: Not authorized, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    NotFound: { description: Not found, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Conflict: { description: Conflict, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    RateLimited: { description: Too many requests, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  schemas:
+    Error:
+      type: object
+      required: [code, message, correlationId]
+      properties:
+        code: { type: string, example: VALIDATION_FAILED }
+        message: { type: string, description: Localized (BN/EN) human-readable message }
+        details: { type: object, additionalProperties: true }
+        correlationId: { type: string }
+    Bilingual:
+      type: object
+      properties:
+        en: { type: string }
+        bn: { type: string }
+    Locale:
+      type: string
+      enum: [bn, en]
+    TokenPair:
+      type: object
+      required: [accessToken, refreshToken, expiresIn]
+      properties:
+        accessToken: { type: string, description: Short-lived JWT }
+        refreshToken: { type: string, description: Rotating refresh token }
+        expiresIn: { type: integer, description: Access token TTL (seconds) }
+    RegisterEmailRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+        displayName: { type: string }
+        uiLocale: { $ref: '#/components/schemas/Locale' }
+    LoginEmailRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+    OtpRequest:
+      type: object
+      required: [phone]
+      properties: { phone: { type: string, description: E.164 } }
+    OtpVerifyRequest:
+      type: object
+      required: [phone, code]
+      properties:
+        phone: { type: string }
+        code: { type: string }
+    OAuthCodeRequest:
+      type: object
+      required: [code, redirectUri]
+      properties:
+        code: { type: string }
+        redirectUri: { type: string, format: uri }
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties: { refreshToken: { type: string } }
+    TokenOnlyRequest:
+      type: object
+      required: [token]
+      properties: { token: { type: string } }
+    EmailOnlyRequest:
+      type: object
+      required: [email]
+      properties: { email: { type: string, format: email } }
+    PasswordResetRequest:
+      type: object
+      required: [token, newPassword]
+      properties:
+        token: { type: string }
+        newPassword: { type: string, minLength: 8 }
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+        uiLocale: { $ref: '#/components/schemas/Locale' }
+        roles: { type: array, items: { type: string, enum: [LEARNER, AUTHOR, ADMIN] } }
+    UpdateProfileRequest:
+      type: object
+      properties:
+        displayName: { type: string }
+        uiLocale: { $ref: '#/components/schemas/Locale' }
+    Identity:
+      type: object
+      properties:
+        provider: { type: string, enum: [EMAIL, PHONE, GOOGLE] }
+        verified: { type: boolean }
+        maskedRef: { type: string, description: Masked email/phone for display }
+    CurriculumTree:
+      type: object
+      properties:
+        contentVersion: { type: string }
+        levels: { type: array, items: { $ref: '#/components/schemas/Level' } }
+    Level:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        title: { $ref: '#/components/schemas/Bilingual' }
+        ordinal: { type: integer }
+        units: { type: array, items: { $ref: '#/components/schemas/Unit' } }
+    Unit:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        title: { $ref: '#/components/schemas/Bilingual' }
+        ordinal: { type: integer }
+        locked: { type: boolean }
+        lessons: { type: array, items: { $ref: '#/components/schemas/LessonSummary' } }
+    LessonSummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        title: { $ref: '#/components/schemas/Bilingual' }
+        ordinal: { type: integer }
+        status: { type: string, enum: [NOT_STARTED, IN_PROGRESS, COMPLETED] }
+        locked: { type: boolean }
+    Lesson:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        contentVersion: { type: string }
+        title: { $ref: '#/components/schemas/Bilingual' }
+        exercises: { type: array, items: { $ref: '#/components/schemas/Exercise' } }
+    Exercise:
+      type: object
+      description: >
+        Type-specific fields live under `config`. Correct answers/option flags are NOT
+        sent to the client for gradable types (grading is server-side).
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, enum: [MCQ, MATCH, WORD_BANK, FILL_BLANK, TYPE_TRANSLATION, LISTENING] }
+        ordinal: { type: integer }
+        prompt: { $ref: '#/components/schemas/Bilingual' }
+        mediaRef: { type: string, nullable: true }
+        patternTags: { type: array, items: { type: string } }
+        config: { type: object, additionalProperties: true, description: 'e.g., options[], tokens[] (no correctness flags)' }
+    StartSessionRequest:
+      type: object
+      required: [lessonId]
+      properties: { lessonId: { type: string, format: uuid } }
+    LessonSession:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        lessonId: { type: string, format: uuid }
+        contentVersion: { type: string }
+        heartsRemaining: { type: integer }
+        status: { type: string, enum: [IN_PROGRESS, COMPLETED, ABANDONED] }
+    IdempotentRequest:
+      type: object
+      required: [idempotencyKey]
+      properties: { idempotencyKey: { type: string } }
+    SubmitAnswerRequest:
+      allOf:
+        - $ref: '#/components/schemas/IdempotentRequest'
+        - type: object
+          required: [exerciseId, answer]
+          properties:
+            exerciseId: { type: string, format: uuid }
+            answer:
+              type: object
+              description: Shape depends on exercise type (e.g., {selectedOptionId} or {text} or {tokenOrder})
+              additionalProperties: true
+    Verdict:
+      type: object
+      properties:
+        correct: { type: boolean }
+        feedback: { $ref: '#/components/schemas/Bilingual' }
+        matchedPatternCode: { type: string, nullable: true }
+        source: { type: string, enum: [RULE, AI], default: RULE }
+    AnswerResult:
+      type: object
+      properties:
+        verdict: { $ref: '#/components/schemas/Verdict' }
+        stats: { $ref: '#/components/schemas/Stats' }
+    LessonResult:
+      type: object
+      properties:
+        score: { type: integer }
+        xpEarned: { type: integer }
+        newlyUnlocked: { type: array, items: { type: string } }
+        reviewItemsAdded: { type: integer }
+        stats: { $ref: '#/components/schemas/Stats' }
+    Stats:
+      type: object
+      properties:
+        xp: { type: integer }
+        rank: { type: integer }
+        currentStreak: { type: integer }
+        longestStreak: { type: integer }
+        hearts: { type: integer }
+        dailyGoal: { type: integer }
+        accuracyByPattern:
+          type: object
+          additionalProperties: { type: number }
+    SyncBatchRequest:
+      type: object
+      required: [events]
+      properties:
+        events:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/IdempotentRequest'
+              - type: object
+                properties:
+                  type: { type: string, enum: [ANSWER, COMPLETE_LESSON] }
+                  payload: { type: object, additionalProperties: true }
+    ReviewItem:
+      type: object
+      properties:
+        exerciseId: { type: string, format: uuid }
+        prompt: { $ref: '#/components/schemas/Bilingual' }
+        boxLevel: { type: integer }
+        dueAt: { type: string, format: date-time }
+    ReviewResultsRequest:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            required: [exerciseId, correct]
+            properties:
+              exerciseId: { type: string, format: uuid }
+              correct: { type: boolean }
+    ContentVersion:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        label: { type: string }
+        status: { type: string, enum: [DRAFT, PUBLISHED, ARCHIVED] }
+        publishedAt: { type: string, format: date-time, nullable: true }
+    ValidationResult:
+      type: object
+      properties:
+        valid: { type: boolean }
+        issues:
+          type: array
+          items:
+            type: object
+            properties:
+              path: { type: string }
+              code: { type: string }
+              message: { type: string }

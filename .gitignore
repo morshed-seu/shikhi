@@ -1,0 +1,26 @@
+# --- Java / Gradle (backend) ---
+backend/.gradle/
+backend/build/
+**/*.class
+
+# --- Node (frontend) ---
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+frontend/.vite/
+
+# --- Env & secrets (never commit) ---
+.env
+.env.*
+!.env.example
+*.local
+
+# --- IDE / OS ---
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+
+# --- Logs / temp ---
+*.log
