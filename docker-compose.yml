@@ -1,0 +1,32 @@
+# Local development data tier (per ADR-0003 Postgres, ADR-0004 Redis).
+# M0: not required to run the walking skeleton; provided for M1 (Identity) onward.
+# Usage: docker compose up -d
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: shikhi
+      POSTGRES_USER: shikhi
+      POSTGRES_PASSWORD: shikhi
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U shikhi']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
