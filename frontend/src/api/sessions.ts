@@ -45,6 +45,10 @@ export interface LessonResult {
 /** A type-specific answer payload, e.g. {selectedOptionId} (MCQ) or {text} (translation). */
 export type AnswerPayload = Record<string, unknown>
 
+export function fetchStats(token: string): Promise<Stats> {
+  return apiFetch<Stats>('/stats', { token })
+}
+
 export function startSession(token: string, lessonId: string): Promise<LessonSession> {
   return apiFetch<LessonSession>('/sessions', { method: 'POST', token, body: { lessonId } })
 }

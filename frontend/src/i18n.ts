@@ -31,6 +31,12 @@ const resources = {
         learner: 'learner',
         genericError: 'Something went wrong. Please try again.',
       },
+      stats: {
+        title: 'Your progress',
+        xp: 'XP',
+        streak: 'day streak',
+        hearts: 'Hearts',
+      },
       curriculum: {
         title: 'Your course',
         loading: 'Loading your course…',
@@ -82,6 +88,12 @@ const resources = {
         greeting: 'স্বাগতম, {{name}}!',
         learner: 'শিক্ষার্থী',
         genericError: 'কিছু একটা সমস্যা হয়েছে। আবার চেষ্টা করুন।',
+      },
+      stats: {
+        title: 'আপনার অগ্রগতি',
+        xp: 'XP',
+        streak: 'দিনের ধারা',
+        hearts: 'হৃদয়',
       },
       curriculum: {
         title: 'আপনার কোর্স',

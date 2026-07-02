@@ -135,8 +135,34 @@
   text-transform: lowercase;
 }
 
+.stats {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 1.5rem;
+  padding: 0.6rem 1rem;
+  border: 1px solid #e4e4e4;
+  border-radius: 10px;
+  background: #faf9ff;
+}
+
+.stats__item {
+  font-weight: 600;
+  color: #444;
+}
+
 .curriculum {
   margin-top: 2rem;
+}
+
+.curriculum__lesson:disabled {
+  color: #999;
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+.curriculum__lesson--done {
+  color: #1a7f45;
 }
 
 .curriculum__level {

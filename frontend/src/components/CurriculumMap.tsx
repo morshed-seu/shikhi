@@ -7,9 +7,11 @@ type LoadState = 'idle' | 'loading' | 'error'
 
 interface Props {
   onSelectLesson: (lessonId: string) => void
+  /** Bumped after a lesson finishes so the map re-pulls progress (status + unlocks). */
+  refreshKey: number
 }
 
-export function CurriculumMap({ onSelectLesson }: Props) {
+export function CurriculumMap({ onSelectLesson, refreshKey }: Props) {
   const { t, i18n } = useTranslation()
   const { user, getToken } = useAuth()
   const [tree, setTree] = useState<CurriculumTree | null>(null)
@@ -38,7 +40,7 @@ export function CurriculumMap({ onSelectLesson }: Props) {
     return () => {
       cancelled = true
     }
-  }, [user, getToken])
+  }, [user, getToken, refreshKey])
 
   if (!user) return null
 
@@ -57,17 +59,23 @@ export function CurriculumMap({ onSelectLesson }: Props) {
             <div key={unit.id} className="curriculum__unit">
               <h4>{label(unit.title)}</h4>
               <ul>
-                {unit.lessons.map((lesson) => (
-                  <li key={lesson.id}>
-                    <button
-                      type="button"
-                      className="curriculum__lesson"
-                      onClick={() => onSelectLesson(lesson.id)}
-                    >
-                      {label(lesson.title)}
-                    </button>
-                  </li>
-                ))}
+                {unit.lessons.map((lesson) => {
+                  const done = lesson.status === 'COMPLETED'
+                  const mark = done ? '✓ ' : lesson.locked ? '🔒 ' : ''
+                  return (
+                    <li key={lesson.id}>
+                      <button
+                        type="button"
+                        className={`curriculum__lesson${done ? ' curriculum__lesson--done' : ''}`}
+                        disabled={lesson.locked}
+                        onClick={() => onSelectLesson(lesson.id)}
+                      >
+                        {mark}
+                        {label(lesson.title)}
+                      </button>
+                    </li>
+                  )
+                })}
               </ul>
             </div>
           ))}

@@ -5,6 +5,7 @@ import { AuthProvider } from './auth/AuthProvider'
 import { AuthPanel } from './components/AuthPanel'
 import { CurriculumMap } from './components/CurriculumMap'
 import { LessonPlayer } from './components/LessonPlayer'
+import { StatsBar } from './components/StatsBar'
 import './App.css'
 
 type HealthState = HealthStatus | 'loading' | 'error'
@@ -13,6 +14,13 @@ function AppShell() {
   const { t, i18n } = useTranslation()
   const [health, setHealth] = useState<HealthState>('loading')
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  // Leaving a lesson bumps the refresh key so stats + the map re-pull progress.
+  const exitLesson = () => {
+    setActiveLessonId(null)
+    setRefreshKey((k) => k + 1)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -63,10 +71,11 @@ function AppShell() {
         <span className={`app__badge ${badgeModifier}`}>{statusText}</span>
       </section>
       <AuthPanel />
+      <StatsBar refreshKey={refreshKey} />
       {activeLessonId ? (
-        <LessonPlayer lessonId={activeLessonId} onExit={() => setActiveLessonId(null)} />
+        <LessonPlayer lessonId={activeLessonId} onExit={exitLesson} />
       ) : (
-        <CurriculumMap onSelectLesson={setActiveLessonId} />
+        <CurriculumMap onSelectLesson={setActiveLessonId} refreshKey={refreshKey} />
       )}
     </main>
   )

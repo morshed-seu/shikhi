@@ -3,12 +3,11 @@
 A scale-ready, bilingual web platform that teaches **English to Bengali (বাংলা) speakers**
 with a Duolingo-style learning loop. Built document-first (full SDLC): see [`docs/`](docs/).
 
-> **Status:** Phase D · **M3 (Lesson player & grading)**. Adds a playable lesson loop —
-> start a session, answer exercises, get an instant server-side verdict with bilingual
-> hints (targeting Bengali L1-transfer errors), hearts, and a results screen — behind a
-> `GradingStrategy` seam (rule-based now, AI-ready). Builds on M2 content and M1 auth.
-> Cross-session XP/streaks, unlocking, and the stats dashboard arrive in M4 (see
-> [`docs/80-delivery-plan.md`](docs/80-delivery-plan.md)).
+> **Status:** Phase D · **M4 (Progress & gamification)**. Adds persistent XP, a daily streak,
+> hearts spent across lessons, sequential lesson unlocking, a stats bar, and idempotent
+> offline sync — on top of the M3 lesson loop (server-side grading behind a `GradingStrategy`
+> seam), M2 content, and M1 auth. Next up is M5 (Learner UX & resilience); see
+> [`docs/80-delivery-plan.md`](docs/80-delivery-plan.md).
 
 ## Repository layout
 

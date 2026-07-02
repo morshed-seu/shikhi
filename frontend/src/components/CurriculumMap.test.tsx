@@ -24,6 +24,7 @@ const CURRICULUM = {
           locked: false,
           lessons: [
             { id: 'les1', title: { en: 'Hello', bn: 'হ্যালো' }, ordinal: 1, status: 'NOT_STARTED', locked: false },
+            { id: 'les2', title: { en: 'Introductions', bn: 'পরিচয়' }, ordinal: 2, status: 'NOT_STARTED', locked: true },
           ],
         },
       ],
@@ -58,6 +59,11 @@ describe('CurriculumMap (M2)', () => {
         if (url === '/v1/curriculum') {
           return Promise.resolve(jsonResponse(CURRICULUM))
         }
+        if (url === '/v1/stats') {
+          return Promise.resolve(
+            jsonResponse({ xp: 30, rank: 0, currentStreak: 2, longestStreak: 2, hearts: 4, dailyGoal: 20, accuracyByPattern: {} }),
+          )
+        }
         return Promise.resolve(jsonResponse({ code: 'ERROR', message: 'unexpected' }, 500))
       }),
     )
@@ -73,5 +79,12 @@ describe('CurriculumMap (M2)', () => {
     // Default locale is Bangla → the seeded lesson title renders in Bangla.
     await waitFor(() => expect(screen.getByText('হ্যালো')).toBeInTheDocument())
     expect(screen.getByRole('heading', { name: 'প্রাথমিক' })).toBeInTheDocument()
+
+    // Progress stats bar renders once signed in.
+    expect(await screen.findByLabelText('আপনার অগ্রগতি')).toBeInTheDocument()
+
+    // A locked lesson is shown but not clickable.
+    const locked = screen.getByRole('button', { name: /পরিচয়/ })
+    expect(locked).toBeDisabled()
   })
 })
