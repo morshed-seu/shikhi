@@ -3,10 +3,10 @@
 A scale-ready, bilingual web platform that teaches **English to Bengali (বাংলা) speakers**
 with a Duolingo-style learning loop. Built document-first (full SDLC): see [`docs/`](docs/).
 
-> **Status:** Phase D · **M1 (Identity)**. Email sign-up/login with JWT + rotating refresh
-> tokens, a bilingual auth UI, and profile/export/delete. Health endpoints from M0 remain;
-> the learning features are built in later milestones (see
-> [`docs/80-delivery-plan.md`](docs/80-delivery-plan.md)).
+> **Status:** Phase D · **M2 (Content & curriculum)**. Adds a versioned content model with
+> author→validate→publish, cached bilingual curriculum + lesson reads (correct answers stay
+> server-side), and a curriculum map in the SPA — on top of M1 email auth. The lesson player
+> and grading arrive in M3 (see [`docs/80-delivery-plan.md`](docs/80-delivery-plan.md)).
 
 ## Repository layout
 
