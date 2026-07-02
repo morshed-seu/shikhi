@@ -160,3 +160,143 @@
 .curriculum__unit li {
   padding: 0.15rem 0;
 }
+
+.curriculum__lesson {
+  background: none;
+  border: none;
+  padding: 0.2rem 0;
+  color: #6c5ce7;
+  font-size: 1rem;
+  cursor: pointer;
+  text-align: left;
+  text-decoration: underline;
+}
+
+.curriculum__lesson:hover {
+  color: #4b3fbf;
+}
+
+/* Lesson player */
+.lesson {
+  margin-top: 2rem;
+  padding: 1.25rem;
+  border: 1px solid #e4e4e4;
+  border-radius: 10px;
+}
+
+.lesson__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.lesson__exit {
+  background: none;
+  border: 1px solid #d7d7d7;
+  border-radius: 6px;
+  padding: 0.25rem 0.6rem;
+  cursor: pointer;
+}
+
+.lesson__progress {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.lesson__hearts {
+  color: #e0245e;
+  letter-spacing: 1px;
+}
+
+.lesson__prompt {
+  margin: 0 0 1rem;
+  font-size: 1.25rem;
+}
+
+.lesson__options {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.lesson__option {
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid #d7d7d7;
+  border-radius: 8px;
+  background: #fafafa;
+  cursor: pointer;
+  text-align: left;
+  font-size: 1rem;
+}
+
+.lesson__option--selected {
+  border-color: #6c5ce7;
+  background: #efecfe;
+}
+
+.lesson__option:disabled {
+  cursor: default;
+  opacity: 0.8;
+}
+
+.lesson__input {
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 1rem;
+  margin-bottom: 1rem;
+}
+
+.lesson__feedback {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.lesson__feedback--ok {
+  background: #e6f7ec;
+  color: #1a7f45;
+}
+
+.lesson__feedback--no {
+  background: #fdecea;
+  color: #b3261e;
+}
+
+.lesson__feedback p {
+  margin: 0.35rem 0 0;
+}
+
+.lesson__check {
+  width: 100%;
+  padding: 0.6rem 1rem;
+  border: none;
+  border-radius: 8px;
+  background: #1a7f45;
+  color: #fff;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.lesson__check:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.lesson__status {
+  color: #666;
+}
+
+.lesson__score,
+.lesson__xp,
+.lesson__hearts {
+  margin: 0.35rem 0;
+}

@@ -3,10 +3,12 @@
 A scale-ready, bilingual web platform that teaches **English to Bengali (বাংলা) speakers**
 with a Duolingo-style learning loop. Built document-first (full SDLC): see [`docs/`](docs/).
 
-> **Status:** Phase D · **M2 (Content & curriculum)**. Adds a versioned content model with
-> author→validate→publish, cached bilingual curriculum + lesson reads (correct answers stay
-> server-side), and a curriculum map in the SPA — on top of M1 email auth. The lesson player
-> and grading arrive in M3 (see [`docs/80-delivery-plan.md`](docs/80-delivery-plan.md)).
+> **Status:** Phase D · **M3 (Lesson player & grading)**. Adds a playable lesson loop —
+> start a session, answer exercises, get an instant server-side verdict with bilingual
+> hints (targeting Bengali L1-transfer errors), hearts, and a results screen — behind a
+> `GradingStrategy` seam (rule-based now, AI-ready). Builds on M2 content and M1 auth.
+> Cross-session XP/streaks, unlocking, and the stats dashboard arrive in M4 (see
+> [`docs/80-delivery-plan.md`](docs/80-delivery-plan.md)).
 
 ## Repository layout
 
@@ -46,7 +48,8 @@ cd backend
 cd frontend
 npm install
 npm run dev
-# Open the app: sign up / log in, see your profile; toggle বাংলা/English.
+# Open the app: sign up / log in, then open a lesson to play it — answer the
+# exercises, see instant feedback + hearts, finish for your score. Toggle বাংলা/English.
 ```
 
 > Config (backend) is env-overridable with local defaults: `SHIKHI_DB_URL`,

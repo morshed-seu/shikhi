@@ -40,3 +40,31 @@ export interface CurriculumTree {
 export function fetchCurriculum(token: string): Promise<CurriculumTree> {
   return apiFetch<CurriculumTree>('/curriculum', { token })
 }
+
+// A playable lesson (contract Lesson). config carries only render data — never correctness.
+
+export interface McqOption {
+  id: string
+  text: Bilingual
+}
+
+export interface ExerciseView {
+  id: string
+  type: string
+  ordinal: number
+  prompt: Bilingual
+  mediaRef: string | null
+  patternTags: string[]
+  config: { options?: McqOption[] }
+}
+
+export interface LessonView {
+  id: string
+  contentVersion: string
+  title: Bilingual
+  exercises: ExerciseView[]
+}
+
+export function fetchLesson(token: string, lessonId: string): Promise<LessonView> {
+  return apiFetch<LessonView>(`/lessons/${lessonId}`, { token })
+}

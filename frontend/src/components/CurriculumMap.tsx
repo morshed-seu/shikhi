@@ -5,7 +5,11 @@ import { useAuth } from '../auth/useAuth'
 
 type LoadState = 'idle' | 'loading' | 'error'
 
-export function CurriculumMap() {
+interface Props {
+  onSelectLesson: (lessonId: string) => void
+}
+
+export function CurriculumMap({ onSelectLesson }: Props) {
   const { t, i18n } = useTranslation()
   const { user, getToken } = useAuth()
   const [tree, setTree] = useState<CurriculumTree | null>(null)
@@ -54,7 +58,15 @@ export function CurriculumMap() {
               <h4>{label(unit.title)}</h4>
               <ul>
                 {unit.lessons.map((lesson) => (
-                  <li key={lesson.id}>{label(lesson.title)}</li>
+                  <li key={lesson.id}>
+                    <button
+                      type="button"
+                      className="curriculum__lesson"
+                      onClick={() => onSelectLesson(lesson.id)}
+                    >
+                      {label(lesson.title)}
+                    </button>
+                  </li>
                 ))}
               </ul>
             </div>
