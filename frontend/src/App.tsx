@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchHealth, type HealthStatus } from './api/health'
+import { AuthProvider } from './auth/AuthProvider'
+import { AuthPanel } from './components/AuthPanel'
 import './App.css'
 
 type HealthState = HealthStatus | 'loading' | 'error'
 
-function App() {
+function AppShell() {
   const { t, i18n } = useTranslation()
   const [health, setHealth] = useState<HealthState>('loading')
 
@@ -57,7 +59,16 @@ function App() {
       <section className="app__status" aria-live="polite">
         <span className={`app__badge ${badgeModifier}`}>{statusText}</span>
       </section>
+      <AuthPanel />
     </main>
+  )
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppShell />
+    </AuthProvider>
   )
 }
 
