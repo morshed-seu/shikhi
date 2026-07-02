@@ -1,5 +1,6 @@
 package com.shikhi.identity.web;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -166,6 +167,47 @@ class AuthFlowIntegrationTest extends AbstractIntegrationTest {
 						.content("""
 								{"refreshToken":"%s"}
 								""".formatted(secondRefresh)))
+				.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void exportReturnsOwnProfileAndUnmaskedIdentity() throws Exception {
+		String email = uniqueEmail();
+		String tokens = register(email, "s3cretpassword");
+		String auth = bearer(field(tokens, "$.accessToken"));
+
+		mockMvc.perform(get("/v1/me/export").header(HttpHeaders.AUTHORIZATION, auth))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.profile.id").isNotEmpty())
+				.andExpect(jsonPath("$.identities[0].provider").value("EMAIL"))
+				.andExpect(jsonPath("$.identities[0].reference").value(email))
+				.andExpect(jsonPath("$.exportedAt").isNotEmpty());
+	}
+
+	@Test
+	void deleteAnonymizesIdentityAndRevokesSessions() throws Exception {
+		String email = uniqueEmail();
+		String tokens = register(email, "s3cretpassword");
+		String auth = bearer(field(tokens, "$.accessToken"));
+		String refresh = field(tokens, "$.refreshToken");
+
+		mockMvc.perform(delete("/v1/me").header(HttpHeaders.AUTHORIZATION, auth))
+				.andExpect(status().isNoContent());
+
+		// Email identity is gone → cannot log in anymore.
+		mockMvc.perform(post("/v1/auth/login")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"email":"%s","password":"s3cretpassword"}
+								""".formatted(email)))
+				.andExpect(status().isUnauthorized());
+
+		// Sessions revoked → the refresh token no longer works.
+		mockMvc.perform(post("/v1/auth/refresh")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"refreshToken":"%s"}
+								""".formatted(refresh)))
 				.andExpect(status().isUnauthorized());
 	}
 

@@ -3,7 +3,9 @@ package com.shikhi.identity.web;
 import com.shikhi.identity.security.AuthenticatedUser;
 import com.shikhi.identity.service.AccountService;
 import java.util.List;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -39,5 +41,17 @@ public class MeController {
 		return accountService.listIdentities(principal.id()).stream()
 				.map(IdentityResponse::from)
 				.toList();
+	}
+
+	@GetMapping("/export")
+	public AccountExport export(@AuthenticationPrincipal AuthenticatedUser principal) {
+		return AccountExport.of(accountService.getUser(principal.id()),
+				accountService.listIdentities(principal.id()));
+	}
+
+	@DeleteMapping
+	public ResponseEntity<Void> delete(@AuthenticationPrincipal AuthenticatedUser principal) {
+		accountService.deleteAccount(principal.id());
+		return ResponseEntity.noContent().build();
 	}
 }
