@@ -68,8 +68,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [clearSession])
 
+  const getToken = useCallback(() => accessToken.current, [])
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, getToken }}>
       {children}
     </AuthContext.Provider>
   )

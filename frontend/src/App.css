@@ -134,3 +134,29 @@
   font-size: 0.85rem;
   text-transform: lowercase;
 }
+
+.curriculum {
+  margin-top: 2rem;
+}
+
+.curriculum__level {
+  margin-bottom: 1.25rem;
+}
+
+.curriculum__level h3 {
+  margin: 0 0 0.25rem;
+}
+
+.curriculum__unit h4 {
+  margin: 0.5rem 0 0.25rem;
+  color: #444;
+}
+
+.curriculum__unit ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.curriculum__unit li {
+  padding: 0.15rem 0;
+}

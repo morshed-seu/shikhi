@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { fetchHealth, type HealthStatus } from './api/health'
 import { AuthProvider } from './auth/AuthProvider'
 import { AuthPanel } from './components/AuthPanel'
+import { CurriculumMap } from './components/CurriculumMap'
 import './App.css'
 
 type HealthState = HealthStatus | 'loading' | 'error'
@@ -60,6 +61,7 @@ function AppShell() {
         <span className={`app__badge ${badgeModifier}`}>{statusText}</span>
       </section>
       <AuthPanel />
+      <CurriculumMap />
     </main>
   )
 }

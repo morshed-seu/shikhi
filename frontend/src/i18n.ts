@@ -31,6 +31,12 @@ const resources = {
         learner: 'learner',
         genericError: 'Something went wrong. Please try again.',
       },
+      curriculum: {
+        title: 'Your course',
+        loading: 'Loading your course…',
+        empty: 'No lessons are published yet.',
+        error: 'Could not load the course.',
+      },
     },
   },
   bn: {
@@ -59,6 +65,12 @@ const resources = {
         greeting: 'স্বাগতম, {{name}}!',
         learner: 'শিক্ষার্থী',
         genericError: 'কিছু একটা সমস্যা হয়েছে। আবার চেষ্টা করুন।',
+      },
+      curriculum: {
+        title: 'আপনার কোর্স',
+        loading: 'আপনার কোর্স লোড হচ্ছে…',
+        empty: 'এখনও কোনো পাঠ প্রকাশিত হয়নি।',
+        error: 'কোর্স লোড করা যায়নি।',
       },
     },
   },
