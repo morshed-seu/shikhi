@@ -43,4 +43,7 @@ export const authApi = {
     apiFetch<void>('/auth/logout', { method: 'POST', token }),
 
   me: (token: string) => apiFetch<User>('/me', { token }),
+
+  updateProfile: (token: string, patch: { uiLocale?: Locale; displayName?: string }) =>
+    apiFetch<User>('/me', { method: 'PATCH', token, body: patch }),
 }

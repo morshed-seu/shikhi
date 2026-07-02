@@ -37,6 +37,68 @@
   margin: 0.5rem 0 1.5rem;
 }
 
+/* Visible keyboard focus everywhere (a11y baseline). */
+:focus-visible {
+  outline: 2px solid #6c5ce7;
+  outline-offset: 2px;
+}
+
+.offline__badge {
+  display: block;
+  margin: 0.75rem 0;
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  background: #fff4e5;
+  color: #8a5300;
+  font-weight: 600;
+}
+
+.onboarding {
+  margin-top: 1.5rem;
+  padding: 1.1rem 1.25rem;
+  border: 1px solid #d9d4ff;
+  border-radius: 10px;
+  background: #f3f1ff;
+}
+
+.onboarding h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1.2rem;
+}
+
+.onboarding p {
+  margin: 0.25rem 0;
+  color: #444;
+}
+
+.onboarding__placement {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.onboarding__dismiss {
+  margin-top: 0.75rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  background: #6c5ce7;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lesson__offline {
+  color: #8a5300;
+  background: #fff4e5;
+  padding: 0.5rem 0.8rem;
+  border-radius: 8px;
+}
+
+.lesson__prompt:focus-visible {
+  outline: 2px solid #6c5ce7;
+  outline-offset: 4px;
+}
+
 .app__badge {
   display: inline-block;
   padding: 0.35rem 0.8rem;

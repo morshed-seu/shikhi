@@ -59,6 +59,16 @@ const resources = {
         score: 'Score: {{score}} / {{total}}',
         xpEarned: 'XP earned: {{xp}}',
         backToCourse: 'Back to course',
+        savedOffline: 'Saved offline — it will sync when you reconnect.',
+      },
+      offline: {
+        message: "You're offline — your progress will sync when you reconnect.",
+      },
+      onboarding: {
+        title: 'Welcome to Shikhi!',
+        welcome: 'Learn English step by step, in Bangla. Pick a lesson below to begin.',
+        placement: 'You’ll start at Beginner (A1).',
+        start: 'Got it',
       },
     },
   },
@@ -117,16 +127,57 @@ const resources = {
         score: 'স্কোর: {{score}} / {{total}}',
         xpEarned: 'অর্জিত XP: {{xp}}',
         backToCourse: 'কোর্সে ফিরে যান',
+        savedOffline: 'অফলাইনে সংরক্ষিত — সংযোগ ফিরলে সিঙ্ক হবে।',
+      },
+      offline: {
+        message: 'আপনি অফলাইনে আছেন — সংযোগ ফিরলে আপনার অগ্রগতি সিঙ্ক হবে।',
+      },
+      onboarding: {
+        title: 'শিখিতে স্বাগতম!',
+        welcome: 'বাংলায় ধাপে ধাপে ইংরেজি শিখুন। শুরু করতে নিচে একটি পাঠ বেছে নিন।',
+        placement: 'আপনি প্রাথমিক (A1) থেকে শুরু করবেন।',
+        start: 'বুঝেছি',
       },
     },
   },
 } as const
 
+const LOCALE_KEY = 'shikhi.locale'
+
+function storedLocale(): 'bn' | 'en' {
+  try {
+    const saved = localStorage.getItem(LOCALE_KEY)
+    return saved === 'en' || saved === 'bn' ? saved : 'bn'
+  } catch {
+    return 'bn'
+  }
+}
+
+const initialLocale = storedLocale()
+
 void i18n.use(initReactI18next).init({
   resources,
-  lng: 'bn',
+  lng: initialLocale,
   fallbackLng: 'en',
   interpolation: { escapeValue: false },
 })
+
+// Reflect the language on <html lang> for assistive tech and correct Bengali rendering (a11y).
+if (typeof document !== 'undefined') {
+  document.documentElement.lang = initialLocale
+}
+
+/** Switch UI language, persisting it and updating <html lang> (M5). */
+export function changeLocale(lang: 'bn' | 'en'): void {
+  void i18n.changeLanguage(lang)
+  try {
+    localStorage.setItem(LOCALE_KEY, lang)
+  } catch {
+    // Persistence is best-effort; the in-memory switch still applies.
+  }
+  if (typeof document !== 'undefined') {
+    document.documentElement.lang = lang
+  }
+}
 
 export default i18n

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   authApi,
+  type Locale,
   type LoginInput,
   type RegisterInput,
   type TokenPair,
@@ -70,8 +71,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const getToken = useCallback(() => accessToken.current, [])
 
+  const setUiLocale = useCallback((locale: Locale) => {
+    setUser((current) => (current ? { ...current, uiLocale: locale } : current))
+  }, [])
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, getToken }}>
+    <AuthContext.Provider
+      value={{ user, loading, login, register, logout, getToken, setUiLocale }}
+    >
       {children}
     </AuthContext.Provider>
   )

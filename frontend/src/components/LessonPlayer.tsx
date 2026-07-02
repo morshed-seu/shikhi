@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ApiError } from '../api/client'
 import { type Bilingual, type ExerciseView, fetchLesson, type LessonView } from '../api/curriculum'
+import { enqueue } from '../api/outbox'
 import {
   type AnswerPayload,
   completeSession,
@@ -34,9 +36,17 @@ export function LessonPlayer({ lessonId, onExit }: Props) {
   const [verdict, setVerdict] = useState<Verdict | null>(null)
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<LessonResult | null>(null)
+  const [correctCount, setCorrectCount] = useState(0)
+  const [savedOffline, setSavedOffline] = useState(false)
   const startedRef = useRef(false)
+  const promptRef = useRef<HTMLHeadingElement>(null)
 
   const label = (b: Bilingual) => (i18n.language === 'bn' ? b.bn : b.en)
+
+  // Move focus to each new exercise prompt so screen-reader users hear it (a11y).
+  useEffect(() => {
+    if (phase === 'playing') promptRef.current?.focus()
+  }, [index, phase])
 
   useEffect(() => {
     // Guard against React 19 StrictMode double-invoking the effect (would start two sessions).
@@ -79,6 +89,11 @@ export function LessonPlayer({ lessonId, onExit }: Props) {
         </p>
         <p className="lesson__xp">{t('lesson.xpEarned', { xp: result.xpEarned })}</p>
         <p className="lesson__hearts">{t('lesson.heartsLeft', { hearts: result.stats.hearts })}</p>
+        {savedOffline && (
+          <p className="lesson__offline" role="status">
+            {t('lesson.savedOffline')}
+          </p>
+        )}
         <button type="button" className="lesson__exit" onClick={onExit}>
           {t('lesson.backToCourse')}
         </button>
@@ -108,9 +123,28 @@ export function LessonPlayer({ lessonId, onExit }: Props) {
       .then((res) => {
         setVerdict(res.verdict)
         setHearts(res.stats.hearts)
+        if (res.verdict.correct) setCorrectCount((c) => c + 1)
       })
       .catch(() => setVerdict({ correct: false, feedback: { en: '', bn: '' }, matchedPatternCode: null, source: 'RULE' }))
       .finally(() => setBusy(false))
+  }
+
+  const finishOffline = () => {
+    // Buffer the completion so progress reconciles on reconnect (M5, D2); show results now.
+    enqueue({
+      idempotencyKey: crypto.randomUUID(),
+      type: 'COMPLETE_LESSON',
+      payload: { lessonId, score: correctCount },
+    })
+    setSavedOffline(true)
+    setResult({
+      score: correctCount,
+      xpEarned: 0,
+      newlyUnlocked: [],
+      reviewItemsAdded: 0,
+      stats: { hearts, xp: 0, rank: 0, currentStreak: 0, longestStreak: 0, dailyGoal: 0, accuracyByPattern: {} },
+    })
+    setPhase('finished')
   }
 
   const next = () => {
@@ -128,7 +162,13 @@ export function LessonPlayer({ lessonId, onExit }: Props) {
         setResult(res)
         setPhase('finished')
       })
-      .catch(() => setPhase('error'))
+      .catch((err) => {
+        if (err instanceof ApiError && (err.isNetwork || err.status >= 500)) {
+          finishOffline()
+        } else {
+          setPhase('error')
+        }
+      })
       .finally(() => setBusy(false))
   }
 
@@ -146,7 +186,9 @@ export function LessonPlayer({ lessonId, onExit }: Props) {
         </span>
       </div>
 
-      <h2 className="lesson__prompt">{label(exercise.prompt)}</h2>
+      <h2 className="lesson__prompt" ref={promptRef} tabIndex={-1}>
+        {label(exercise.prompt)}
+      </h2>
 
       {isMcq && (
         <ul className="lesson__options">

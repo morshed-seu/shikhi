@@ -1,5 +1,10 @@
 // Thin fetch wrapper for the Shikhi JSON API. In dev, Vite proxies /v1 to Spring Boot;
 // in prod it is same-origin. Errors surface as ApiError carrying the contract's Error code.
+//
+// Resilience (M5, D2/NFR-N*): every request has a timeout; transient failures (network
+// errors, timeouts, 429/502/503/504) are retried with exponential backoff + jitter. Retry
+// defaults to GET only; non-idempotent writes opt in via `retry: true` (safe for our writes
+// that carry an idempotency key, e.g. progress sync).
 
 export interface ApiErrorBody {
   code: string
@@ -20,34 +25,83 @@ export class ApiError extends Error {
     this.code = body.code
     this.details = body.details
   }
+
+  /** True when the failure was a network/timeout error rather than a server response. */
+  get isNetwork(): boolean {
+    return this.status === 0
+  }
 }
 
 export interface RequestOptions {
   method?: string
   body?: unknown
   token?: string | null
+  /** Retry transient failures (defaults to true for GET). */
+  retry?: boolean
+  timeoutMs?: number
+}
+
+const DEFAULT_TIMEOUT_MS = 10_000
+const MAX_RETRIES = 2
+const BASE_BACKOFF_MS = 300
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+const isTransientStatus = (s: number) => s === 429 || s === 502 || s === 503 || s === 504
+
+function backoff(attempt: number): number {
+  const base = BASE_BACKOFF_MS * 2 ** (attempt - 1)
+  return base + Math.floor(Math.random() * 100)
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, { ...init, signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 export async function apiFetch<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+  const method = opts.method ?? 'GET'
+  const retryable = opts.retry ?? method === 'GET'
+  const maxAttempts = retryable ? MAX_RETRIES + 1 : 1
+
   const headers: Record<string, string> = {}
   if (opts.body !== undefined) headers['Content-Type'] = 'application/json'
   if (opts.token) headers.Authorization = `Bearer ${opts.token}`
-
-  const res = await fetch(`/v1${path}`, {
-    method: opts.method ?? 'GET',
+  const init: RequestInit = {
+    method,
     headers,
     body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
-  })
-
-  const text = await res.text()
-  const data: unknown = text ? JSON.parse(text) : undefined
-
-  if (!res.ok) {
-    const body = (data as ApiErrorBody | undefined) ?? {
-      code: 'ERROR',
-      message: res.statusText,
-    }
-    throw new ApiError(res.status, body)
   }
-  return data as T
+
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const res = await fetchWithTimeout(`/v1${path}`, init, opts.timeoutMs ?? DEFAULT_TIMEOUT_MS)
+
+      if (!res.ok) {
+        if (retryable && isTransientStatus(res.status) && attempt < maxAttempts) {
+          await delay(backoff(attempt))
+          continue
+        }
+        const text = await res.text()
+        const parsed = text ? (JSON.parse(text) as ApiErrorBody) : undefined
+        throw new ApiError(res.status, parsed ?? { code: 'ERROR', message: res.statusText })
+      }
+
+      const text = await res.text()
+      return (text ? JSON.parse(text) : undefined) as T
+    } catch (err) {
+      // A real API error (4xx, or an exhausted transient) is final — surface it.
+      if (err instanceof ApiError) throw err
+      // Network error / timeout / abort: retry if we can, else report as a network failure.
+      if (retryable && attempt < maxAttempts) {
+        await delay(backoff(attempt))
+        continue
+      }
+      throw new ApiError(0, { code: 'NETWORK', message: 'Network error — please retry.' })
+    }
+  }
 }
