@@ -13,7 +13,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 @SpringBootTest
 public abstract class AbstractIntegrationTest {
 
-	static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16");
+	public static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16");
 
 	static {
 		POSTGRES.start();

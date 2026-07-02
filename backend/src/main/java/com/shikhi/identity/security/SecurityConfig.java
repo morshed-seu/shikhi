@@ -3,6 +3,7 @@ package com.shikhi.identity.security;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -41,11 +42,31 @@ public class SecurityConfig {
 				.authorizeHttpRequests(auth -> auth
 						.requestMatchers("/v1/auth/**", "/v1/health", "/v1/ready").permitAll()
 						.requestMatchers("/actuator/**").permitAll()
+						// The container ERROR-dispatches to /error; it must be reachable so a
+						// 403/500 isn't re-evaluated as anonymous and turned into a 401.
+						.requestMatchers("/error").permitAll()
+						// Authoring is role-gated (AUTHOR/ADMIN); learners get 403.
+						.requestMatchers("/v1/admin/**").hasAnyRole("AUTHOR", "ADMIN")
 						.anyRequest().authenticated())
 				.exceptionHandling(ex -> ex.authenticationEntryPoint(authenticationEntryPoint))
 				.addFilterBefore(jwtAuthenticationFilter,
 						UsernamePasswordAuthenticationFilter.class);
 		return http.build();
+	}
+
+	/**
+	 * Stop Boot from also registering the JWT filter as a top-level servlet filter — it must
+	 * run ONLY inside the Spring Security chain. Otherwise it executes twice per request
+	 * (once outside the chain), which corrupts authorization decisions (e.g. an authenticated
+	 * but under-privileged user getting 401 instead of 403).
+	 */
+	@Bean
+	public FilterRegistrationBean<JwtAuthenticationFilter> jwtFilterRegistration(
+			JwtAuthenticationFilter filter) {
+		FilterRegistrationBean<JwtAuthenticationFilter> registration =
+				new FilterRegistrationBean<>(filter);
+		registration.setEnabled(false);
+		return registration;
 	}
 
 	/**
