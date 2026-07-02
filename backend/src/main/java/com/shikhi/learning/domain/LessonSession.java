@@ -10,16 +10,13 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * One attempt at a lesson, pinned to the content version it started on (F4). Tracks hearts
- * (lives) and a running score of correct answers. XP/streak aggregation across sessions is
- * M4 — this entity only owns a single play-through's state.
+ * One attempt at a lesson, pinned to the content version it started on (F4). Tracks a running
+ * score of correct answers. Since M4, hearts live on the learner (user_stats) and are spent
+ * across lessons; {@code heartsRemaining} here is just the snapshot captured at session start.
  */
 @Entity
 @Table(name = "lesson_sessions")
 public class LessonSession {
-
-	/** Hearts a learner starts a lesson with (E4 lesson player). */
-	public static final int STARTING_HEARTS = 5;
 
 	@Id
 	private UUID id = UUID.randomUUID();
@@ -38,7 +35,7 @@ public class LessonSession {
 	private SessionStatus status = SessionStatus.IN_PROGRESS;
 
 	@Column(name = "hearts_remaining", nullable = false)
-	private int heartsRemaining = STARTING_HEARTS;
+	private int heartsRemaining;
 
 	@Column(nullable = false)
 	private int score;
@@ -53,19 +50,17 @@ public class LessonSession {
 		// for JPA
 	}
 
-	public LessonSession(UUID userId, UUID lessonId, UUID contentVersionId) {
+	public LessonSession(UUID userId, UUID lessonId, UUID contentVersionId, int initialHearts) {
 		this.userId = userId;
 		this.lessonId = lessonId;
 		this.contentVersionId = contentVersionId;
+		this.heartsRemaining = initialHearts;
 	}
 
-	/** Apply a graded answer: a correct answer scores; a wrong one costs a heart (floored at 0). */
+	/** Count a correct answer toward the session score (hearts are handled by the progress module). */
 	public void recordAnswer(boolean correct) {
 		if (correct) {
 			score++;
-		}
-		else if (heartsRemaining > 0) {
-			heartsRemaining--;
 		}
 	}
 
