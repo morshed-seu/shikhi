@@ -17,12 +17,42 @@ repositories {
 	mavenCentral()
 }
 
+ext {
+	jjwtVersion = '0.12.6'
+}
+
 dependencies {
+	// Web + ops (M0)
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
+
+	// Data tier (M1) — JPA + PostgreSQL + Flyway (ADR-0003)
+	// Boot 4 modularized autoconfiguration: spring-boot-flyway provides the Flyway
+	// auto-configuration (and pulls flyway-core); flyway-core alone does not.
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-flyway'
+	implementation 'org.flywaydb:flyway-database-postgresql'
+	runtimeOnly 'org.postgresql:postgresql'
+
+	// Security (M1) — in-house auth (ADR-0005)
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	// Argon2id password hashing needs BouncyCastle on the classpath.
+	implementation 'org.bouncycastle:bcprov-jdk18on:1.79'
+	// JWT access tokens (jjwt)
+	implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
+	runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
+	runtimeOnly "io.jsonwebtoken:jjwt-jackson:${jjwtVersion}"
+
+	// Test
 	testImplementation 'org.springframework.boot:spring-boot-starter-actuator-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	testImplementation 'org.springframework.security:spring-security-test'
+	testImplementation platform('org.testcontainers:testcontainers-bom:1.20.6')
+	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+	testImplementation 'org.testcontainers:junit-jupiter'
+	testImplementation 'org.testcontainers:postgresql'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
