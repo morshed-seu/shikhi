@@ -3,9 +3,10 @@
 A scale-ready, bilingual web platform that teaches **English to Bengali (বাংলা) speakers**
 with a Duolingo-style learning loop. Built document-first (full SDLC): see [`docs/`](docs/).
 
-> **Status:** Phase D · **M0 (Foundations / walking skeleton)**. The backend serves health
-> endpoints and the frontend calls them; the learning features are built in later milestones
-> (see [`docs/80-delivery-plan.md`](docs/80-delivery-plan.md)).
+> **Status:** Phase D · **M1 (Identity)**. Email sign-up/login with JWT + rotating refresh
+> tokens, a bilingual auth UI, and profile/export/delete. Health endpoints from M0 remain;
+> the learning features are built in later milestones (see
+> [`docs/80-delivery-plan.md`](docs/80-delivery-plan.md)).
 
 ## Repository layout
 
@@ -23,24 +24,34 @@ docker-compose.yml   Local Postgres + Redis (for M1 onward)
 
 - **Java 21** (Temurin) · **Node 24+** · **Docker** (for the data tier, M1 onward)
 
-## Run it (M0 walking skeleton)
+## Run it
 
-**Backend** (http://localhost:8080):
+**1. Data tier** — the backend now needs Postgres to boot (Flyway migrations + JPA):
+```bash
+docker compose up -d       # Postgres:5432, Redis:6379
+```
+
+**2. Backend** (http://localhost:8080):
 ```bash
 cd backend
 ./gradlew bootRun
-# health:  curl http://localhost:8080/v1/health   ->  {"status":"UP","service":"shikhi"}
-# ready:   curl http://localhost:8080/v1/ready
-# metrics: http://localhost:8080/actuator/health , /actuator/prometheus
+# health:   curl http://localhost:8080/v1/health   ->  {"status":"UP","service":"shikhi"}
+# register: curl -X POST http://localhost:8080/v1/auth/register -H 'Content-Type: application/json' \
+#             -d '{"email":"you@example.com","password":"s3cretpassword"}'
+# metrics:  http://localhost:8080/actuator/health , /actuator/prometheus
 ```
 
-**Frontend** (http://localhost:5173) — proxies `/v1` to the backend:
+**3. Frontend** (http://localhost:5173) — proxies `/v1` to the backend:
 ```bash
 cd frontend
 npm install
 npm run dev
-# Open the app: shows the backend health status; toggle বাংলা/English.
+# Open the app: sign up / log in, see your profile; toggle বাংলা/English.
 ```
+
+> Config (backend) is env-overridable with local defaults: `SHIKHI_DB_URL`,
+> `SHIKHI_DB_USER`, `SHIKHI_DB_PASSWORD`, and **`SHIKHI_JWT_SECRET`** (set a strong secret
+> outside local dev — the default is insecure and only lets the app boot).
 
 ## Tests & quality gates
 
@@ -53,12 +64,8 @@ cd frontend && npm run lint && npm run test && npm run build
 ```
 
 CI runs these on every push/PR ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
-
-## Local data tier (M1 onward)
-
-```bash
-docker compose up -d      # Postgres:5432, Redis:6379
-```
+The backend tests use Testcontainers, so a running Docker daemon is required locally and
+in CI.
 
 ## Documentation
 
