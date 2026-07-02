@@ -20,6 +20,7 @@ import com.shikhi.platform.error.ApiException;
 import com.shikhi.progress.service.CompletionResult;
 import com.shikhi.progress.service.ProgressService;
 import com.shikhi.progress.web.Stats;
+import com.shikhi.review.service.ReviewService;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -41,17 +42,19 @@ public class LessonSessionService {
 	private final LessonSessionRepository sessions;
 	private final AnswerSubmissionRepository submissions;
 	private final ProgressService progress;
+	private final ReviewService review;
 
 	public LessonSessionService(CurriculumQueryService curriculum,
 			ContentVersionRepository versions, GradingService grading,
 			LessonSessionRepository sessions, AnswerSubmissionRepository submissions,
-			ProgressService progress) {
+			ProgressService progress, ReviewService review) {
 		this.curriculum = curriculum;
 		this.versions = versions;
 		this.grading = grading;
 		this.sessions = sessions;
 		this.submissions = submissions;
 		this.progress = progress;
+		this.review = review;
 	}
 
 	@Transactional
@@ -86,6 +89,10 @@ public class LessonSessionService {
 		GradingVerdict verdict = grading.grade(request.exerciseId(), request.answer());
 		Stats stats = progress.recordAnswer(userId, verdict.correct());
 		session.recordAnswer(verdict.correct());
+		if (!verdict.correct()) {
+			// A missed exercise enters the spaced-repetition schedule (M6).
+			review.onMissed(userId, request.exerciseId());
+		}
 
 		AnswerSubmission submission = new AnswerSubmission(sessionId, userId, request.exerciseId(),
 				request.idempotencyKey(), verdict);
@@ -109,8 +116,9 @@ public class LessonSessionService {
 		session.complete();
 		CompletionResult result = progress.completeLesson(userId, session.getLessonId(),
 				session.getContentVersionId(), session.getScore());
-		return new LessonResult(session.getScore(), result.xpEarned(), result.newlyUnlocked(), 0,
-				result.stats());
+		int reviewItemsAdded = review.countAddedSince(userId, session.getStartedAt());
+		return new LessonResult(session.getScore(), result.xpEarned(), result.newlyUnlocked(),
+				reviewItemsAdded, result.stats());
 	}
 
 	private LessonSession ownedSession(UUID userId, UUID sessionId) {

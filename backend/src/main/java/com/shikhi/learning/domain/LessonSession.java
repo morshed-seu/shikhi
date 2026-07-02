@@ -89,6 +89,10 @@ public class LessonSession {
 		return contentVersionId;
 	}
 
+	public java.time.Instant getStartedAt() {
+		return startedAt;
+	}
+
 	public SessionStatus getStatus() {
 		return status;
 	}
