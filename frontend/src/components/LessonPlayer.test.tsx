@@ -73,6 +73,7 @@ describe('LessonPlayer (M3)', () => {
           return Promise.resolve(jsonResponse({ id: '1', displayName: 'Nadia', uiLocale: 'bn', roles: ['LEARNER'] }))
         if (url === '/v1/curriculum') return Promise.resolve(jsonResponse(CURRICULUM))
         if (url === '/v1/stats') return Promise.resolve(jsonResponse(stats))
+        if (url === '/v1/review/due') return Promise.resolve(jsonResponse([]))
         if (url === '/v1/lessons/les1') return Promise.resolve(jsonResponse(LESSON))
         if (url === '/v1/sessions' && method === 'POST')
           return Promise.resolve(

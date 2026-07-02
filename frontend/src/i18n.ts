@@ -37,6 +37,12 @@ const resources = {
         streak: 'day streak',
         hearts: 'Hearts',
       },
+      review: {
+        title: 'Review',
+        due: '{{count}} to review',
+        knewIt: 'I knew it',
+        stillLearning: 'Still learning',
+      },
       curriculum: {
         title: 'Your course',
         loading: 'Loading your course…',
@@ -104,6 +110,12 @@ const resources = {
         xp: 'XP',
         streak: 'দিনের ধারা',
         hearts: 'হৃদয়',
+      },
+      review: {
+        title: 'পুনরালোচনা',
+        due: 'পুনরালোচনার জন্য {{count}}টি',
+        knewIt: 'আমি জানতাম',
+        stillLearning: 'এখনও শিখছি',
       },
       curriculum: {
         title: 'আপনার কোর্স',

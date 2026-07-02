@@ -11,6 +11,7 @@ import { CurriculumMap } from './components/CurriculumMap'
 import { LessonPlayer } from './components/LessonPlayer'
 import { Onboarding } from './components/Onboarding'
 import { OfflineBanner } from './components/OfflineBanner'
+import { ReviewPanel } from './components/ReviewPanel'
 import { StatsBar } from './components/StatsBar'
 import { changeLocale } from './i18n'
 import './App.css'
@@ -114,6 +115,7 @@ function AppShell() {
       ) : (
         <>
           <Onboarding />
+          <ReviewPanel refreshKey={refreshKey} />
           <CurriculumMap onSelectLesson={setActiveLessonId} refreshKey={refreshKey} />
         </>
       )}

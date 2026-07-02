@@ -64,6 +64,9 @@ describe('CurriculumMap (M2)', () => {
             jsonResponse({ xp: 30, rank: 0, currentStreak: 2, longestStreak: 2, hearts: 4, dailyGoal: 20, accuracyByPattern: {} }),
           )
         }
+        if (url === '/v1/review/due') {
+          return Promise.resolve(jsonResponse([]))
+        }
         return Promise.resolve(jsonResponse({ code: 'ERROR', message: 'unexpected' }, 500))
       }),
     )

@@ -213,6 +213,77 @@
   color: #444;
 }
 
+.review {
+  margin-top: 2rem;
+  padding: 1.1rem 1.25rem;
+  border: 1px solid #ffe0b3;
+  border-radius: 10px;
+  background: #fff8f0;
+}
+
+.review h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.2rem;
+}
+
+.review__count {
+  margin: 0 0 0.75rem;
+  color: #8a5300;
+  font-size: 0.9rem;
+}
+
+.review__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.review__card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 0.8rem;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 8px;
+}
+
+.review__prompt {
+  flex: 1;
+  min-width: 12ch;
+}
+
+.review__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.review__knew,
+.review__forgot {
+  padding: 0.4rem 0.7rem;
+  border-radius: 6px;
+  border: 1px solid #d7d7d7;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.review__knew {
+  background: #e6f7ec;
+  color: #1a7f45;
+  border-color: #bfe6cd;
+}
+
+.review__forgot {
+  background: #fdecea;
+  color: #b3261e;
+  border-color: #f3c5c0;
+}
+
 .curriculum {
   margin-top: 2rem;
 }
