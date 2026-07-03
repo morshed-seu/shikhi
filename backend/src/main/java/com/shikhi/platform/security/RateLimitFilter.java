@@ -1,6 +1,8 @@
 package com.shikhi.platform.security;
 
 import com.shikhi.platform.web.CorrelationId;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,9 +34,13 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
 	private final RateLimitProperties props;
 	private final ConcurrentHashMap<String, TokenBucket> buckets = new ConcurrentHashMap<>();
+	private final Counter rejections;
 
-	public RateLimitFilter(RateLimitProperties props) {
+	public RateLimitFilter(RateLimitProperties props, MeterRegistry meterRegistry) {
 		this.props = props;
+		this.rejections = Counter.builder("shikhi.auth.rate_limited")
+				.description("Auth requests rejected by the rate limiter")
+				.register(meterRegistry);
 	}
 
 	/** Guard only the sensitive, unauthenticated auth endpoints. */
@@ -87,6 +93,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
 	}
 
 	private void reject(HttpServletResponse response) throws IOException {
+		rejections.increment();
 		response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
 		response.setHeader(HttpHeaders.RETRY_AFTER, Long.toString(props.getRefillPeriodSeconds()));
 		response.setContentType(MediaType.APPLICATION_JSON_VALUE);

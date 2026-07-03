@@ -14,6 +14,10 @@ import org.springframework.mock.web.MockHttpServletResponse;
  */
 class RateLimitFilterTest {
 
+	private RateLimitFilter filter(RateLimitProperties p) {
+		return new RateLimitFilter(p, new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
+	}
+
 	private RateLimitProperties props(int capacity, int refill, long periodSeconds) {
 		RateLimitProperties p = new RateLimitProperties();
 		p.setEnabled(true);
@@ -32,7 +36,7 @@ class RateLimitFilterTest {
 
 	@Test
 	void allowsUpToCapacityThenReturns429() throws Exception {
-		RateLimitFilter filter = new RateLimitFilter(props(3, 3, 60));
+		RateLimitFilter filter = filter(props(3, 3, 60));
 		int[] chainCalls = {0};
 		FilterChain chain = (r, s) -> chainCalls[0]++;
 
@@ -53,7 +57,7 @@ class RateLimitFilterTest {
 
 	@Test
 	void limitsArePerClientKey() throws Exception {
-		RateLimitFilter filter = new RateLimitFilter(props(1, 1, 60));
+		RateLimitFilter filter = filter(props(1, 1, 60));
 		FilterChain chain = (r, s) -> {};
 
 		MockHttpServletResponse a = new MockHttpServletResponse();
@@ -73,14 +77,14 @@ class RateLimitFilterTest {
 
 	@Test
 	void nonAuthAndDisabledRequestsAreNotFiltered() throws Exception {
-		RateLimitFilter filter = new RateLimitFilter(props(1, 1, 60));
+		RateLimitFilter filter = filter(props(1, 1, 60));
 		MockHttpServletRequest curriculum = new MockHttpServletRequest("GET", "/v1/curriculum");
 		curriculum.setServletPath("/v1/curriculum");
 		assertThat(filter.shouldNotFilter(curriculum)).isTrue();
 
 		RateLimitProperties disabled = props(1, 1, 60);
 		disabled.setEnabled(false);
-		assertThat(new RateLimitFilter(disabled).shouldNotFilter(authRequest("4.4.4.4"))).isTrue();
+		assertThat(filter(disabled).shouldNotFilter(authRequest("4.4.4.4"))).isTrue();
 	}
 
 	@Test
