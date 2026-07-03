@@ -1,7 +1,12 @@
 package com.shikhi.identity.security;
 
+import com.shikhi.platform.security.RateLimitProperties;
+import java.time.Duration;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -15,12 +20,23 @@ import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 /** Stateless, token-based security (ADR-0005). */
 @Configuration
 @EnableWebSecurity
-@EnableConfigurationProperties(JwtProperties.class)
+@EnableConfigurationProperties({JwtProperties.class, RateLimitProperties.class})
 public class SecurityConfig {
+
+	/**
+	 * Cross-origin allowlist for the browser SPA. Empty (default) means same-origin only, which
+	 * is correct when the SPA is served behind the same gateway. Set
+	 * {@code shikhi.security.cors.allowed-origins} (comma-separated) per environment.
+	 */
+	@Value("${shikhi.security.cors.allowed-origins:}")
+	private String corsAllowedOrigins;
 
 	/** Encoding id we store new hashes with (also recorded in {@code credentials.algo}). */
 	public static final String ENCODE_ID = "argon2";
@@ -38,10 +54,29 @@ public class SecurityConfig {
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 		http
 				.csrf(csrf -> csrf.disable()) // stateless bearer-token API; no cookies/sessions
+				.cors(cors -> cors.configurationSource(corsConfigurationSource()))
 				.sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+				.headers(headers -> headers
+						// Defence-in-depth response headers (threat model §Web; NFR-SEC1/SEC4).
+						.contentTypeOptions(opts -> {}) // X-Content-Type-Options: nosniff
+						.frameOptions(frame -> frame.deny()) // clickjacking: X-Frame-Options: DENY
+						.httpStrictTransportSecurity(hsts -> hsts // HSTS (NFR-SEC1)
+								.includeSubDomains(true)
+								.maxAgeInSeconds(Duration.ofDays(365).toSeconds()))
+						.referrerPolicy(ref -> ref.policy(
+								org.springframework.security.web.header.writers
+										.ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER))
+						// API returns JSON only; lock the CSP right down (no scripts/frames).
+						.contentSecurityPolicy(csp -> csp.policyDirectives(
+								"default-src 'none'; frame-ancestors 'none'"))
+						.permissionsPolicyHeader(pp -> pp.policy(
+								"geolocation=(), microphone=(), camera=()")))
 				.authorizeHttpRequests(auth -> auth
 						.requestMatchers("/v1/auth/**", "/v1/health", "/v1/ready").permitAll()
-						.requestMatchers("/actuator/**").permitAll()
+						// Liveness/readiness must be probe-reachable; other actuator endpoints
+						// (metrics, info) are ADMIN-only so they aren't publicly scrapable.
+						.requestMatchers("/actuator/health/**").permitAll()
+						.requestMatchers("/actuator/**").hasRole("ADMIN")
 						// The container ERROR-dispatches to /error; it must be reachable so a
 						// 403/500 isn't re-evaluated as anonymous and turned into a 401.
 						.requestMatchers("/error").permitAll()
@@ -67,6 +102,28 @@ public class SecurityConfig {
 				new FilterRegistrationBean<>(filter);
 		registration.setEnabled(false);
 		return registration;
+	}
+
+	/**
+	 * CORS policy for the browser SPA. Only the configured origins may make cross-origin calls
+	 * with the {@code Authorization} header; empty allowlist ⇒ same-origin only (no CORS).
+	 */
+	@Bean
+	public CorsConfigurationSource corsConfigurationSource() {
+		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+		String trimmed = corsAllowedOrigins == null ? "" : corsAllowedOrigins.trim();
+		if (!trimmed.isEmpty()) {
+			CorsConfiguration config = new CorsConfiguration();
+			config.setAllowedOrigins(Arrays.stream(trimmed.split(","))
+					.map(String::trim).filter(s -> !s.isEmpty()).toList());
+			config.setAllowedMethods(List.of("GET", "POST", "PATCH", "DELETE", "OPTIONS"));
+			config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Correlation-Id"));
+			config.setExposedHeaders(List.of("X-Correlation-Id"));
+			config.setAllowCredentials(false); // bearer token in header, not cookies
+			config.setMaxAge(Duration.ofHours(1));
+			source.registerCorsConfiguration("/**", config);
+		}
+		return source;
 	}
 
 	/**
