@@ -48,6 +48,9 @@ export interface McqOption {
   text: Bilingual
 }
 
+// A word-bank token: a word to arrange. Shape mirrors McqOption (id + bilingual text).
+export type WordToken = McqOption
+
 export interface ExerciseView {
   id: string
   type: string
@@ -55,7 +58,7 @@ export interface ExerciseView {
   prompt: Bilingual
   mediaRef: string | null
   patternTags: string[]
-  config: { options?: McqOption[] }
+  config: { options?: McqOption[]; tokens?: WordToken[] }
 }
 
 export interface LessonView {

@@ -115,18 +115,26 @@ public class CurriculumQueryService {
 
 	private LessonView.ExerciseView toExerciseView(Exercise exercise) {
 		Map<String, Object> config = new LinkedHashMap<>();
-		if (exercise.getType() == ExerciseType.MCQ || exercise.getType() == ExerciseType.MATCH) {
+		switch (exercise.getType()) {
 			// Option text only — correctness flags stay server-side (grading is server-side).
-			List<Map<String, Object>> optionViews = options
-					.findByExerciseIdOrderByOrdinal(exercise.getId()).stream()
-					.map(o -> Map.<String, Object>of("id", o.getId().toString(), "text",
-							new Bilingual(o.getTextEn(), o.getTextBn())))
-					.toList();
-			config.put("options", optionViews);
+			case MCQ, MATCH -> config.put("options", optionViews(exercise));
+			// Word-bank tokens are shuffled render data (the words to arrange); the accepted
+			// order lives in exercise_answers and is graded server-side, never serialized.
+			case WORD_BANK -> config.put("tokens", optionViews(exercise));
+			default -> {
+				// no render config for text-answer types (TYPE_TRANSLATION, FILL_BLANK, LISTENING)
+			}
 		}
 		return new LessonView.ExerciseView(exercise.getId(), exercise.getType().name(),
 				exercise.getOrdinal(),
 				new Bilingual(exercise.getPromptEn(), exercise.getPromptBn()),
 				exercise.getMediaRef(), List.of(), config);
+	}
+
+	private List<Map<String, Object>> optionViews(Exercise exercise) {
+		return options.findByExerciseIdOrderByOrdinal(exercise.getId()).stream()
+				.map(o -> Map.<String, Object>of("id", o.getId().toString(), "text",
+						new Bilingual(o.getTextEn(), o.getTextBn())))
+				.toList();
 	}
 }

@@ -33,6 +33,8 @@ export function LessonPlayer({ lessonId, onExit }: Props) {
   const [index, setIndex] = useState(0)
   const [hearts, setHearts] = useState(0)
   const [answer, setAnswer] = useState('')
+  // WORD_BANK: the ids of tokens the learner has placed, in tapped order.
+  const [placed, setPlaced] = useState<string[]>([])
   const [verdict, setVerdict] = useState<Verdict | null>(null)
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<LessonResult | null>(null)
@@ -104,12 +106,28 @@ export function LessonPlayer({ lessonId, onExit }: Props) {
   const exercise: ExerciseView = lesson.exercises[index]
   const isText = TEXT_TYPES.includes(exercise.type)
   const isMcq = exercise.type === 'MCQ'
+  const isWordBank = exercise.type === 'WORD_BANK'
+  const tokens = exercise.config.tokens ?? []
   const isLast = index === lesson.exercises.length - 1
   const answered = verdict !== null
-  const canCheck = !busy && !answered && (isText ? answer.trim().length > 0 : answer.length > 0)
+  const canCheck =
+    !busy &&
+    !answered &&
+    (isText
+      ? answer.trim().length > 0
+      : isWordBank
+        ? placed.length === tokens.length && tokens.length > 0
+        : answer.length > 0)
 
-  const buildPayload = (): AnswerPayload =>
-    isText ? { text: answer } : { selectedOptionId: answer }
+  const buildPayload = (): AnswerPayload => {
+    if (isText) return { text: answer }
+    if (isWordBank) {
+      // Grading joins the arranged words: send the token text in placed order.
+      const byId = new Map(tokens.map((tk) => [tk.id, tk.text.en]))
+      return { tokenOrder: placed.map((id) => byId.get(id) ?? '') }
+    }
+    return { selectedOptionId: answer }
+  }
 
   const check = () => {
     const token = getToken()
@@ -153,6 +171,7 @@ export function LessonPlayer({ lessonId, onExit }: Props) {
     if (!isLast) {
       setIndex((i) => i + 1)
       setAnswer('')
+      setPlaced([])
       setVerdict(null)
       return
     }
@@ -220,7 +239,54 @@ export function LessonPlayer({ lessonId, onExit }: Props) {
         />
       )}
 
-      {!isMcq && !isText && <p className="lesson__status">{t('lesson.unsupported')}</p>}
+      {isWordBank && (
+        <div className="lesson__wordbank">
+          <div
+            className="lesson__sentence"
+            aria-label={t('lesson.sentenceLabel')}
+            aria-live="polite"
+          >
+            {placed.length === 0 ? (
+              <span className="lesson__sentence-hint">{t('lesson.wordBankHint')}</span>
+            ) : (
+              placed.map((id) => {
+                const tk = tokens.find((x) => x.id === id)
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    className="lesson__token lesson__token--placed"
+                    disabled={answered}
+                    onClick={() => setPlaced((p) => p.filter((x) => x !== id))}
+                  >
+                    {tk ? tk.text.en : ''}
+                  </button>
+                )
+              })
+            )}
+          </div>
+          <ul className="lesson__bank">
+            {tokens
+              .filter((tk) => !placed.includes(tk.id))
+              .map((tk) => (
+                <li key={tk.id}>
+                  <button
+                    type="button"
+                    className="lesson__token"
+                    disabled={answered}
+                    onClick={() => setPlaced((p) => [...p, tk.id])}
+                  >
+                    {tk.text.en}
+                  </button>
+                </li>
+              ))}
+          </ul>
+        </div>
+      )}
+
+      {!isMcq && !isText && !isWordBank && (
+        <p className="lesson__status">{t('lesson.unsupported')}</p>
+      )}
 
       {answered && verdict && (
         <div

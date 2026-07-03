@@ -3,10 +3,12 @@
 A scale-ready, bilingual web platform that teaches **English to Bengali (বাংলা) speakers**
 with a Duolingo-style learning loop. Built document-first (full SDLC): see [`docs/`](docs/).
 
-> **Status:** Phase D · **M6 (Review)**. Adds spaced-repetition: exercises you miss in a
-> lesson enter a Leitner schedule and resurface in a review panel (self-graded recall) that
-> reschedules them as you go — on top of M5 UX & resilience, M4 gamification, the M3 lesson
-> loop, M2 content, and M1 auth. Next up is M7 (pilot content) then Phase E hardening; see
+> **Status:** Phase D · **M7 (Pilot content)**. Grows the beginner (A1) course into three
+> units — Greetings, **Articles (a / an / the)** and **To be (am / is / are)** — the two
+> signature Bengali L1-transfer errors, with a mix of multiple-choice, fill-in-the-blank,
+> translation and **word-bank** (tap-to-arrange) exercises and curated bilingual hints. On
+> top of M6 spaced-repetition review, M5 UX & resilience, M4 gamification, the M3 lesson
+> loop, M2 content, and M1 auth. Next up is Phase E hardening; see
 > [`docs/80-delivery-plan.md`](docs/80-delivery-plan.md).
 
 ## Repository layout

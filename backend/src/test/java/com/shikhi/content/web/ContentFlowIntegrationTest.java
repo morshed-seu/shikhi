@@ -80,6 +80,37 @@ class ContentFlowIntegrationTest extends AbstractIntegrationTest {
 	}
 
 	@Test
+	void wordBankLessonExposesTokensButNotCorrectness() throws Exception {
+		String auth = token(Role.LEARNER);
+		String curriculum = getCurriculum(auth);
+		// The Articles unit (A1-U2) opens with a lesson that contains a WORD_BANK exercise.
+		java.util.List<String> lessonIds =
+				JsonPath.read(curriculum, "$.levels[0].units[1].lessons[*].id");
+
+		boolean sawWordBank = false;
+		for (String lessonId : lessonIds) {
+			String body = mockMvc.perform(
+							get("/v1/lessons/" + lessonId).header(HttpHeaders.AUTHORIZATION, auth))
+					.andExpect(status().isOk())
+					.andReturn()
+					.getResponse()
+					.getContentAsString();
+			java.util.List<String> tokens =
+					JsonPath.read(body, "$.exercises[?(@.type=='WORD_BANK')].config.tokens[*].text.en");
+			if (!tokens.isEmpty()) {
+				sawWordBank = true;
+				// Tokens are render data; correctness flags and accepted answers never ship.
+				org.assertj.core.api.Assertions.assertThat(
+								JsonPath.<java.util.List<Object>>read(body,
+										"$.exercises[?(@.type=='WORD_BANK')].config.tokens[*].isCorrect"))
+						.isEmpty();
+				org.assertj.core.api.Assertions.assertThat(body).doesNotContain("acceptedAnswer");
+			}
+		}
+		org.assertj.core.api.Assertions.assertThat(sawWordBank).isTrue();
+	}
+
+	@Test
 	void unknownLessonIsNotFound() throws Exception {
 		mockMvc.perform(get("/v1/lessons/" + UUID.randomUUID())
 						.header(HttpHeaders.AUTHORIZATION, token(Role.LEARNER)))

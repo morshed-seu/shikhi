@@ -158,6 +158,15 @@ public class AuthoringService {
 				issues.add(new Issue(path, "NO_ACCEPTED_ANSWER",
 						"Text answer exercise needs at least one accepted answer"));
 			}
+		} else if (exercise.getType() == ExerciseType.WORD_BANK) {
+			// Tokens are stored as options (render data); the accepted word order is graded.
+			if (options.findByExerciseIdOrderByOrdinal(exercise.getId()).size() < 2) {
+				issues.add(new Issue(path, "TOO_FEW_TOKENS", "Word bank needs at least two tokens"));
+			}
+			if (answers.findByExerciseId(exercise.getId()).isEmpty()) {
+				issues.add(new Issue(path, "NO_ACCEPTED_ANSWER",
+						"Word bank needs an accepted word order"));
+			}
 		}
 	}
 
