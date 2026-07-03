@@ -3,13 +3,13 @@
 A scale-ready, bilingual web platform that teaches **English to Bengali (বাংলা) speakers**
 with a Duolingo-style learning loop. Built document-first (full SDLC): see [`docs/`](docs/).
 
-> **Status:** Phase D · **M7 (Pilot content)**. Grows the beginner (A1) course into three
-> units — Greetings, **Articles (a / an / the)** and **To be (am / is / are)** — the two
-> signature Bengali L1-transfer errors, with a mix of multiple-choice, fill-in-the-blank,
-> translation and **word-bank** (tap-to-arrange) exercises and curated bilingual hints. On
-> top of M6 spaced-repetition review, M5 UX & resilience, M4 gamification, the M3 lesson
-> loop, M2 content, and M1 auth. Next up is Phase E hardening; see
-> [`docs/80-delivery-plan.md`](docs/80-delivery-plan.md).
+> **Status:** Phase E · **Hardening & launch readiness — GO for pilot**. The full learning
+> loop (M1–M7) is complete; Phase E added defence-in-depth security headers, CORS, auth rate
+> limiting and actuator lockdown; structured JSON logging + metrics; a load test proving core
+> reads at **p95 9–16 ms** (budget 200 ms); and an operations runbook + launch checklist. See
+> [`docs/92-launch-checklist.md`](docs/92-launch-checklist.md), [`docs/90-runbook.md`](docs/90-runbook.md)
+> and [`docs/91-performance-results.md`](docs/91-performance-results.md). Post-pilot hardening
+> (staging, backups, tracing, image/SCA scanning, deploy target) is tracked in the checklist.
 
 ## Repository layout
 

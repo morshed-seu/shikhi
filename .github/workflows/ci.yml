@@ -44,3 +44,26 @@ jobs:
         run: npm run test
       - name: Build
         run: npm run build
+
+  security:
+    name: Security scans (secrets + deps)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Secret scan of the working tree (allowlist in .gitleaks.toml fences dev placeholders).
+      - name: Secret scan (gitleaks)
+        run: |
+          VER=8.18.4
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${VER}/gitleaks_${VER}_linux_x64.tar.gz" \
+            | tar -xz gitleaks
+          ./gitleaks detect --source . --no-git --no-banner --redact --config .gitleaks.toml
+      # Frontend dependency vulnerabilities (SCA). Backend/image SCA run at the deploy
+      # pipeline's promotion stage (docs/70 §5, docs/90 §7).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Frontend dependency audit
+        working-directory: frontend
+        run: npm audit --audit-level=high

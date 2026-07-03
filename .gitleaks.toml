@@ -1,0 +1,16 @@
+# gitleaks config for Shikhi secret scanning (CI). Extends the default ruleset and
+# allowlists known non-secrets (deliberate dev placeholders / dummy test credentials) so a
+# real leaked secret still fails the build.
+title = "Shikhi gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Deliberate placeholders and dummy test credentials — not real secrets."
+regexes = [
+  # The fenced insecure JWT default in application.properties (dev-only, never used in prod).
+  '''dev-only-insecure-secret-change-me-please-0123456789abcdef''',
+  # Dummy passwords used in tests, smoke scripts, and the load harness.
+  '''s3cretpassword''',
+]
