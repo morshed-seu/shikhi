@@ -10,6 +10,7 @@ const resources = {
         title: 'Shikhi',
         tagline: 'Learn English — in Bangla.',
         toggleLanguage: 'Switch language',
+        toggleTheme: 'Switch light/dark theme',
       },
       status: {
         loading: 'Checking backend…',
@@ -86,6 +87,7 @@ const resources = {
         title: 'শিখি',
         tagline: 'বাংলায় ইংরেজি শিখুন।',
         toggleLanguage: 'ভাষা পরিবর্তন করুন',
+        toggleTheme: 'আলো/অন্ধকার থিম পরিবর্তন করুন',
       },
       status: {
         loading: 'ব্যাকএন্ড পরীক্ষা করা হচ্ছে…',

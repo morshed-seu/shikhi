@@ -1,111 +1,222 @@
+/*
+ * Shikhi design tokens + base. One source of truth for the whole UI.
+ * "Refined Indigo" theme, minimalistic: plain CSS variables, no framework.
+ * App styles (App.css) consume these tokens — never hardcode colours there.
+ */
+
+/* Bengali is the default UI language; self-host the Bengali subset so it renders
+   consistently offline (Latin falls back to the native system-ui font). */
+@font-face {
+  font-family: 'Noto Sans Bengali';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url('./assets/fonts/noto-sans-bengali-v33.woff2') format('woff2');
+  unicode-range: U+0951-0952, U+0964-0965, U+0980-09FE, U+1CD0, U+1CD2,
+    U+1CD5-1CD6, U+1CD8, U+1CE1, U+1CEA, U+1CED, U+1CF2, U+1CF5-1CF7,
+    U+200C-200D, U+20B9, U+25CC, U+A8F1;
+}
+
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  /* Typography */
+  --font-sans: 'Noto Sans Bengali', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  /* Spacing scale */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
+  /* Radius scale */
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-pill: 999px;
+
+  /* Neutrals / surfaces (light) */
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #faf9fc;
+  --border: #e6e4ee;
+  --border-strong: #d3d0dd;
+  --fg: #14151a;
+  --fg-muted: #5b5766;
+  --fg-subtle: #8a8794;
+
+  /* Brand (indigo) */
+  --brand: #5b54e6;
+  --brand-hover: #4a43d4;
+  --brand-tint: #eeedfb;
+  --brand-border: #cfccf5;
+  --on-brand: #ffffff;
+
+  /* Semantic — success / danger / warning + soft backgrounds */
+  --success: #147a54;
+  --success-bg: #e7f6ee;
+  --success-border: #bfe6cd;
+  --danger: #d92d20;
+  --danger-bg: #fdecea;
+  --danger-border: #f3c5c0;
+  --warning: #b45309;
+  --warning-bg: #fff4e5;
+  --warning-border: #ffe0b3;
+  --heart: #e0245e;
+
+  /* Focus + elevation */
+  --focus: var(--brand);
+  --shadow-sm: 0 1px 2px rgba(20, 21, 26, 0.06);
+  --shadow-md:
+    0 10px 15px -3px rgba(20, 21, 26, 0.08), 0 4px 6px -2px rgba(20, 21, 26, 0.05);
+
   color-scheme: light dark;
-  color: var(--text);
+  font: 18px / 1.5 var(--font-sans);
+  color: var(--fg);
   background: var(--bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  @media (max-width: 1024px) {
+  @media (max-width: 640px) {
     font-size: 16px;
   }
 }
 
+/* Dark theme — applied when the OS prefers dark, unless the user forced light. */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
+  :root:not([data-theme='light']) {
+    --bg: #101116;
+    --surface: #181920;
+    --surface-2: #1f2028;
+    --border: #2b2c36;
+    --border-strong: #3a3b47;
+    --fg: #f3f2f7;
+    --fg-muted: #a7a3b3;
+    --fg-subtle: #7c7889;
 
-  #social .button-icon {
-    filter: invert(1) brightness(2);
+    --brand: #8b84f5;
+    --brand-hover: #a49ef7;
+    --brand-tint: rgba(139, 132, 245, 0.16);
+    --brand-border: rgba(139, 132, 245, 0.45);
+
+    --success: #3ecf8e;
+    --success-bg: rgba(62, 207, 142, 0.14);
+    --success-border: rgba(62, 207, 142, 0.4);
+    --danger: #f87171;
+    --danger-bg: rgba(248, 113, 113, 0.14);
+    --danger-border: rgba(248, 113, 113, 0.4);
+    --warning: #fbbf24;
+    --warning-bg: rgba(251, 191, 36, 0.13);
+    --warning-border: rgba(251, 191, 36, 0.38);
+    --heart: #ff5c8a;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md:
+      0 10px 15px -3px rgba(0, 0, 0, 0.45), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
   }
 }
 
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
+/* Manual override — the header toggle stamps data-theme on <html> and wins either way. */
+:root[data-theme='dark'] {
+  --bg: #101116;
+  --surface: #181920;
+  --surface-2: #1f2028;
+  --border: #2b2c36;
+  --border-strong: #3a3b47;
+  --fg: #f3f2f7;
+  --fg-muted: #a7a3b3;
+  --fg-subtle: #7c7889;
+
+  --brand: #8b84f5;
+  --brand-hover: #a49ef7;
+  --brand-tint: rgba(139, 132, 245, 0.16);
+  --brand-border: rgba(139, 132, 245, 0.45);
+  --on-brand: #14151a;
+
+  --success: #3ecf8e;
+  --success-bg: rgba(62, 207, 142, 0.14);
+  --success-border: rgba(62, 207, 142, 0.4);
+  --danger: #f87171;
+  --danger-bg: rgba(248, 113, 113, 0.14);
+  --danger-border: rgba(248, 113, 113, 0.4);
+  --warning: #fbbf24;
+  --warning-bg: rgba(251, 191, 36, 0.13);
+  --warning-border: rgba(251, 191, 36, 0.38);
+  --heart: #ff5c8a;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md:
+    0 10px 15px -3px rgba(0, 0, 0, 0.45), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+}
+
+/* On brand fills, dark theme's lighter brand needs dark text for contrast. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --on-brand: #14151a;
+  }
+}
+
+/* ── Minimal reset + base elements ───────────────────────────────────────── */
+* {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
+  min-height: 100svh;
+  background: var(--bg);
+  color: var(--fg);
 }
 
 h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
+h2,
+h3,
+h4 {
+  color: var(--fg);
+  font-weight: 600;
+  line-height: 1.2;
+  margin: 0;
 }
 
 h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
+  font-size: 2rem;
+  letter-spacing: -0.02em;
 }
+
 h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
+  font-size: 1.35rem;
 }
+
+h3 {
+  font-size: 1.15rem;
+}
+
+h4 {
+  font-size: 1rem;
+}
+
 p {
   margin: 0;
 }
 
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
+a {
+  color: var(--brand);
 }
 
 code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  padding: 0.1em 0.35em;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--fg);
+}
+
+/* Visible keyboard focus everywhere (a11y baseline). */
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }

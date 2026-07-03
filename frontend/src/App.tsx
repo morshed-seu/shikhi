@@ -13,6 +13,7 @@ import { Onboarding } from './components/Onboarding'
 import { OfflineBanner } from './components/OfflineBanner'
 import { ReviewPanel } from './components/ReviewPanel'
 import { StatsBar } from './components/StatsBar'
+import { useTheme } from './hooks/useTheme'
 import { changeLocale } from './i18n'
 import './App.css'
 
@@ -20,6 +21,7 @@ type HealthState = HealthStatus | 'loading' | 'error'
 
 function AppShell() {
   const { t, i18n } = useTranslation()
+  const { theme, toggleTheme } = useTheme()
   const { user, getToken, setUiLocale } = useAuth()
   const [health, setHealth] = useState<HealthState>('loading')
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null)
@@ -94,14 +96,25 @@ function AppShell() {
     <main className="app">
       <header className="app__header">
         <h1>{t('app.title')}</h1>
-        <button
-          type="button"
-          className="app__lang"
-          onClick={toggleLanguage}
-          aria-label={t('app.toggleLanguage')}
-        >
-          {i18n.language === 'bn' ? 'English' : 'বাংলা'}
-        </button>
+        <div className="app__actions">
+          <button
+            type="button"
+            className="app__theme"
+            onClick={toggleTheme}
+            aria-label={t('app.toggleTheme')}
+            aria-pressed={theme === 'dark'}
+          >
+            {theme === 'dark' ? '☀️' : '🌙'}
+          </button>
+          <button
+            type="button"
+            className="app__lang"
+            onClick={toggleLanguage}
+            aria-label={t('app.toggleLanguage')}
+          >
+            {i18n.language === 'bn' ? 'English' : 'বাংলা'}
+          </button>
+        </div>
       </header>
       <p className="app__tagline">{t('app.tagline')}</p>
       <section className="app__status" aria-live="polite">
