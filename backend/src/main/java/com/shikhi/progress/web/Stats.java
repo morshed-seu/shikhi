@@ -9,10 +9,10 @@ import java.util.Map;
  * stable and default to {@code 0}/empty.
  */
 public record Stats(int xp, int rank, int currentStreak, int longestStreak, int hearts,
-		int dailyGoal, Map<String, Double> accuracyByPattern) {
+		int dailyGoal, String cefrLevel, Map<String, Double> accuracyByPattern) {
 
 	public static Stats from(UserStats s) {
 		return new Stats(s.getXp(), s.getRank(), s.getCurrentStreak(), s.getLongestStreak(),
-				s.getHearts(), s.getDailyGoal(), Map.of());
+				s.getHearts(), s.getDailyGoal(), s.getCefrLevel(), Map.of());
 	}
 }

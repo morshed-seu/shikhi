@@ -35,6 +35,9 @@ graph TD
     review --> content
     review --> progress
     admin --> content
+    practice --> content
+    practice --> progress
+    practice --> grading
     progress
     grading
 ```
@@ -45,6 +48,8 @@ graph TD
 - `learning` orchestrates a session: reads `content`, calls `grading`, updates `progress`.
 - `progress` is self-contained (owns XP/streak/hearts/sync); no upward dependencies.
 - `grading` is pure/stateless per call; depends only on its input context.
+- `practice` (E12) reads `content`'s vocabulary, calls `progress`, and reuses `grading`'s
+  answer normalizer; nothing depends on `practice`.
 - No module accesses another module's tables directly (only via interfaces).
 
 ---
@@ -94,7 +99,8 @@ graph TD
 - **Responsibilities:** XP, hearts, streak, unlocking, achievements, **idempotent** answer
   recording and cross-device sync.
 - **Key interfaces:** `ProgressService` — `recordAnswer(idempotentCmd)`,
-  `completeLesson(idempotentCmd)`, `getState(userId)`, `syncBatch(idempotentBatch)`.
+  `completeLesson(idempotentCmd)`, `getState(userId)`, `syncBatch(idempotentBatch)`,
+  `recordPracticeAnswer(userId, correct)` (E12), `setLevel(userId, cefrLevel)` (E12).
 
 ### 2.6 review
 - **Responsibilities:** maintain per-learner review items; schedule (Leitner boxes);
@@ -105,6 +111,32 @@ graph TD
 ### 2.7 admin/ops
 - **Responsibilities:** authoring UI surfaces (via `content`), health/readiness,
   operational/role-gated actions.
+
+### 2.8 practice (adaptive vocabulary sessions — E12)
+- **Responsibilities:** generate CEFR-matched practice exercises from the vocabulary layer
+  (V11); run continuous round-based sessions; track per-word strength; grade its own
+  generated items (answer key stored server-side, same "correctness never leaves the
+  server" rule as `grading`); suggest level-ups.
+- **Key interfaces:** `PracticeSessionService` — `start(userId)`, `submitAnswer(cmd)`
+  (idempotent), `nextRound(sessionId)`, `complete(sessionId)`;
+  `PracticeGenerator` — pure selection + templating over vocabulary rows.
+- **Generation rules:**
+  - **Word pick:** ~70% current band / ~30% earlier bands; priority low-strength → unseen
+    → random; no word repeats within one session; distractors drawn from the same band
+    (same part of speech when possible).
+  - **Formats:** `WORD_MEANING` (EN→BN MCQ), `MEANING_WORD` (BN→EN MCQ), `SENTENCE_GAP`
+    (blanked example sentence, MCQ), `SENTENCE_BUILD` (word-bank over the EN example, only
+    when ≤ ~8 tokens), `TYPE_WORD` (typed EN headword). Per round ≈ 60% word-level / 40%
+    sentence-level.
+  - Generated items are persisted (payload without correctness + server-only answer key)
+    so grading and idempotent replay work exactly as in `learning`.
+- **Level:** the learner's CEFR level lives on `user_stats` (owned by `progress`);
+  `practice` reads it via `ProgressService` and computes `levelUpEligible` (distinct words
+  answered correctly ≥ 60% of the current band, level < B2). Promotion is always
+  user-confirmed (`PUT /stats/level`).
+- **Gamification:** delegates to `ProgressService.recordPracticeAnswer(userId, correct)` —
+  day activity/streak, heart on wrong, `XP_PER_CORRECT` on right (practice has no
+  lesson-completion XP event).
 
 ---
 
@@ -184,6 +216,16 @@ erDiagram
 |---|---|---|
 | `review_items` | id, user_id, exercise_id, box_level, due_at, last_result, updated_at | **UNIQUE(user_id, exercise_id)**; Leitner scheduling |
 | `event_log` | id, user_id?, type, payload `JSONB`, correlation_id, created_at | Security-relevant + analytics events; **no sensitive payloads** (NFR-SEC9) |
+
+### 3.5 practice tables (E12)
+
+| Table | Key columns | Notes |
+|---|---|---|
+| `user_stats.cefr_level` | (column on existing table) `varchar(2)` A1–B2, default `'A1'` | The learner's self-placed / confirmed band |
+| `practice_sessions` | id, user_id, cefr_level, rounds_played, correct_count, total_count, started_at, completed_at | One continuous practice run; level pinned at start |
+| `practice_exercises` | id, session_id, round, ordinal, vocabulary_id, type, prompt_en, prompt_bn, payload `JSONB`, **answer_key `JSONB`**, answered_correct | `payload` is learner-visible (no correctness); `answer_key` is server-only |
+| `practice_answers` | id, user_id, session_id, exercise_id, **idempotency_key**, is_correct, created_at | **UNIQUE(user_id, idempotency_key)** — same replay-safety as `answer_submissions` |
+| `practice_word_progress` | **PK(user_id, vocabulary_id)**, times_seen, times_correct, strength, last_seen_at | Drives weak-word priority + level-up eligibility |
 
 ---
 
@@ -334,7 +376,8 @@ All errors return a structured envelope:
 | identity | `/auth/*`, `/me`, `/me/identities`, `/me/export`, `/me` (DELETE) |
 | content | `/curriculum`, `/lessons/{id}` (learner read); `/admin/content/*` (authoring) |
 | learning | `/sessions`, `/sessions/{id}/answers`, `/sessions/{id}/complete` |
-| progress | `/progress`, `/progress/sync`, `/stats` |
+| progress | `/progress`, `/progress/sync`, `/stats`, `/stats/level` |
+| practice | `/practice/sessions`, `/practice/sessions/{id}/answers`, `/practice/sessions/{id}/rounds`, `/practice/sessions/{id}/complete` |
 | review | `/review/due`, `/review/results` |
 | ops | `/health`, `/ready` |
 

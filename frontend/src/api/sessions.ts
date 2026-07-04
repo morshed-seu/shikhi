@@ -26,6 +26,8 @@ export interface Stats {
   longestStreak: number
   rank: number
   dailyGoal: number
+  /** The learner's CEFR band (E12) — drives practice word selection. */
+  cefrLevel: string
   accuracyByPattern: Record<string, number>
 }
 

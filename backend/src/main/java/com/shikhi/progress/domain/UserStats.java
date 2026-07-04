@@ -49,6 +49,10 @@ public class UserStats {
 	@Column(name = "daily_goal", nullable = false)
 	private int dailyGoal = DEFAULT_DAILY_GOAL;
 
+	/** Self-placed / confirmed CEFR band (E12); drives practice word selection. */
+	@Column(name = "cefr_level", nullable = false)
+	private String cefrLevel = "A1";
+
 	protected UserStats() {
 		// for JPA
 	}
@@ -119,5 +123,13 @@ public class UserStats {
 
 	public int getDailyGoal() {
 		return dailyGoal;
+	}
+
+	public String getCefrLevel() {
+		return cefrLevel;
+	}
+
+	public void setCefrLevel(String cefrLevel) {
+		this.cefrLevel = cefrLevel;
 	}
 }

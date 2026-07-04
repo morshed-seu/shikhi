@@ -79,6 +79,9 @@ pieces fit; a thin layer of E2E covers the handful of journeys that must never b
   in-progress session stays pinned (F4/NFR-DI2).
 - **J6 — Privacy:** export data; delete account removes/anonymizes PII (NFR-PR2).
 - **J7 — Locale:** switch BN/EN; Bengali renders correctly (D1/NFR-I2).
+- **J8 — Adaptive practice (E12):** sign in → self-place level → start session → play a
+  full round (correct/wrong; heart lost; word strength updated) → round summary → keep
+  going → finish → totals + stats correct; a second session prioritizes the missed word.
 
 ---
 
@@ -92,6 +95,7 @@ pieces fit; a thin layer of E2E covers the handful of journeys that must never b
 | **Content versioning** | Publish/rollback; in-progress pinning; validation rejects bad content (US-9.3) |
 | **Grading seam (future-proofing)** | Verdict shape stable; swapping strategy doesn't change player/progress (SC-5) |
 | **Resilience** | Redis down → DB fallback; provider (email/SMS) down → queue/retry; timeouts/circuit breakers |
+| **Practice generation** (E12) | Band mix ≈70/30; weak/unseen words prioritized; no repeats within a session; distractors valid + unique; sentence formats only for short examples; **answer key never serialized** to the client; idempotent replay; level-up eligibility threshold; IDOR on another user's session → 404 |
 
 ---
 

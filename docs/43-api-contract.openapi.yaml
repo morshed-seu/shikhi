@@ -24,6 +24,7 @@ tags:
   - name: curriculum
   - name: learning
   - name: progress
+  - name: practice
   - name: review
   - name: admin-content
   - name: ops
@@ -247,6 +248,56 @@ paths:
         content: { application/json: { schema: { $ref: '#/components/schemas/SyncBatchRequest' } } }
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Stats' } } } }
+  /stats/level:
+    put:
+      tags: [progress]
+      summary: Set my CEFR level (self-placement / accepted level-up, E12)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/SetLevelRequest' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Stats' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  # ---------------- PRACTICE (adaptive vocabulary sessions, E12) ----------------
+  /practice/sessions:
+    post:
+      tags: [practice]
+      summary: Start a practice session at my CEFR level; returns round 1 of generated exercises
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/PracticeRound' } } } }
+  /practice/sessions/{sessionId}/answers:
+    post:
+      tags: [practice]
+      summary: Submit an answer to a generated exercise (idempotent; verdict + updated stats)
+      parameters:
+        - { name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/SubmitAnswerRequest' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/AnswerResult' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /practice/sessions/{sessionId}/rounds:
+    post:
+      tags: [practice]
+      summary: Generate the next round of exercises ("Keep going")
+      parameters:
+        - { name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/PracticeRound' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /practice/sessions/{sessionId}/complete:
+    post:
+      tags: [practice]
+      summary: Finish a practice session (idempotent; totals + level-up eligibility)
+      parameters:
+        - { name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/IdempotentRequest' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/PracticeResult' } } } }
 
   # ---------------- REVIEW (spaced repetition) ----------------
   /review/due:
@@ -506,9 +557,44 @@ components:
         longestStreak: { type: integer }
         hearts: { type: integer }
         dailyGoal: { type: integer }
+        cefrLevel: { type: string, enum: [A1, A2, B1, B2], description: 'Learner CEFR band (E12)' }
         accuracyByPattern:
           type: object
           additionalProperties: { type: number }
+    SetLevelRequest:
+      type: object
+      required: [cefrLevel]
+      properties:
+        cefrLevel: { type: string, enum: [A1, A2, B1, B2] }
+    PracticeExercise:
+      type: object
+      description: >
+        A generated vocabulary exercise (E12). Like `Exercise`, type-specific fields live
+        under `config` and correctness is NEVER sent to the client — grading is server-side
+        against the stored answer key.
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, enum: [WORD_MEANING, MEANING_WORD, SENTENCE_GAP, SENTENCE_BUILD, TYPE_WORD] }
+        ordinal: { type: integer }
+        prompt: { $ref: '#/components/schemas/Bilingual' }
+        config: { type: object, additionalProperties: true, description: 'e.g., options[], tokens[] (no correctness flags)' }
+    PracticeRound:
+      type: object
+      properties:
+        sessionId: { type: string, format: uuid }
+        round: { type: integer }
+        cefrLevel: { type: string, enum: [A1, A2, B1, B2], description: 'Level pinned at session start' }
+        exercises: { type: array, items: { $ref: '#/components/schemas/PracticeExercise' } }
+        levelUpEligible: { type: boolean, description: 'True when mastery suggests moving up a band (US-12.7)' }
+    PracticeResult:
+      type: object
+      properties:
+        correctCount: { type: integer }
+        totalCount: { type: integer }
+        roundsPlayed: { type: integer }
+        xpEarned: { type: integer }
+        levelUpEligible: { type: boolean }
+        stats: { $ref: '#/components/schemas/Stats' }
     SyncBatchRequest:
       type: object
       required: [events]

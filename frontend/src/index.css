@@ -21,6 +21,8 @@
   /* Typography */
   --font-sans: 'Noto Sans Bengali', system-ui, 'Segoe UI', Roboto, sans-serif;
   --font-mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  /* Eyebrow / label tracking — used for the small caps labels above sections. */
+  --tracking-label: 0.16em;
 
   /* Spacing scale */
   --space-1: 0.25rem;
@@ -30,49 +32,55 @@
   --space-5: 1.5rem;
   --space-6: 2rem;
 
-  /* Radius scale */
-  --r-sm: 6px;
-  --r-md: 8px;
-  --r-lg: 12px;
+  /* Radius scale — gentler, more paper-like than the old sharp corners. */
+  --r-sm: 7px;
+  --r-md: 10px;
+  --r-lg: 16px;
   --r-pill: 999px;
 
-  /* Neutrals / surfaces (light) */
-  --bg: #ffffff;
+  /* ── Palette: warm manuscript paper + deep indigo ink + one clay accent ──
+     Light. The base reads like a primer page; text is ink, not black. */
+  --bg: #faf8f3;
   --surface: #ffffff;
-  --surface-2: #faf9fc;
-  --border: #e6e4ee;
-  --border-strong: #d3d0dd;
-  --fg: #14151a;
-  --fg-muted: #5b5766;
-  --fg-subtle: #8a8794;
+  --surface-2: #f3efe6;
+  --border: #e8e2d6;
+  --border-strong: #d7cfbe;
+  --fg: #23223f;
+  --fg-muted: #5c586e;
+  --fg-subtle: #928d9c;
 
-  /* Brand (indigo) */
-  --brand: #5b54e6;
-  --brand-hover: #4a43d4;
-  --brand-tint: #eeedfb;
-  --brand-border: #cfccf5;
+  /* Brand: indigo ink (dye), a touch deeper and less lavender than before. */
+  --brand: #443dbf;
+  --brand-hover: #362fa6;
+  --brand-tint: #ecebfa;
+  --brand-border: #cdcbf3;
   --on-brand: #ffffff;
 
-  /* Semantic — success / danger / warning + soft backgrounds */
-  --success: #147a54;
-  --success-bg: #e7f6ee;
-  --success-border: #bfe6cd;
-  --danger: #d92d20;
-  --danger-bg: #fdecea;
-  --danger-border: #f3c5c0;
-  --warning: #b45309;
-  --warning-bg: #fff4e5;
-  --warning-border: #ffe0b3;
-  --heart: #e0245e;
+  /* Signature accent: Bengal terracotta / clay — the matra (শিরোরেখা) stroke.
+     Reserved almost entirely for the head-strokes above headings. */
+  --accent: #c05a34;
+  --accent-soft: #f3e0d5;
 
-  /* Focus + elevation */
+  /* Semantic — success / danger / warning + soft backgrounds (warmed to match). */
+  --success: #1f7a52;
+  --success-bg: #e6f4ec;
+  --success-border: #bfe3cd;
+  --danger: #c8362a;
+  --danger-bg: #fbeae7;
+  --danger-border: #f0c6bf;
+  --warning: #a6690e;
+  --warning-bg: #fbf1de;
+  --warning-border: #f0dcae;
+  --heart: #d6456b;
+
+  /* Focus + elevation. Shadows are faint — cards lift by paper/surface contrast. */
   --focus: var(--brand);
-  --shadow-sm: 0 1px 2px rgba(20, 21, 26, 0.06);
+  --shadow-sm: 0 1px 2px rgba(35, 34, 63, 0.05);
   --shadow-md:
-    0 10px 15px -3px rgba(20, 21, 26, 0.08), 0 4px 6px -2px rgba(20, 21, 26, 0.05);
+    0 6px 20px -8px rgba(35, 34, 63, 0.14), 0 2px 6px -3px rgba(35, 34, 63, 0.08);
 
   color-scheme: light dark;
-  font: 18px / 1.5 var(--font-sans);
+  font: 17px / 1.55 var(--font-sans);
   color: var(--fg);
   background: var(--bg);
   font-synthesis: none;
@@ -85,78 +93,79 @@
   }
 }
 
-/* Dark theme — applied when the OS prefers dark, unless the user forced light. */
+/* Dark theme tokens — warm ink-black, not cold slate. Shared by the OS-dark
+   media query and the manual data-theme override (declared once, applied twice). */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --bg: #101116;
-    --surface: #181920;
-    --surface-2: #1f2028;
-    --border: #2b2c36;
-    --border-strong: #3a3b47;
-    --fg: #f3f2f7;
-    --fg-muted: #a7a3b3;
+    --bg: #16151d;
+    --surface: #1e1d27;
+    --surface-2: #262530;
+    --border: #322f3d;
+    --border-strong: #423f4f;
+    --fg: #f1efe9;
+    --fg-muted: #a9a5b6;
     --fg-subtle: #7c7889;
 
-    --brand: #8b84f5;
-    --brand-hover: #a49ef7;
-    --brand-tint: rgba(139, 132, 245, 0.16);
-    --brand-border: rgba(139, 132, 245, 0.45);
+    --brand: #8f88f7;
+    --brand-hover: #a9a3f9;
+    --brand-tint: rgba(143, 136, 247, 0.16);
+    --brand-border: rgba(143, 136, 247, 0.44);
+    --on-brand: #16151d;
 
-    --success: #3ecf8e;
-    --success-bg: rgba(62, 207, 142, 0.14);
-    --success-border: rgba(62, 207, 142, 0.4);
-    --danger: #f87171;
-    --danger-bg: rgba(248, 113, 113, 0.14);
-    --danger-border: rgba(248, 113, 113, 0.4);
-    --warning: #fbbf24;
-    --warning-bg: rgba(251, 191, 36, 0.13);
-    --warning-border: rgba(251, 191, 36, 0.38);
-    --heart: #ff5c8a;
+    --accent: #e08a5f;
+    --accent-soft: rgba(224, 138, 95, 0.16);
 
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --success: #43d191;
+    --success-bg: rgba(67, 209, 145, 0.14);
+    --success-border: rgba(67, 209, 145, 0.4);
+    --danger: #f4796c;
+    --danger-bg: rgba(244, 121, 108, 0.14);
+    --danger-border: rgba(244, 121, 108, 0.4);
+    --warning: #f5c060;
+    --warning-bg: rgba(245, 192, 96, 0.13);
+    --warning-border: rgba(245, 192, 96, 0.38);
+    --heart: #ff6d92;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
     --shadow-md:
-      0 10px 15px -3px rgba(0, 0, 0, 0.45), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+      0 8px 24px -10px rgba(0, 0, 0, 0.6), 0 2px 6px -3px rgba(0, 0, 0, 0.4);
   }
 }
 
 /* Manual override — the header toggle stamps data-theme on <html> and wins either way. */
 :root[data-theme='dark'] {
-  --bg: #101116;
-  --surface: #181920;
-  --surface-2: #1f2028;
-  --border: #2b2c36;
-  --border-strong: #3a3b47;
-  --fg: #f3f2f7;
-  --fg-muted: #a7a3b3;
+  --bg: #16151d;
+  --surface: #1e1d27;
+  --surface-2: #262530;
+  --border: #322f3d;
+  --border-strong: #423f4f;
+  --fg: #f1efe9;
+  --fg-muted: #a9a5b6;
   --fg-subtle: #7c7889;
 
-  --brand: #8b84f5;
-  --brand-hover: #a49ef7;
-  --brand-tint: rgba(139, 132, 245, 0.16);
-  --brand-border: rgba(139, 132, 245, 0.45);
-  --on-brand: #14151a;
+  --brand: #8f88f7;
+  --brand-hover: #a9a3f9;
+  --brand-tint: rgba(143, 136, 247, 0.16);
+  --brand-border: rgba(143, 136, 247, 0.44);
+  --on-brand: #16151d;
 
-  --success: #3ecf8e;
-  --success-bg: rgba(62, 207, 142, 0.14);
-  --success-border: rgba(62, 207, 142, 0.4);
-  --danger: #f87171;
-  --danger-bg: rgba(248, 113, 113, 0.14);
-  --danger-border: rgba(248, 113, 113, 0.4);
-  --warning: #fbbf24;
-  --warning-bg: rgba(251, 191, 36, 0.13);
-  --warning-border: rgba(251, 191, 36, 0.38);
-  --heart: #ff5c8a;
+  --accent: #e08a5f;
+  --accent-soft: rgba(224, 138, 95, 0.16);
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --success: #43d191;
+  --success-bg: rgba(67, 209, 145, 0.14);
+  --success-border: rgba(67, 209, 145, 0.4);
+  --danger: #f4796c;
+  --danger-bg: rgba(244, 121, 108, 0.14);
+  --danger-border: rgba(244, 121, 108, 0.4);
+  --warning: #f5c060;
+  --warning-bg: rgba(245, 192, 96, 0.13);
+  --warning-border: rgba(245, 192, 96, 0.38);
+  --heart: #ff6d92;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
   --shadow-md:
-    0 10px 15px -3px rgba(0, 0, 0, 0.45), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
-}
-
-/* On brand fills, dark theme's lighter brand needs dark text for contrast. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --on-brand: #14151a;
-  }
+    0 8px 24px -10px rgba(0, 0, 0, 0.6), 0 2px 6px -3px rgba(0, 0, 0, 0.4);
 }
 
 /* ── Minimal reset + base elements ───────────────────────────────────────── */
@@ -176,18 +185,19 @@ h2,
 h3,
 h4 {
   color: var(--fg);
-  font-weight: 600;
-  line-height: 1.2;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
   margin: 0;
 }
 
 h1 {
-  font-size: 2rem;
-  letter-spacing: -0.02em;
+  font-size: 2.4rem;
+  letter-spacing: -0.03em;
 }
 
 h2 {
-  font-size: 1.35rem;
+  font-size: 1.4rem;
 }
 
 h3 {
@@ -204,6 +214,19 @@ p {
 
 a {
   color: var(--brand);
+}
+
+/* The signature "matra" head-stroke (শিরোরেখা) is applied to the wordmark and
+   every section heading in App.css — Bengali words hang from a top stroke, so
+   the interface hangs its headings from one too. */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }
 
 code {

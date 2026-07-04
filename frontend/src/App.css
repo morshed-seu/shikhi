@@ -4,21 +4,53 @@
  */
 
 .app {
-  max-width: 640px;
+  max-width: 660px;
   margin: 0 auto;
-  padding: var(--space-6) var(--space-5);
+  padding: var(--space-6) var(--space-5) calc(var(--space-6) * 2);
   font-family: var(--font-sans);
 }
 
 .app__header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-3);
 }
 
 .app__header h1 {
   margin: 0;
+}
+
+/* ── Signature: hang the wordmark and every section heading from a matra ─────
+   (শিরোরেখা — the head-stroke Bengali words hang from). One clay rule, applied
+   consistently, is the app's memorable structural device. */
+.app__header h1,
+.onboarding h2,
+.review h2,
+.vocab__head h2,
+.curriculum__level h3 {
+  position: relative;
+  padding-top: 0.7rem;
+}
+
+.app__header h1::before,
+.onboarding h2::before,
+.review h2::before,
+.vocab__head h2::before,
+.curriculum__level h3::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  inset-inline-start: 0;
+  width: 2.1rem;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
+/* The wordmark itself wears a longer matra, sized to the শিখি logotype. */
+.app__header h1::before {
+  width: 2.6rem;
 }
 
 .app__actions {
@@ -36,13 +68,18 @@
   background: var(--surface);
   color: var(--fg-muted);
   cursor: pointer;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   line-height: 1.4;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    background 0.15s ease;
 }
 
 .app__lang:hover,
 .app__theme:hover {
   border-color: var(--brand-border);
+  background: var(--brand-tint);
   color: var(--brand);
 }
 
@@ -52,7 +89,8 @@
 
 .app__tagline {
   color: var(--fg-muted);
-  margin: var(--space-2) 0 var(--space-5);
+  max-width: 46ch;
+  margin: var(--space-3) 0 var(--space-6);
 }
 
 .offline__badge {
@@ -68,7 +106,7 @@
 
 .onboarding {
   margin-top: var(--space-5);
-  padding: var(--space-4) var(--space-5);
+  padding: var(--space-5);
   border: 1px solid var(--brand-border);
   border-radius: var(--r-lg);
   background: var(--brand-tint);
@@ -76,7 +114,7 @@
 
 .onboarding h2 {
   margin: 0 0 var(--space-2);
-  font-size: 1.2rem;
+  font-size: 1.25rem;
 }
 
 .onboarding p {
@@ -90,14 +128,15 @@
 }
 
 .onboarding__dismiss {
-  margin-top: var(--space-3);
-  padding: var(--space-2) var(--space-4);
+  margin-top: var(--space-4);
+  padding: var(--space-2) var(--space-5);
   border: none;
-  border-radius: var(--r-sm);
+  border-radius: var(--r-pill);
   background: var(--brand);
   color: var(--on-brand);
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.15s ease;
 }
 
 .onboarding__dismiss:hover {
@@ -146,6 +185,7 @@
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   background: var(--surface);
+  box-shadow: var(--shadow-sm);
 }
 
 .auth__tabs {
@@ -156,12 +196,22 @@
 
 .auth__tabs button {
   flex: 1;
-  padding: var(--space-2);
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border-strong);
-  border-radius: var(--r-sm);
+  border-radius: var(--r-pill);
   background: var(--surface-2);
   color: var(--fg-muted);
+  font-weight: 600;
   cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.auth__tabs button:hover[aria-selected='false'] {
+  border-color: var(--brand-border);
+  color: var(--brand);
 }
 
 .auth__tabs button[aria-selected='true'] {
@@ -185,22 +235,38 @@
 }
 
 .auth__form input {
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-3);
   border: 1px solid var(--border-strong);
-  border-radius: var(--r-sm);
+  border-radius: var(--r-md);
   font-size: 1rem;
-  background: var(--surface);
+  background: var(--surface-2);
   color: var(--fg);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.auth__form input:focus-visible {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-tint);
 }
 
 .auth__submit {
+  margin-top: var(--space-2);
   padding: var(--space-3) var(--space-4);
   border: none;
-  border-radius: var(--r-sm);
-  background: var(--success);
-  color: #ffffff;
+  border-radius: var(--r-pill);
+  background: var(--brand);
+  color: var(--on-brand);
   font-weight: 600;
+  font-size: 1rem;
   cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.auth__submit:hover:not(:disabled) {
+  background: var(--brand-hover);
 }
 
 .auth__submit:disabled {
@@ -220,21 +286,22 @@
   text-transform: lowercase;
 }
 
-/* Stats */
+/* Stats — a compact ledger row; numbers in ink, labels quiet. */
 .stats {
   display: flex;
-  gap: var(--space-4);
+  gap: var(--space-5);
   flex-wrap: wrap;
   margin-top: var(--space-5);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-4) var(--space-5);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
-  background: var(--surface-2);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
 }
 
 .stats__item {
   font-weight: 600;
-  color: var(--fg-muted);
+  color: var(--fg);
 }
 
 /* Review */
@@ -248,7 +315,7 @@
 
 .review h2 {
   margin: 0 0 var(--space-1);
-  font-size: 1.2rem;
+  font-size: 1.25rem;
 }
 
 .review__count {
@@ -291,11 +358,20 @@
 
 .review__knew,
 .review__forgot {
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--r-sm);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--r-pill);
   border: 1px solid var(--border-strong);
   cursor: pointer;
   font-size: 0.9rem;
+  font-weight: 600;
+  transition:
+    filter 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.review__knew:hover,
+.review__forgot:hover {
+  filter: brightness(0.97);
 }
 
 .review__knew {
@@ -315,51 +391,103 @@
   margin-top: var(--space-6);
 }
 
-.curriculum__lesson:disabled {
-  color: var(--fg-subtle);
-  cursor: not-allowed;
-  text-decoration: none;
+.curriculum__level {
+  margin-bottom: var(--space-6);
+}
+
+.curriculum__level h3 {
+  margin: 0 0 var(--space-3);
+}
+
+.curriculum__unit {
+  margin-bottom: var(--space-4);
+}
+
+.curriculum__unit h4 {
+  margin: var(--space-3) 0 var(--space-2);
+  color: var(--fg-muted);
+  font-weight: 600;
+}
+
+/* Drop the default bullets; the lesson button carries its own leading marker. */
+.curriculum__unit ul {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.curriculum__unit li {
+  padding: 0;
+}
+
+/* Lessons read as a clean tappable row, not an underlined link. A leading dot
+   sits where a matra would begin; completed lessons swap it for a check. */
+.curriculum__lesson {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  background: none;
+  border: none;
+  padding: var(--space-2) var(--space-3);
+  margin-inline: calc(var(--space-3) * -1);
+  border-radius: var(--r-md);
+  color: var(--fg);
+  font-size: 1rem;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.curriculum__lesson::before {
+  content: '';
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1.5px solid var(--brand-border);
+  background: var(--surface);
+}
+
+.curriculum__lesson:hover:not(:disabled) {
+  background: var(--brand-tint);
+  color: var(--brand);
+}
+
+.curriculum__lesson:hover:not(:disabled)::before {
+  border-color: var(--brand);
+  background: var(--brand);
 }
 
 .curriculum__lesson--done {
   color: var(--success);
 }
 
-.curriculum__level {
-  margin-bottom: var(--space-5);
-}
-
-.curriculum__level h3 {
-  margin: 0 0 var(--space-1);
-}
-
-.curriculum__unit h4 {
-  margin: var(--space-2) 0 var(--space-1);
-  color: var(--fg-muted);
-}
-
-.curriculum__unit ul {
-  margin: 0;
-  padding-left: var(--space-5);
-}
-
-.curriculum__unit li {
-  padding: var(--space-1) 0;
-}
-
-.curriculum__lesson {
-  background: none;
+.curriculum__lesson--done::before {
+  content: '✓';
+  width: auto;
+  height: auto;
   border: none;
-  padding: var(--space-1) 0;
-  color: var(--brand);
-  font-size: 1rem;
-  cursor: pointer;
-  text-align: left;
-  text-decoration: underline;
+  background: none;
+  color: var(--success);
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1;
 }
 
-.curriculum__lesson:hover {
-  color: var(--brand-hover);
+.curriculum__lesson:disabled {
+  color: var(--fg-subtle);
+  cursor: not-allowed;
+}
+
+.curriculum__lesson:disabled::before {
+  border-color: var(--border-strong);
+  background: transparent;
 }
 
 /* Vocabulary (word list) browser */
@@ -385,11 +513,16 @@
   background: var(--surface);
   color: var(--fg-muted);
   cursor: pointer;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    background 0.15s ease;
 }
 
 .vocab__toggle:hover {
   border-color: var(--brand-border);
+  background: var(--brand-tint);
   color: var(--brand);
 }
 
@@ -412,6 +545,15 @@
   color: var(--fg-muted);
   cursor: pointer;
   font-weight: 600;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.vocab__level:hover:not(.vocab__level--active) {
+  border-color: var(--brand-border);
+  color: var(--brand);
 }
 
 .vocab__level--active {
@@ -426,9 +568,18 @@
   border: 1px solid var(--border-strong);
   border-radius: var(--r-md);
   font-size: 1rem;
-  background: var(--surface);
+  background: var(--surface-2);
   color: var(--fg);
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--space-4);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.vocab__search:focus-visible {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-tint);
 }
 
 .vocab__count {
@@ -447,10 +598,18 @@
 }
 
 .vocab__card {
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-4);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   background: var(--surface);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.vocab__card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
 }
 
 .vocab__term {
@@ -482,18 +641,21 @@
   margin-top: var(--space-1);
 }
 
+/* The bilingual example reads like a citation — hung off a clay rule, echoing
+   the matra motif at a smaller scale. */
 .vocab__example {
-  margin-top: var(--space-2);
+  margin-top: var(--space-3);
   display: flex;
   flex-direction: column;
   gap: 2px;
   padding-left: var(--space-3);
-  border-left: 2px solid var(--brand-border);
+  border-left: 2px solid var(--accent-soft);
 }
 
 .vocab__example-en {
   color: var(--fg-muted);
   font-size: 0.9rem;
+  font-style: italic;
 }
 
 .vocab__example-bn {
@@ -504,10 +666,11 @@
 /* Lesson player */
 .lesson {
   margin-top: var(--space-6);
-  padding: var(--space-5);
+  padding: var(--space-6) var(--space-5);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   background: var(--surface);
+  box-shadow: var(--shadow-md);
 }
 
 .lesson__bar {
@@ -521,10 +684,18 @@
 .lesson__exit {
   background: none;
   border: 1px solid var(--border-strong);
-  border-radius: var(--r-sm);
+  border-radius: var(--r-pill);
   color: var(--fg-muted);
   padding: var(--space-1) var(--space-3);
   cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.lesson__exit:hover {
+  border-color: var(--brand-border);
+  color: var(--brand);
 }
 
 .lesson__progress {
@@ -538,8 +709,11 @@
 }
 
 .lesson__prompt {
-  margin: 0 0 var(--space-4);
-  font-size: 1.25rem;
+  margin: 0 0 var(--space-5);
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
   color: var(--fg);
 }
 
@@ -554,7 +728,7 @@
 
 .lesson__option {
   width: 100%;
-  padding: var(--space-3);
+  padding: var(--space-3) var(--space-4);
   border: 1px solid var(--border-strong);
   border-radius: var(--r-md);
   background: var(--surface-2);
@@ -562,15 +736,20 @@
   cursor: pointer;
   text-align: left;
   font-size: 1rem;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
 }
 
 .lesson__option:hover:not(:disabled) {
   border-color: var(--brand-border);
+  background: var(--brand-tint);
 }
 
 .lesson__option--selected {
   border-color: var(--brand);
   background: var(--brand-tint);
+  box-shadow: inset 0 0 0 1px var(--brand);
 }
 
 .lesson__option:disabled {
@@ -585,8 +764,17 @@
   border-radius: var(--r-md);
   font-size: 1rem;
   margin-bottom: var(--space-4);
-  background: var(--surface);
+  background: var(--surface-2);
   color: var(--fg);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.lesson__input:focus-visible {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-tint);
 }
 
 .lesson__wordbank {
@@ -623,19 +811,27 @@
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border-strong);
   border-radius: var(--r-md);
-  background: var(--surface-2);
+  background: var(--surface);
   color: var(--fg);
   cursor: pointer;
   font-size: 1rem;
+  box-shadow: var(--shadow-sm);
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    transform 0.1s ease;
 }
 
 .lesson__token:hover:not(:disabled) {
   border-color: var(--brand-border);
+  background: var(--brand-tint);
+  transform: translateY(-1px);
 }
 
 .lesson__token--placed {
   border-color: var(--brand);
   background: var(--brand-tint);
+  box-shadow: none;
 }
 
 .lesson__token:disabled {
@@ -672,13 +868,21 @@
   border-radius: var(--r-md);
   background: var(--success);
   color: #ffffff;
-  font-weight: 600;
-  font-size: 1rem;
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: 0.01em;
   cursor: pointer;
+  transition:
+    filter 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.lesson__check:hover:not(:disabled) {
+  filter: brightness(1.07);
 }
 
 .lesson__check:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: default;
 }
 
@@ -690,4 +894,408 @@
 .lesson__xp,
 .lesson__hearts {
   margin: var(--space-1) 0;
+}
+
+/* ── Practice hero (E12) ──────────────────────────────────────────────────────
+   The signed-in home's thesis. Where section headings hang from a short matra,
+   the hero hangs from a full-width one: the clay head-stroke drawn at card
+   scale, carrying the day's practice beneath it. */
+.hero {
+  margin-top: var(--space-5);
+  padding: var(--space-5) var(--space-5) var(--space-6);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 4px solid var(--accent);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.hero__eyebrow {
+  margin: 0 0 var(--space-1);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+}
+
+.hero__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.hero__title {
+  font-size: 1.7rem;
+  letter-spacing: -0.02em;
+}
+
+/* The learner wears their band as a badge; tapping it opens self-placement. */
+.hero__level {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--brand-border);
+  border-radius: var(--r-pill);
+  background: var(--brand-tint);
+  color: var(--brand);
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.hero__level:hover {
+  border-color: var(--brand);
+}
+
+.hero__level-caret {
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+
+.hero__copy {
+  margin: var(--space-2) 0 0;
+  color: var(--fg-muted);
+  max-width: 34rem;
+}
+
+.hero__picker {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+@media (max-width: 560px) {
+  .hero__picker {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.hero__band {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--fg);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.hero__band:hover:not(:disabled):not(.hero__band--active) {
+  border-color: var(--brand-border);
+  background: var(--brand-tint);
+}
+
+.hero__band--active {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: var(--on-brand);
+}
+
+.hero__band-code {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.hero__band-name {
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
+
+.hero__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+}
+
+.hero__start {
+  padding: var(--space-3) var(--space-6);
+  border: none;
+  border-radius: var(--r-pill);
+  background: var(--brand);
+  color: var(--on-brand);
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition:
+    background 0.15s ease,
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.hero__start:hover {
+  background: var(--brand-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.hero__start:active {
+  transform: translateY(0);
+}
+
+.hero__streak {
+  color: var(--fg-muted);
+  font-weight: 600;
+}
+
+/* ── Practice player (E12) ────────────────────────────────────────────────────
+   Same card as the lesson player; the difference is the round's matra — a
+   segmented head-stroke across the top that the learner draws as they answer:
+   ink (indigo) for right, clay for wrong. */
+.practice {
+  margin-top: var(--space-6);
+  padding: var(--space-6) var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+.practice__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.practice__matra {
+  flex: 1;
+  display: flex;
+  gap: 4px;
+}
+
+.practice__stroke {
+  flex: 1;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--surface-2);
+  transition: background 0.25s ease;
+}
+
+.practice__stroke--current {
+  background: var(--brand-tint);
+  box-shadow: inset 0 0 0 1px var(--brand-border);
+}
+
+.practice__stroke--ok {
+  background: var(--brand);
+}
+
+.practice__stroke--no {
+  background: var(--accent);
+}
+
+/* Bengali context lines read like the vocab citations — hung off a clay rule. */
+.practice__context,
+.practice__target {
+  margin: calc(-1 * var(--space-3)) 0 var(--space-4);
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--accent-soft);
+  color: var(--fg-muted);
+  font-size: 0.95rem;
+}
+
+.practice__target {
+  margin-top: 0;
+  margin-bottom: var(--space-3);
+}
+
+.practice__hint {
+  margin: calc(-1 * var(--space-3)) 0 var(--space-4);
+  color: var(--fg-subtle);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+/* Round & session summaries */
+.practice__cheer {
+  position: relative;
+  padding-top: 0.7rem;
+  text-align: center;
+  font-size: 1.6rem;
+}
+
+.practice__cheer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2.6rem;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
+.practice__score {
+  margin: var(--space-3) 0 0;
+  text-align: center;
+  font-size: 1.15rem;
+  color: var(--fg);
+}
+
+.practice__xp {
+  margin: var(--space-1) 0 0;
+  text-align: center;
+  font-weight: 700;
+  color: var(--brand);
+}
+
+.practice__levelup {
+  margin: var(--space-5) auto 0;
+  max-width: 26rem;
+  padding: var(--space-4);
+  border: 1px solid var(--brand-border);
+  border-radius: var(--r-md);
+  background: var(--brand-tint);
+  text-align: center;
+}
+
+.practice__levelup p {
+  margin: 0 0 var(--space-3);
+  color: var(--fg);
+}
+
+.practice__levelup-btn {
+  padding: var(--space-2) var(--space-4);
+  border: none;
+  border-radius: var(--r-pill);
+  background: var(--brand);
+  color: var(--on-brand);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.practice__levelup-btn:hover {
+  background: var(--brand-hover);
+}
+
+.practice__levelup-done {
+  margin: var(--space-4) 0 0;
+  text-align: center;
+  color: var(--success);
+  font-weight: 600;
+}
+
+.practice__summary-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+}
+
+.practice__primary {
+  min-width: 16rem;
+  padding: var(--space-3) var(--space-5);
+  border: none;
+  border-radius: var(--r-pill);
+  background: var(--brand);
+  color: var(--on-brand);
+  font-weight: 700;
+  font-size: 1.05rem;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    transform 0.15s ease;
+}
+
+.practice__primary:hover:not(:disabled) {
+  background: var(--brand-hover);
+  transform: translateY(-1px);
+}
+
+.practice__primary:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.practice__ghost {
+  min-width: 16rem;
+  padding: var(--space-3) var(--space-5);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--fg-muted);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.practice__ghost:hover:not(:disabled) {
+  border-color: var(--brand-border);
+  color: var(--brand);
+}
+
+@media (max-width: 560px) {
+  .practice__primary,
+  .practice__ghost {
+    min-width: 100%;
+  }
+}
+
+/* Onboarding self-placement (shares the hero band look). */
+.onboarding__levels {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-2);
+  margin: var(--space-4) 0;
+}
+
+@media (max-width: 560px) {
+  .onboarding__levels {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.onboarding__level {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--fg);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.onboarding__level:hover:not(:disabled) {
+  border-color: var(--brand-border);
+  background: var(--brand-tint);
+}
+
+.onboarding__level-code {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.onboarding__level-name {
+  font-size: 0.8rem;
+  color: var(--fg-muted);
 }

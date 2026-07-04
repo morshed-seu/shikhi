@@ -160,7 +160,7 @@ export function LessonPlayer({ lessonId, onExit }: Props) {
       xpEarned: 0,
       newlyUnlocked: [],
       reviewItemsAdded: 0,
-      stats: { hearts, xp: 0, rank: 0, currentStreak: 0, longestStreak: 0, dailyGoal: 0, accuracyByPattern: {} },
+      stats: { hearts, xp: 0, rank: 0, currentStreak: 0, longestStreak: 0, dailyGoal: 0, cefrLevel: 'A1', accuracyByPattern: {} },
     })
     setPhase('finished')
   }

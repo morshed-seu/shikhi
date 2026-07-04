@@ -11,6 +11,8 @@ import { CurriculumMap } from './components/CurriculumMap'
 import { LessonPlayer } from './components/LessonPlayer'
 import { Onboarding } from './components/Onboarding'
 import { OfflineBanner } from './components/OfflineBanner'
+import { PracticeHero } from './components/PracticeHero'
+import { PracticePlayer } from './components/PracticePlayer'
 import { ReviewPanel } from './components/ReviewPanel'
 import { StatsBar } from './components/StatsBar'
 import { VocabularyBrowser } from './components/VocabularyBrowser'
@@ -26,11 +28,17 @@ function AppShell() {
   const { user, getToken, setUiLocale } = useAuth()
   const [health, setHealth] = useState<HealthState>('loading')
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null)
+  const [practicing, setPracticing] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
 
   // Leaving a lesson bumps the refresh key so stats + the map re-pull progress.
   const exitLesson = () => {
     setActiveLessonId(null)
+    setRefreshKey((k) => k + 1)
+  }
+
+  const exitPractice = () => {
+    setPracticing(false)
     setRefreshKey((k) => k + 1)
   }
 
@@ -124,11 +132,14 @@ function AppShell() {
       <OfflineBanner />
       <AuthPanel />
       <StatsBar refreshKey={refreshKey} />
-      {activeLessonId ? (
+      {practicing ? (
+        <PracticePlayer onExit={exitPractice} />
+      ) : activeLessonId ? (
         <LessonPlayer lessonId={activeLessonId} onExit={exitLesson} />
       ) : (
         <>
           <Onboarding />
+          <PracticeHero refreshKey={refreshKey} onStart={() => setPracticing(true)} />
           <ReviewPanel refreshKey={refreshKey} />
           <CurriculumMap onSelectLesson={setActiveLessonId} refreshKey={refreshKey} />
           <VocabularyBrowser />

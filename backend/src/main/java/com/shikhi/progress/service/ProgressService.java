@@ -35,7 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ProgressService implements CurriculumProgressOverlay {
 
-	static final int XP_PER_CORRECT = 10;
+	public static final int XP_PER_CORRECT = 10;
 
 	private static final String COMPLETED = "COMPLETED";
 	private static final String NOT_STARTED = "NOT_STARTED";
@@ -84,6 +84,32 @@ public class ProgressService implements CurriculumProgressOverlay {
 		if (!correct) {
 			s.loseHeart();
 		}
+		return Stats.from(stats.save(s));
+	}
+
+	/**
+	 * Record one graded practice answer (E12). Unlike lessons — which award XP in a lump on
+	 * completion — practice has no completion bonus, so a correct answer earns its XP right
+	 * away; a wrong one costs a heart. Day activity (streak/refill) advances either way.
+	 */
+	@Transactional
+	public Stats recordPracticeAnswer(UUID userId, boolean correct) {
+		UserStats s = getOrCreate(userId);
+		s.registerActiveDay(today());
+		if (correct) {
+			s.addXp(XP_PER_CORRECT);
+		}
+		else {
+			s.loseHeart();
+		}
+		return Stats.from(stats.save(s));
+	}
+
+	/** Set the learner's CEFR band (self-placement or an accepted level-up, US-12.1/12.7). */
+	@Transactional
+	public Stats setLevel(UUID userId, String cefrLevel) {
+		UserStats s = getOrCreate(userId);
+		s.setCefrLevel(cefrLevel);
 		return Stats.from(stats.save(s));
 	}
 

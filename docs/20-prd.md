@@ -83,6 +83,7 @@ Content authoring
 | **E9** | Content authoring & validation | Author/version/validate curriculum | BR-9 (D3/D6) |
 | **E10** | Localization & accessibility | BN/EN UI, Bengali rendering, a11y | BR-2 (D1) |
 | **E11** | Operational surfaces | Health, privacy controls (export/delete) | BR-10 |
+| **E12** | Adaptive vocabulary practice | One-tap generated practice sessions from the Oxford-3000 layer, matched to the learner's CEFR level | BR-4, BR-6, BR-7 |
 
 ---
 
@@ -261,6 +262,43 @@ Content authoring
 - **US-11.2** As a learner, I can **export my data** and **delete my account** (with E1.6)
   so my privacy rights are honored. *(Security/privacy phase.)*
 
+### E12 — Adaptive vocabulary practice *(BR-4, BR-6, BR-7)*
+
+> Turns the Oxford-3000 vocabulary layer (V11–V15) from a read-only dictionary into the
+> primary learning experience: exercises are **generated from vocabulary rows** matched to
+> the learner's CEFR level, flowing continuously in rounds — no authored lessons required.
+
+- **US-12.1** As a learner, my account carries a **CEFR level** (A1–B2, default A1) that I
+  pick at onboarding and can change anytime, so practice matches my ability.
+  - *Given* a new account, *When* I first sign in, *Then* I can self-place at A1–B2 (or
+    keep the A1 default) and my choice is saved to my profile.
+- **US-12.2** As a learner, after signing in I see one clear **"Start session"** action, so
+  starting to learn takes a single tap.
+- **US-12.3** As a learner, exercises **keep coming one after another** in rounds of ~10;
+  each round ends with a summary (accuracy, XP, streak) and a one-tap **"Keep going"**, so
+  a session lasts exactly as long as I want.
+- **US-12.4** As a learner, exercises are **generated from level-appropriate words**:
+  ~70% from my current band, ~30% lighter review from earlier bands.
+  - *Given* my level is B1, *When* a round is generated, *Then* most items use B1 words and
+    the rest reinforce A1/A2 words — prioritizing words I've missed or never seen.
+- **US-12.5** As a learner, item formats **vary between single words and short sentences**
+  (word→meaning, meaning→word, sentence gap-fill, build-the-short-sentence, type-the-word),
+  so practice stays fresh and sentences stay small and readable.
+- **US-12.6** As a learner, my **per-word strength** is tracked (seen/correct counts), so
+  missed words come back sooner and mastered words fade out. *(Complements E7 review.)*
+- **US-12.7** As a learner, when I've shown mastery of most of my band, I get a **level-up
+  suggestion** I can accept with one tap (never an automatic promotion), so difficulty
+  keeps pace with me.
+- **US-12.8** As the product, answer grading and hearts/XP/streak reuse the **existing
+  grading rules and progress engine** (E5/E6): correctness never reaches the client, wrong
+  answers cost a heart, correct answers earn XP, replays are idempotent.
+
+> **FR-12.x highlights:** generation is deterministic and rule-based (templates over
+> vocabulary rows + distractor selection); sentence-based formats are only chosen when the
+> example sentence is short (≤ ~8 words). AI-generated fresh sentences are a later,
+> additive strategy behind the same seam (D4). Out of scope for this slice: automatic
+> promotion, listening/audio formats, per-user timezone.
+
 ---
 
 ## 5. Key UX flows (conceptual)
@@ -276,6 +314,13 @@ brief how-it-works → optional placement or skip → land on curriculum map at 
 `Open → curriculum map → start next lesson → exercise → answer → instant feedback (+hint if
 wrong, −heart if wrong) → repeat → results summary (XP, streak update, items added to
 review) → back to map (next lesson unlocked if criteria met).`
+
+**Flow B2 — Adaptive practice session (E12; the default daily flow once shipped):**
+`Open → home hero shows level badge + streak + "Start session" → tap → round of ~10
+generated exercises (word ↔ meaning, short-sentence gap/build, type-the-word) → answer →
+instant feedback (−heart if wrong; missed word rescheduled sooner) → round summary
+(accuracy, XP, streak; level-up suggestion when eligible) → "Keep going" for the next round
+or "Finish" → session summary → back to home.`
 
 **Flow C — Review session (P3):**
 `Open → "Review due" prompt or menu → review session of due items → feedback → updated
@@ -374,6 +419,7 @@ US-10.2/3).
 | BR-9 | E9 |
 | BR-10 | E11 |
 | BR-11 (D4) | E5 §7 seam |
+| BR-4/6/7 (adaptive) | E12 |
 
 **Open product questions (mostly refine later, not blocking Gate A):**
 - **OQ-P1:** Final **gamification values** (XP amounts, hearts count, daily-goal tiers) —
