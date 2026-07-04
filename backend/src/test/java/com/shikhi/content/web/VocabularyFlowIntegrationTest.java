@@ -84,10 +84,17 @@ class VocabularyFlowIntegrationTest extends AbstractIntegrationTest {
 	}
 
 	@Test
-	void higherBandsAreEmptyUntilSeeded() throws Exception {
+	void returnsSeededB2WordsInOrderWithBengaliAndExamples() throws Exception {
 		mockMvc.perform(get("/v1/vocabulary?level=B2").header(HttpHeaders.AUTHORIZATION, token()))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.length()").value(0));
+				// The full B2 band is seeded (V15) — the final Oxford 3000 band.
+				.andExpect(jsonPath("$.length()").value(599))
+				// Alphabetical order: 'abandon' sorts first.
+				.andExpect(jsonPath("$[0].headword").value("abandon"))
+				.andExpect(jsonPath("$[0].cefrLevel").value("B2"))
+				.andExpect(jsonPath("$[0].bnGloss").isNotEmpty())
+				.andExpect(jsonPath("$[0].exampleEn").isNotEmpty())
+				.andExpect(jsonPath("$[0].exampleBn").isNotEmpty());
 	}
 
 	@Test
