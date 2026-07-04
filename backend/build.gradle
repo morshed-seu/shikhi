@@ -59,3 +59,11 @@ dependencies {
 tasks.named('test') {
 	useJUnitPlatform()
 }
+
+// Local runs use the self-healing `dev` profile by default (Flyway auto-recovers from a
+// checksum mismatch instead of failing startup — see application-dev.properties). Override
+// with `-Dspring.profiles.active=<profile>` when you need a different profile locally.
+tasks.named('bootRun') {
+	systemProperty 'spring.profiles.active',
+		System.getProperty('spring.profiles.active', 'dev')
+}
