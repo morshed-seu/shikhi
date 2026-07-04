@@ -70,6 +70,20 @@ class VocabularyFlowIntegrationTest extends AbstractIntegrationTest {
 	}
 
 	@Test
+	void returnsSeededB1WordsInOrderWithBengaliAndExamples() throws Exception {
+		mockMvc.perform(get("/v1/vocabulary?level=B1").header(HttpHeaders.AUTHORIZATION, token()))
+				.andExpect(status().isOk())
+				// The full B1 band is seeded (V14).
+				.andExpect(jsonPath("$.length()").value(699))
+				// Alphabetical order: 'absolutely' sorts first.
+				.andExpect(jsonPath("$[0].headword").value("absolutely"))
+				.andExpect(jsonPath("$[0].cefrLevel").value("B1"))
+				.andExpect(jsonPath("$[0].bnGloss").isNotEmpty())
+				.andExpect(jsonPath("$[0].exampleEn").isNotEmpty())
+				.andExpect(jsonPath("$[0].exampleBn").isNotEmpty());
+	}
+
+	@Test
 	void higherBandsAreEmptyUntilSeeded() throws Exception {
 		mockMvc.perform(get("/v1/vocabulary?level=B2").header(HttpHeaders.AUTHORIZATION, token()))
 				.andExpect(status().isOk())
