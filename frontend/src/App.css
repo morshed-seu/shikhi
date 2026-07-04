@@ -663,6 +663,44 @@
   font-size: 0.9rem;
 }
 
+.vocab__pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.vocab__pager-btn {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--fg-muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.vocab__pager-btn:hover:not(:disabled) {
+  border-color: var(--brand-border);
+  background: var(--brand-tint);
+  color: var(--brand);
+}
+
+.vocab__pager-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.vocab__pager-status {
+  color: var(--fg-subtle);
+  font-size: 0.85rem;
+}
+
 /* Lesson player */
 .lesson {
   margin-top: var(--space-6);
