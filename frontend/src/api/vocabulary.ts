@@ -1,9 +1,9 @@
 import { apiFetch } from './client'
 
 // Mirrors backend VocabularyEntry (GET /v1/vocabulary?level=A1). A flat, CEFR-tagged
-// dictionary of the Oxford-3000 words, each with a Bengali gloss and a bilingual example.
+// dictionary of the Oxford-5000 words, each with a Bengali gloss and a bilingual example.
 
-export type CefrLevel = 'A1' | 'A2' | 'B1' | 'B2'
+export type CefrLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1'
 
 export interface VocabularyEntry {
   id: string

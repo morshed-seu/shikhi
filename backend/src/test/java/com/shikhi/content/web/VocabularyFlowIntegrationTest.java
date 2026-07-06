@@ -73,8 +73,8 @@ class VocabularyFlowIntegrationTest extends AbstractIntegrationTest {
 	void returnsSeededB1WordsInOrderWithBengaliAndExamples() throws Exception {
 		mockMvc.perform(get("/v1/vocabulary?level=B1").header(HttpHeaders.AUTHORIZATION, token()))
 				.andExpect(status().isOk())
-				// The full B1 band is seeded (V14).
-				.andExpect(jsonPath("$.length()").value(699))
+				// Oxford 3000 B1 (V14, 699) + one Oxford 5000 stray B1 addition (V18, "specialize").
+				.andExpect(jsonPath("$.length()").value(700))
 				// Alphabetical order: 'absolutely' sorts first.
 				.andExpect(jsonPath("$[0].headword").value("absolutely"))
 				.andExpect(jsonPath("$[0].cefrLevel").value("B1"))
@@ -87,11 +87,25 @@ class VocabularyFlowIntegrationTest extends AbstractIntegrationTest {
 	void returnsSeededB2WordsInOrderWithBengaliAndExamples() throws Exception {
 		mockMvc.perform(get("/v1/vocabulary?level=B2").header(HttpHeaders.AUTHORIZATION, token()))
 				.andExpect(status().isOk())
-				// The full B2 band is seeded (V15) — the final Oxford 3000 band.
-				.andExpect(jsonPath("$.length()").value(599))
-				// Alphabetical order: 'abandon' sorts first.
+				// Oxford 3000 B2 (V15, 599) + Oxford 5000 B2 additions (V18, 701).
+				.andExpect(jsonPath("$.length()").value(1300))
+				// Ordinal order: the original Oxford-3000 band (ordinal 1) still leads.
 				.andExpect(jsonPath("$[0].headword").value("abandon"))
 				.andExpect(jsonPath("$[0].cefrLevel").value("B2"))
+				.andExpect(jsonPath("$[0].bnGloss").isNotEmpty())
+				.andExpect(jsonPath("$[0].exampleEn").isNotEmpty())
+				.andExpect(jsonPath("$[0].exampleBn").isNotEmpty());
+	}
+
+	@Test
+	void returnsSeededC1WordsInOrderWithBengaliAndExamples() throws Exception {
+		mockMvc.perform(get("/v1/vocabulary?level=C1").header(HttpHeaders.AUTHORIZATION, token()))
+				.andExpect(status().isOk())
+				// The Oxford 5000's new C1 band (V19).
+				.andExpect(jsonPath("$.length()").value(1311))
+				// Alphabetical order: 'abolish' sorts first.
+				.andExpect(jsonPath("$[0].headword").value("abolish"))
+				.andExpect(jsonPath("$[0].cefrLevel").value("C1"))
 				.andExpect(jsonPath("$[0].bnGloss").isNotEmpty())
 				.andExpect(jsonPath("$[0].exampleEn").isNotEmpty())
 				.andExpect(jsonPath("$[0].exampleBn").isNotEmpty());

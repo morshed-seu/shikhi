@@ -5,7 +5,7 @@ import { useAuth } from '../auth/useAuth'
 
 type LoadState = 'idle' | 'loading' | 'error'
 
-const LEVELS: CefrLevel[] = ['A1', 'A2', 'B1', 'B2']
+const LEVELS: CefrLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1']
 // Page the rendered rows so a full band (hundreds of words) stays snappy; search narrows it.
 const PAGE_SIZE = 40
 

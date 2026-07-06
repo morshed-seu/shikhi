@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/v1/vocabulary")
 public class VocabularyController {
 
-	private static final Set<String> LEVELS = Set.of("A1", "A2", "B1", "B2");
+	private static final Set<String> LEVELS = Set.of("A1", "A2", "B1", "B2", "C1");
 
 	private final VocabularyRepository vocabulary;
 
@@ -27,7 +27,7 @@ public class VocabularyController {
 	public List<VocabularyEntry> list(@RequestParam(defaultValue = "A1") String level) {
 		String normalized = level.toUpperCase();
 		if (!LEVELS.contains(normalized)) {
-			throw ApiException.badRequest("INVALID_LEVEL", "level must be one of A1, A2, B1, B2");
+			throw ApiException.badRequest("INVALID_LEVEL", "level must be one of A1, A2, B1, B2, C1");
 		}
 		return vocabulary.findByCefrLevelOrderByOrdinal(normalized).stream()
 				.map(VocabularyEntry::from)
