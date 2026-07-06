@@ -1,25 +1,40 @@
-# Local development data tier (per ADR-0003 Postgres, ADR-0004 Redis).
-# M0: not required to run the walking skeleton; provided for M1 (Identity) onward.
-# Usage: docker compose up -d
+# Full-stack Shikhi deployment on one host: nginx-served SPA + Spring Boot API + Postgres.
+# Everything shares a single origin (the browser hits the frontend; nginx proxies /v1 to the
+# backend), which mirrors the prod "same-origin via CDN + /v1" assumption and avoids CORS.
+#
+#   Usage:  cp .env.example .env   # then edit the secrets
+#           docker compose up -d --build
+#           open http://localhost:8080
+#
+# NOTE — deployment target: this compose file runs the WHOLE stack on one box (e.g. an Oracle
+# Always-Free VM = "Option A"). If you deploy via managed free tiers ("Option B": Cloudflare
+# Pages + Render + Neon), you do NOT run this file in prod — each service is deployed on its own.
+# It stays useful as a full-stack LOCAL environment and as the source of the backend Dockerfile
+# that Render builds. See DEPLOY.md.
 services:
   postgres:
     image: postgres:16
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: shikhi
-      POSTGRES_USER: shikhi
-      POSTGRES_PASSWORD: shikhi
+      POSTGRES_DB: ${POSTGRES_DB:-shikhi}
+      POSTGRES_USER: ${POSTGRES_USER:-shikhi}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-shikhi}
     ports:
       - '5432:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U shikhi']
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-shikhi}']
       interval: 5s
       timeout: 3s
       retries: 10
 
+  # Reserved for horizontal scale-out (ADR-0004): the backend does NOT connect to Redis yet
+  # (cache is in-process, rate-limit is in-process). Kept here so the topology is documented and
+  # ready to wire in. Safe to remove for the pilot.
   redis:
     image: redis:7
+    restart: unless-stopped
     ports:
       - '6379:6379'
     healthcheck:
@@ -27,6 +42,41 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SHIKHI_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-shikhi}
+      SHIKHI_DB_USER: ${POSTGRES_USER:-shikhi}
+      SHIKHI_DB_PASSWORD: ${POSTGRES_PASSWORD:-shikhi}
+      # MUST be >= 32 bytes and secret. Generate one: `openssl rand -base64 48`.
+      SHIKHI_JWT_SECRET: ${SHIKHI_JWT_SECRET:?set SHIKHI_JWT_SECRET in .env}
+      # Same-origin behind nginx → no cross-origin browser calls → CORS allowlist stays empty.
+      SHIKHI_CORS_ORIGINS: ${SHIKHI_CORS_ORIGINS:-}
+    ports:
+      # Direct API access for debugging/smoke tests; the SPA reaches it via nginx, not this port.
+      - '8081:8080'
+    healthcheck:
+      # temurin:21-jre is Ubuntu-based (has bash) → TCP check without needing curl/wget.
+      test: ['CMD-SHELL', "bash -c ':> /dev/tcp/127.0.0.1/8080'"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 40s
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - '8080:80'
 
 volumes:
   pgdata:

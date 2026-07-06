@@ -41,6 +41,12 @@ export interface RequestOptions {
   timeoutMs?: number
 }
 
+// API origin. Empty by default → same-origin `/v1` (dev via Vite proxy, or a CDN/nginx that
+// fronts both the SPA and the API). Set VITE_API_BASE_URL at build time (e.g. the Render
+// backend URL) when the SPA and API live on different origins — then the backend must also
+// allow this SPA's origin via SHIKHI_CORS_ORIGINS. No trailing slash.
+export const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+
 const DEFAULT_TIMEOUT_MS = 10_000
 const MAX_RETRIES = 2
 const BASE_BACKOFF_MS = 300
@@ -79,7 +85,7 @@ export async function apiFetch<T>(path: string, opts: RequestOptions = {}): Prom
 
   for (let attempt = 1; ; attempt++) {
     try {
-      const res = await fetchWithTimeout(`/v1${path}`, init, opts.timeoutMs ?? DEFAULT_TIMEOUT_MS)
+      const res = await fetchWithTimeout(`${API_BASE}/v1${path}`, init, opts.timeoutMs ?? DEFAULT_TIMEOUT_MS)
 
       if (!res.ok) {
         if (retryable && isTransientStatus(res.status) && attempt < maxAttempts) {
