@@ -46,7 +46,7 @@ export function GuestBanner() {
           {t('guest.save')}
         </button>
       ) : (
-        <form className="guest-banner__form" onSubmit={(event) => void onSubmit(event)}>
+        <form className="auth__form guest-banner__form" onSubmit={(event) => void onSubmit(event)}>
           <label>
             {t('auth.displayName')}
             <input
