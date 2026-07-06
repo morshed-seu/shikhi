@@ -117,10 +117,24 @@ Content authoring
     retention policy and I'm signed out. *(Ties to E11 / Security.)*
 - **US-1.7** As a learner with multiple methods, I can have them **linked to one account**
   so my progress is unified. *(Extensible identity model, D5.)*
+- **US-1.8** As a first-time visitor, I can **start learning as a guest — without signing up**
+  — so I can try Shikhi with zero friction, and later **create an account that keeps all the
+  progress** I made as a guest. *(Guest onboarding; ADR-0011.)*
+  - *Given* I'm on the sign-in screen, *When* I tap "Try it without an account", *Then* I get
+    a guest session and can use the full learning loop (practice, lessons, review, stats).
+  - *Given* I've made progress as a guest, *When* I create an account (email + password) from
+    the guest prompt, *Then* my account is upgraded **in place** and **all my XP, streak, and
+    word mastery are preserved** (no data is lost or reset).
+  - *Given* the email I choose already belongs to an account, *When* I submit, *Then* I get a
+    clear, localized message to **log in instead**, and I understand this session's guest
+    progress won't be saved. *(Merging into an existing account is out of scope for pilot.)*
+  - *Given* a guest never converts, *Then* the anonymous account and its data are cleaned up
+    after an inactivity window *(retention in Security `50`)*.
 
 > **FR-1.x highlights:** extensible identity-provider abstraction; verification &
 > rate-limiting; secure credential handling (detailed in Security phase). Auth methods may
-> ship in phases (email → phone → social) per the Delivery Plan.
+> ship in phases (email → phone → social) per the Delivery Plan. Guest sessions are anonymous
+> accounts claimed in place — see ADR-0011.
 
 ### E2 — Onboarding & placement *(BR-2, P1)*
 

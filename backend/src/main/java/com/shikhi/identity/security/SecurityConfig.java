@@ -11,6 +11,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -72,6 +73,9 @@ public class SecurityConfig {
 						.permissionsPolicyHeader(pp -> pp.policy(
 								"geolocation=(), microphone=(), camera=()")))
 				.authorizeHttpRequests(auth -> auth
+						// Claim upgrades a guest in place, so it needs the guest's token —
+						// carve it out of the public /v1/auth/** blanket (order matters).
+						.requestMatchers(HttpMethod.POST, "/v1/auth/claim").authenticated()
 						.requestMatchers("/v1/auth/**", "/v1/health", "/v1/ready").permitAll()
 						// Liveness/readiness must be probe-reachable; other actuator endpoints
 						// (metrics, info) are ADMIN-only so they aren't publicly scrapable.

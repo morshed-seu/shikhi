@@ -7,10 +7,12 @@ import java.util.List;
 import java.util.UUID;
 
 /** Public profile view (contract {@code User}). */
-public record UserResponse(UUID id, String displayName, Locale uiLocale, List<String> roles) {
+public record UserResponse(UUID id, String displayName, Locale uiLocale, List<String> roles,
+		boolean isGuest) {
 
 	public static UserResponse from(User user) {
 		List<String> roles = user.getRoles().stream().map(Role::name).sorted().toList();
-		return new UserResponse(user.getId(), user.getDisplayName(), user.getUiLocale(), roles);
+		return new UserResponse(user.getId(), user.getDisplayName(), user.getUiLocale(), roles,
+				user.isAnonymous());
 	}
 }

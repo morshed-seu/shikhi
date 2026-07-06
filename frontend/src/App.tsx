@@ -8,6 +8,7 @@ import { AuthProvider } from './auth/AuthProvider'
 import { useAuth } from './auth/useAuth'
 import { AuthPanel } from './components/AuthPanel'
 import { CurriculumMap } from './components/CurriculumMap'
+import { GuestBanner } from './components/GuestBanner'
 import { LessonPlayer } from './components/LessonPlayer'
 import { Onboarding } from './components/Onboarding'
 import { OfflineBanner } from './components/OfflineBanner'
@@ -131,6 +132,7 @@ function AppShell() {
       </section>
       <OfflineBanner />
       <AuthPanel />
+      <GuestBanner />
       <StatsBar refreshKey={refreshKey} />
       {practicing ? (
         <PracticePlayer onExit={exitPractice} />

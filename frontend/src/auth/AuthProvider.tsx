@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   authApi,
+  type ClaimInput,
   type Locale,
   type LoginInput,
   type RegisterInput,
@@ -60,6 +61,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [establishSession],
   )
 
+  const startGuest = useCallback(
+    async (uiLocale?: Locale) => {
+      await establishSession(await authApi.guest(uiLocale))
+    },
+    [establishSession],
+  )
+
+  // Claim reuses the current in-memory guest access token to upgrade in place; the returned
+  // (rotated) tokens re-establish the session, now as a full account with the same progress.
+  const claim = useCallback(
+    async (input: ClaimInput) => {
+      const token = accessToken.current
+      if (!token) throw new Error('No active guest session to claim')
+      await establishSession(await authApi.claim(token, input))
+    },
+    [establishSession],
+  )
+
   const logout = useCallback(async () => {
     const token = accessToken.current
     try {
@@ -77,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, login, register, logout, getToken, setUiLocale }}
+      value={{ user, loading, login, register, startGuest, claim, logout, getToken, setUiLocale }}
     >
       {children}
     </AuthContext.Provider>

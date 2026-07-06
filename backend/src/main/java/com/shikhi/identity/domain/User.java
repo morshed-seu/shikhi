@@ -61,6 +61,33 @@ public class User {
 		}
 	}
 
+	/**
+	 * A guest learner: {@link UserStatus#ANONYMOUS}, no linked identity/credential. Carries a
+	 * real {@code id} so all progress hangs off it; {@link #claim} upgrades it in place. Callers
+	 * still add {@link Role#LEARNER} so the guest gets the full learning loop.
+	 */
+	public static User anonymous(Locale uiLocale) {
+		User user = new User(null, uiLocale);
+		user.status = UserStatus.ANONYMOUS;
+		return user;
+	}
+
+	/**
+	 * Upgrade an anonymous guest into a full account in place: keep the same {@code id} (so all
+	 * progress stays owned by it) and flip to {@link UserStatus#ACTIVE}. The caller persists the
+	 * new {@link Identity}/{@link Credential}.
+	 */
+	public void claim(String displayName) {
+		if (displayName != null && !displayName.isBlank()) {
+			this.displayName = displayName.trim();
+		}
+		this.status = UserStatus.ACTIVE;
+	}
+
+	public boolean isAnonymous() {
+		return status == UserStatus.ANONYMOUS;
+	}
+
 	@PrePersist
 	void onCreate() {
 		Instant now = Instant.now();

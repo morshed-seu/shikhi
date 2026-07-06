@@ -9,6 +9,8 @@ export interface User {
   displayName: string | null
   uiLocale: Locale
   roles: string[]
+  /** True for an anonymous guest that hasn't claimed the account yet. */
+  isGuest: boolean
 }
 
 export interface TokenPair {
@@ -29,12 +31,25 @@ export interface LoginInput {
   password: string
 }
 
+/** Adds email+password to the current guest account (in-place upgrade — keeps all progress). */
+export interface ClaimInput {
+  email: string
+  password: string
+  displayName?: string
+}
+
 export const authApi = {
   register: (input: RegisterInput) =>
     apiFetch<TokenPair>('/auth/register', { method: 'POST', body: input }),
 
   login: (input: LoginInput) =>
     apiFetch<TokenPair>('/auth/login', { method: 'POST', body: input }),
+
+  guest: (uiLocale?: Locale) =>
+    apiFetch<TokenPair>('/auth/guest', { method: 'POST', body: { uiLocale } }),
+
+  claim: (token: string, input: ClaimInput) =>
+    apiFetch<TokenPair>('/auth/claim', { method: 'POST', token, body: input }),
 
   refresh: (refreshToken: string) =>
     apiFetch<TokenPair>('/auth/refresh', { method: 'POST', body: { refreshToken } }),

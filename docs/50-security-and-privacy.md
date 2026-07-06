@@ -137,6 +137,7 @@ server-side.
 | **User rights** (NFR-PR2) | `GET /me/export` (data export); `DELETE /me` (delete/anonymize) |
 | **Retention** (NFR-PR3) | Retention windows per data class; e.g., ephemeral OTP minutes; audit logs bounded; submitted-answer retention decided (OQ-L4) balancing analytics vs. minimization |
 | **Deletion semantics** | Soft-delete → anonymize PII, retain only aggregate/non-identifying learning stats if needed; hard-delete per policy |
+| **Guest accounts** (ADR-0011) | Guests are anonymous `users` rows (no email/PII). Guest creation is rate-limited like other `/auth/*` endpoints. Abandoned guests (never claimed) are **hard-deleted** by a daily reaper once idle past `shikhi.identity.guest-ttl` (default 30d); DB `on delete cascade` removes their progress. Claiming attaches email/password to the same row — progress is never copied. |
 | **PII to LLM (FUTURE, D4)** (NFR-PR4) | When AI ships: send **only the answer + exercise context needed**; **no names/emails/identifiers**; document the data flow; prompt-injection safeguards below |
 | **Transparency** | Clear privacy notice; lawful basis; jurisdiction TBC (OQ-N2) |
 

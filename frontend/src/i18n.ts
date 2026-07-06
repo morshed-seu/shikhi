@@ -31,6 +31,17 @@ const resources = {
         greeting: 'Hi, {{name}}!',
         learner: 'learner',
         genericError: 'Something went wrong. Please try again.',
+        or: 'or',
+        guestCta: 'Try it without an account →',
+        guestBadge: "You're exploring as a guest.",
+      },
+      guest: {
+        title: 'Save your progress',
+        lead: "You're learning as a guest. Create an account to save your progress.",
+        save: 'Save my progress',
+        createAccount: 'Create account',
+        emailTaken:
+          "That email already has an account. Log in instead — your guest progress from this session won't be saved.",
       },
       stats: {
         title: 'Your progress',
@@ -153,6 +164,17 @@ const resources = {
         greeting: 'স্বাগতম, {{name}}!',
         learner: 'শিক্ষার্থী',
         genericError: 'কিছু একটা সমস্যা হয়েছে। আবার চেষ্টা করুন।',
+        or: 'অথবা',
+        guestCta: 'অ্যাকাউন্ট ছাড়াই চেষ্টা করুন →',
+        guestBadge: 'আপনি অতিথি হিসেবে দেখছেন।',
+      },
+      guest: {
+        title: 'আপনার অগ্রগতি সংরক্ষণ করুন',
+        lead: 'আপনি অতিথি হিসেবে শিখছেন। অগ্রগতি সংরক্ষণ করতে একটি অ্যাকাউন্ট তৈরি করুন।',
+        save: 'আমার অগ্রগতি সংরক্ষণ করুন',
+        createAccount: 'অ্যাকাউন্ট তৈরি করুন',
+        emailTaken:
+          'এই ইমেইলে ইতিমধ্যে একটি অ্যাকাউন্ট আছে। বরং লগ ইন করুন — এই সেশনের অতিথি অগ্রগতি সংরক্ষিত হবে না।',
       },
       stats: {
         title: 'আপনার অগ্রগতি',

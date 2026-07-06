@@ -6,8 +6,8 @@ import { useAuth } from '../auth/useAuth'
 type Mode = 'login' | 'register'
 
 export function AuthPanel() {
-  const { t } = useTranslation()
-  const { user, loading, login, register, logout } = useAuth()
+  const { t, i18n } = useTranslation()
+  const { user, loading, login, register, startGuest, logout } = useAuth()
   const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -20,6 +20,17 @@ export function AuthPanel() {
   }
 
   if (user) {
+    // A guest gets a lightweight badge; the claim prompt lives in GuestBanner.
+    if (user.isGuest) {
+      return (
+        <section className="auth" aria-label={t('auth.profileTitle')}>
+          <p className="auth__greeting">{t('auth.guestBadge')}</p>
+          <button type="button" className="auth__submit" onClick={() => void logout()}>
+            {t('auth.logout')}
+          </button>
+        </section>
+      )
+    }
     return (
       <section className="auth" aria-label={t('auth.profileTitle')}>
         <p className="auth__greeting">
@@ -31,6 +42,18 @@ export function AuthPanel() {
         </button>
       </section>
     )
+  }
+
+  const onStartGuest = async () => {
+    setError(null)
+    setSubmitting(true)
+    try {
+      await startGuest(i18n.language === 'en' ? 'en' : 'bn')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('auth.genericError'))
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const onSubmit = async (event: FormEvent) => {
@@ -114,6 +137,18 @@ export function AuthPanel() {
           {submitting ? t('auth.submitting') : t(mode === 'login' ? 'auth.login' : 'auth.register')}
         </button>
       </form>
+
+      <div className="auth__guest">
+        <span className="auth__guest-sep">{t('auth.or')}</span>
+        <button
+          type="button"
+          className="auth__guest-cta"
+          onClick={() => void onStartGuest()}
+          disabled={submitting}
+        >
+          {t('auth.guestCta')}
+        </button>
+      </div>
     </section>
   )
 }

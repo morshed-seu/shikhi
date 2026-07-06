@@ -20,6 +20,7 @@
 | [0008](0008-deployment-and-cloud.md) | Deployment: cloud-agnostic; **provider deferred** | Accepted (provider TBD) |
 | [0009](0009-observability.md) | Observability stack (OpenTelemetry/Micrometer) | Accepted |
 | [0010](0010-repository-strategy.md) | Single repository (monorepo) for backend + frontend | Accepted |
+| [0011](0011-guest-learning-and-account-claim.md) | Guest learning as anonymous user, claimed (upgraded) in place — no progress migration | Accepted |
 
 **Accepted at Gate B (2026-07-01).** ADR-0008's cloud-agnostic approach is accepted; the
 **specific provider is deferred** until before Phase D deployment work (Google Cloud is the

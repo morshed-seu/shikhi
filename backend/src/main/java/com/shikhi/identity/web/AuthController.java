@@ -31,6 +31,21 @@ public class AuthController {
 				request.uiLocale());
 	}
 
+	/** Start a guest session — a real anonymous learner that can be claimed later. */
+	@PostMapping("/guest")
+	@ResponseStatus(HttpStatus.CREATED)
+	public TokenPair guest(@RequestBody(required = false) GuestRequest request) {
+		return authService.guest(request == null ? null : request.uiLocale());
+	}
+
+	/** Claim the current guest account by adding an email+password (in-place upgrade). */
+	@PostMapping("/claim")
+	public TokenPair claim(@AuthenticationPrincipal AuthenticatedUser principal,
+			@Valid @RequestBody ClaimAccountRequest request) {
+		return authService.claim(principal.id(), request.email(), request.password(),
+				request.displayName());
+	}
+
 	@PostMapping("/login")
 	public TokenPair login(@Valid @RequestBody LoginEmailRequest request) {
 		return authService.login(request.email(), request.password());

@@ -65,6 +65,49 @@ public class AuthenticationService {
 		return issueTokens(user);
 	}
 
+	/**
+	 * Provision a guest learner (E-guest): a real, anonymous {@link User} with role LEARNER and
+	 * no identity/credential. It gets the same token pair as everyone else, so it can drive the
+	 * full learning loop; {@link #claim} later upgrades it in place without moving any progress.
+	 */
+	@Transactional
+	public TokenPair guest(Locale uiLocale) {
+		User user = User.anonymous(uiLocale);
+		user.addRole(Role.LEARNER);
+		users.save(user);
+		return issueTokens(user);
+	}
+
+	/**
+	 * Upgrade the calling guest into a full email account <em>in place</em>: attach an EMAIL
+	 * identity + credential to the same user id and flip status to ACTIVE. Because every progress
+	 * row already references this id, nothing is copied. If the email is already taken we reject
+	 * (guest keeps its session but can't merge into an existing account — they should log in).
+	 */
+	@Transactional
+	public TokenPair claim(UUID userId, String email, String rawPassword, String displayName) {
+		User user = users.findById(userId)
+				.orElseThrow(() -> ApiException.notFound("User not found"));
+		if (!user.isAnonymous()) {
+			throw ApiException.conflict("ALREADY_CLAIMED",
+					"This account already has a sign-in method");
+		}
+
+		String normalized = normalizeEmail(email);
+		if (identities.existsByProviderAndExternalRef(Provider.EMAIL, normalized)) {
+			throw ApiException.conflict("EMAIL_ALREADY_REGISTERED",
+					"An account with this email already exists");
+		}
+
+		identities.save(new Identity(user.getId(), Provider.EMAIL, normalized));
+		credentials.save(new Credential(user.getId(), passwordEncoder.encode(rawPassword),
+				PASSWORD_ALGO));
+		user.claim(displayName);
+		users.save(user);
+
+		return issueTokens(user);
+	}
+
 	@Transactional
 	public TokenPair login(String email, String rawPassword) {
 		String normalized = normalizeEmail(email);

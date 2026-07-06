@@ -1,5 +1,5 @@
 import { createContext } from 'react'
-import type { Locale, LoginInput, RegisterInput, User } from '../api/auth'
+import type { ClaimInput, Locale, LoginInput, RegisterInput, User } from '../api/auth'
 
 export interface AuthState {
   user: User | null
@@ -7,6 +7,10 @@ export interface AuthState {
   loading: boolean
   login: (input: LoginInput) => Promise<void>
   register: (input: RegisterInput) => Promise<void>
+  /** Start an anonymous guest session (learn without signing up). */
+  startGuest: (uiLocale?: Locale) => Promise<void>
+  /** Upgrade the current guest into a full account, keeping all progress. */
+  claim: (input: ClaimInput) => Promise<void>
   logout: () => Promise<void>
   /** Current access token for authenticated API calls, or null when signed out. */
   getToken: () => string | null
