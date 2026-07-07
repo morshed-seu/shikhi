@@ -4,8 +4,11 @@ import com.shikhi.app.BuildConfig
 import com.shikhi.app.data.api.AuthApi
 import com.shikhi.app.data.api.ContentApi
 import com.shikhi.app.data.api.LearningApi
+import com.shikhi.app.data.api.PracticeApi
 import com.shikhi.app.data.api.ProgressApi
+import com.shikhi.app.data.api.ReviewApi
 import com.shikhi.app.data.api.UserApi
+import com.shikhi.app.data.api.VocabularyApi
 import com.shikhi.app.data.auth.AuthInterceptor
 import com.shikhi.app.data.auth.TokenAuthenticator
 import dagger.Module
@@ -84,4 +87,19 @@ object NetworkModule {
 	@Singleton
 	fun progressApi(@AuthedClient client: OkHttpClient): ProgressApi =
 		retrofit(client).create(ProgressApi::class.java)
+
+	@Provides
+	@Singleton
+	fun practiceApi(@AuthedClient client: OkHttpClient): PracticeApi =
+		retrofit(client).create(PracticeApi::class.java)
+
+	@Provides
+	@Singleton
+	fun reviewApi(@AuthedClient client: OkHttpClient): ReviewApi =
+		retrofit(client).create(ReviewApi::class.java)
+
+	@Provides
+	@Singleton
+	fun vocabularyApi(@AuthedClient client: OkHttpClient): VocabularyApi =
+		retrofit(client).create(VocabularyApi::class.java)
 }

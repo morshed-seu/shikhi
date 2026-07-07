@@ -2,8 +2,12 @@ package com.shikhi.app.data.auth
 
 import com.shikhi.app.data.api.AuthApi
 import com.shikhi.app.data.api.UserApi
+import com.shikhi.app.data.api.dto.ClaimRequest
 import com.shikhi.app.data.api.dto.GuestRequest
+import com.shikhi.app.data.api.dto.LoginRequest
 import com.shikhi.app.data.api.dto.RefreshRequest
+import com.shikhi.app.data.api.dto.RegisterRequest
+import com.shikhi.app.data.api.dto.TokenPair
 import com.shikhi.app.data.api.dto.User
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -78,7 +82,26 @@ class AuthRepository @Inject constructor(
 	}
 
 	suspend fun startGuest(uiLocale: String) {
-		val pair = authApi.guest(GuestRequest(uiLocale))
+		activate(authApi.guest(GuestRequest(uiLocale)))
+	}
+
+	suspend fun login(email: String, password: String) {
+		activate(authApi.login(LoginRequest(email, password)))
+	}
+
+	suspend fun register(email: String, password: String, displayName: String?, uiLocale: String) {
+		activate(authApi.register(RegisterRequest(email, password, displayName, uiLocale)))
+	}
+
+	/**
+	 * Upgrade the current guest in place (ADR-0011): adds email+password to the same user
+	 * id — all progress carries over. Returns rotated tokens; the caller stays signed in.
+	 */
+	suspend fun claim(email: String, password: String, displayName: String?) {
+		activate(userApi.get().claim(ClaimRequest(email, password, displayName)))
+	}
+
+	private suspend fun activate(pair: TokenPair) {
 		tokenStore.setSession(pair.accessToken, pair.refreshToken)
 		_session.value = SessionState.Active(userApi.get().me())
 	}

@@ -6,8 +6,10 @@ import com.shikhi.app.data.api.AuthApi
 import com.shikhi.app.data.api.ContentApi
 import com.shikhi.app.data.api.ProgressApi
 import com.shikhi.app.data.api.dto.CurriculumTree
+import com.shikhi.app.data.api.dto.SetLevelRequest
 import com.shikhi.app.data.api.dto.Stats
 import com.shikhi.app.data.auth.AuthRepository
+import com.shikhi.app.data.auth.SessionState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
@@ -26,6 +28,8 @@ data class HomeUiState(
 	val curriculumLoading: Boolean = true,
 	val curriculumError: Boolean = false,
 	val health: BackendHealth = BackendHealth.CHECKING,
+	val isGuest: Boolean = false,
+	val savingLevel: Boolean = false,
 )
 
 @HiltViewModel
@@ -41,6 +45,23 @@ class HomeViewModel @Inject constructor(
 
 	init {
 		checkHealth()
+		viewModelScope.launch {
+			authRepository.session.collect { session ->
+				_state.update { it.copy(isGuest = (session as? SessionState.Active)?.user?.isGuest == true) }
+			}
+		}
+	}
+
+	/** Self-placement from the practice hero's level picker (PUT /stats/level). */
+	fun setLevel(level: String) {
+		if (_state.value.savingLevel) return
+		_state.update { it.copy(savingLevel = true) }
+		viewModelScope.launch {
+			runCatching { progressApi.setLevel(SetLevelRequest(level)) }.onSuccess { stats ->
+				_state.update { it.copy(stats = stats) }
+			}
+			_state.update { it.copy(savingLevel = false) }
+		}
 	}
 
 	/** Pulls stats + curriculum; called on entry and again when returning from a lesson. */

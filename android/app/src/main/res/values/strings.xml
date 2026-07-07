@@ -51,4 +51,61 @@
     <string name="lesson_back_to_course">কোর্সে ফিরে যান</string>
     <string name="lesson_saved_offline">অফলাইনে সংরক্ষিত — সংযোগ ফিরলে সিঙ্ক হবে।</string>
     <string name="lesson_exit">✕</string>
+
+    <!-- Practice (web i18n practice.*) -->
+    <string name="practice_hero_eyebrow">দৈনিক অনুশীলন</string>
+    <string name="practice_hero_title">আজকের অনুশীলন</string>
+    <string name="practice_hero_copy">আপনার %1$s স্তরের শব্দ থেকে নতুন অনুশীলন — সাথে ছোট ছোট বাক্য।</string>
+    <string name="practice_pick_level">আপনার স্তর বেছে নিন</string>
+    <string name="practice_band_a1">একদম শুরু</string>
+    <string name="practice_band_a2">প্রাথমিক</string>
+    <string name="practice_band_b1">মধ্যম</string>
+    <string name="practice_band_b2">উচ্চতর</string>
+    <string name="practice_start">সেশন শুরু করুন</string>
+    <string name="practice_loading">আপনার সেশন তৈরি হচ্ছে…</string>
+    <string name="practice_error">সেশন শুরু করা যায়নি।</string>
+    <string name="practice_back_home">হোমে ফিরে যান</string>
+    <string name="practice_to_summary">রাউন্ডের ফলাফল দেখুন</string>
+    <string name="practice_round_title">রাউন্ড শেষ!</string>
+    <string name="practice_round_score">%2$dটির মধ্যে %1$dটি সঠিক</string>
+    <string name="practice_session_score">সেশন: %2$dটির মধ্যে %1$dটি সঠিক</string>
+    <string name="practice_xp_earned">+%1$d XP</string>
+    <string name="practice_keep_going">চালিয়ে যান</string>
+    <string name="practice_finish">আজ এ পর্যন্তই</string>
+    <string name="practice_results_title">সেশন সম্পন্ন!</string>
+    <string name="practice_level_up_offer">আপনি এই স্তরের বেশিরভাগ শব্দ আয়ত্ত করেছেন — %1$s এ যেতে প্রস্তুত?</string>
+    <string name="practice_level_up_accept">%1$s এ উন্নীত হোন</string>
+    <string name="practice_level_up_done">আপনার স্তর এখন %1$s। নতুন সেশনে এটি ব্যবহৃত হবে।</string>
+
+    <!-- Review (web i18n review.*) -->
+    <string name="review_title">পুনরালোচনা</string>
+    <string name="review_due">পুনরালোচনার জন্য %1$dটি</string>
+    <string name="review_knew_it">আমি জানতাম</string>
+    <string name="review_still_learning">এখনও শিখছি</string>
+
+    <!-- Vocabulary (web i18n vocab.*) -->
+    <string name="vocab_title">শব্দ তালিকা</string>
+    <string name="vocab_show">শব্দ দেখুন</string>
+    <string name="vocab_hide">লুকান</string>
+    <string name="vocab_search_placeholder">শব্দ বা অর্থ খুঁজুন…</string>
+    <string name="vocab_loading">শব্দ লোড হচ্ছে…</string>
+    <string name="vocab_error">শব্দ তালিকা লোড করা যায়নি।</string>
+    <string name="vocab_empty">এই স্তরের জন্য এখনও কোনো শব্দ নেই।</string>
+    <string name="vocab_count">%3$dটির মধ্যে %1$d-%2$d দেখানো হচ্ছে</string>
+    <string name="vocab_prev">পূর্ববর্তী</string>
+    <string name="vocab_next">পরবর্তী</string>
+    <string name="vocab_page">%2$dটির মধ্যে %1$d নম্বর পৃষ্ঠা</string>
+
+    <!-- Accounts (web i18n auth.* / guest.*) -->
+    <string name="auth_login">লগ ইন</string>
+    <string name="auth_register">নিবন্ধন</string>
+    <string name="auth_email">ইমেইল</string>
+    <string name="auth_password">পাসওয়ার্ড</string>
+    <string name="auth_display_name">নাম</string>
+    <string name="auth_submitting">অপেক্ষা করুন…</string>
+    <string name="auth_or">অথবা</string>
+    <string name="guest_lead">আপনি অতিথি হিসেবে শিখছেন। অগ্রগতি সংরক্ষণ করতে একটি অ্যাকাউন্ট তৈরি করুন।</string>
+    <string name="guest_save">আমার অগ্রগতি সংরক্ষণ করুন</string>
+    <string name="guest_create_account">অ্যাকাউন্ট তৈরি করুন</string>
+    <string name="guest_email_taken">এই ইমেইলে ইতিমধ্যে একটি অ্যাকাউন্ট আছে। বরং লগ ইন করুন — এই সেশনের অতিথি অগ্রগতি সংরক্ষিত হবে না।</string>
 </resources>

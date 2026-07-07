@@ -3,7 +3,6 @@ package com.shikhi.app.ui.home
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -34,66 +33,120 @@ import com.shikhi.app.data.api.dto.LessonNode
 import com.shikhi.app.ui.util.localized
 
 @Composable
-fun HomeScreen(onOpenLesson: (String) -> Unit, viewModel: HomeViewModel = hiltViewModel()) {
+fun HomeScreen(
+	onOpenLesson: (String) -> Unit,
+	onStartPractice: () -> Unit,
+	viewModel: HomeViewModel = hiltViewModel(),
+	reviewViewModel: ReviewViewModel = hiltViewModel(),
+	vocabViewModel: VocabViewModel = hiltViewModel(),
+) {
 	val ui by viewModel.state.collectAsStateWithLifecycle()
+	val reviewItems by reviewViewModel.items.collectAsStateWithLifecycle()
+	val vocab by vocabViewModel.state.collectAsStateWithLifecycle()
 
-	// Re-pull stats + progress each time home comes (back) on screen — the web parent
-	// bumps a refreshKey after a lesson finishes for the same reason.
-	LaunchedEffect(Unit) { viewModel.refresh() }
+	// Re-pull stats + progress + due reviews each time home comes (back) on screen — the
+	// web parent bumps a refreshKey after a lesson/practice finishes for the same reason.
+	LaunchedEffect(Unit) {
+		viewModel.refresh()
+		reviewViewModel.refresh()
+	}
 
-	Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
-		Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-			Text(
-				stringResource(R.string.app_name),
-				style = MaterialTheme.typography.headlineSmall,
-				color = MaterialTheme.colorScheme.primary,
-			)
-			Spacer(Modifier.weight(1f))
-			TextButton(onClick = viewModel::logout) { Text(stringResource(R.string.log_out)) }
-		}
-
-		ui.stats?.let { stats ->
-			Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-				Text(stringResource(R.string.stats_xp, stats.xp), style = MaterialTheme.typography.bodyLarge)
-				Text(stringResource(R.string.stats_streak, stats.currentStreak), style = MaterialTheme.typography.bodyLarge)
-				Text(stringResource(R.string.stats_hearts, stats.hearts), style = MaterialTheme.typography.bodyLarge)
+	LazyColumn(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
+		item(key = "header") {
+			Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+				Text(
+					stringResource(R.string.app_name),
+					style = MaterialTheme.typography.headlineSmall,
+					color = MaterialTheme.colorScheme.primary,
+				)
+				Spacer(Modifier.weight(1f))
+				TextButton(onClick = viewModel::logout) { Text(stringResource(R.string.log_out)) }
 			}
 		}
 
-		if (ui.health != BackendHealth.ONLINE) HealthBadge(ui.health)
+		item(key = "stats") {
+			ui.stats?.let { stats ->
+				Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+					Text(stringResource(R.string.stats_xp, stats.xp), style = MaterialTheme.typography.bodyLarge)
+					Text(stringResource(R.string.stats_streak, stats.currentStreak), style = MaterialTheme.typography.bodyLarge)
+					Text(stringResource(R.string.stats_hearts, stats.hearts), style = MaterialTheme.typography.bodyLarge)
+				}
+			}
+			if (ui.health != BackendHealth.ONLINE) HealthBadge(ui.health)
+		}
 
-		Spacer(Modifier.height(8.dp))
-		Text(stringResource(R.string.curriculum_title), style = MaterialTheme.typography.titleLarge)
-		Spacer(Modifier.height(8.dp))
+		if (ui.isGuest) {
+			item(key = "guest-banner") {
+				Box(Modifier.padding(vertical = 8.dp)) { GuestBanner() }
+			}
+		}
+
+		item(key = "practice-hero") {
+			Box(Modifier.padding(vertical = 8.dp)) {
+				PracticeHero(
+					level = ui.stats?.cefrLevel ?: "A1",
+					streak = ui.stats?.currentStreak ?: 0,
+					saving = ui.savingLevel,
+					onPickLevel = viewModel::setLevel,
+					onStart = onStartPractice,
+				)
+			}
+		}
+
+		item(key = "review") {
+			ReviewSection(items = reviewItems, onMark = reviewViewModel::mark)
+		}
+
+		item(key = "curriculum-title") {
+			Text(
+				stringResource(R.string.curriculum_title),
+				style = MaterialTheme.typography.titleLarge,
+				modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
+			)
+		}
 
 		when {
-			ui.curriculumLoading -> Text(stringResource(R.string.curriculum_loading))
-			ui.curriculumError -> Text(stringResource(R.string.curriculum_error), color = MaterialTheme.colorScheme.error)
-			ui.tree != null && ui.tree!!.levels.isEmpty() -> Text(stringResource(R.string.curriculum_empty))
-			else -> LazyColumn(Modifier.fillMaxSize()) {
-				ui.tree?.levels?.forEach { level ->
-					item(key = level.id) {
+			ui.curriculumLoading -> item { Text(stringResource(R.string.curriculum_loading)) }
+			ui.curriculumError -> item {
+				Text(stringResource(R.string.curriculum_error), color = MaterialTheme.colorScheme.error)
+			}
+
+			ui.tree != null && ui.tree!!.levels.isEmpty() -> item { Text(stringResource(R.string.curriculum_empty)) }
+
+			else -> ui.tree?.levels?.forEach { level ->
+				item(key = level.id) {
+					Text(
+						level.title.localized(),
+						style = MaterialTheme.typography.titleMedium,
+						modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+					)
+				}
+				level.units.forEach { unit ->
+					item(key = unit.id) {
 						Text(
-							level.title.localized(),
-							style = MaterialTheme.typography.titleMedium,
-							modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+							unit.title.localized(),
+							style = MaterialTheme.typography.labelLarge,
+							color = MaterialTheme.colorScheme.secondary,
+							modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
 						)
 					}
-					level.units.forEach { unit ->
-						item(key = unit.id) {
-							Text(
-								unit.title.localized(),
-								style = MaterialTheme.typography.labelLarge,
-								color = MaterialTheme.colorScheme.secondary,
-								modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
-							)
-						}
-						items(unit.lessons, key = { it.id }) { lesson ->
-							LessonRow(lesson, onOpenLesson)
-						}
+					items(unit.lessons, key = { it.id }) { lesson ->
+						LessonRow(lesson, onOpenLesson)
 					}
 				}
 			}
+		}
+
+		item(key = "vocabulary") {
+			VocabularySection(
+				s = vocab,
+				onToggle = vocabViewModel::toggleOpen,
+				onLevel = vocabViewModel::setLevel,
+				onQuery = vocabViewModel::setQuery,
+				onPrev = vocabViewModel::prevPage,
+				onNext = vocabViewModel::nextPage,
+			)
+			Spacer(Modifier.height(24.dp))
 		}
 	}
 }

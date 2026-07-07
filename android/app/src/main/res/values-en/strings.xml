@@ -50,4 +50,61 @@
     <string name="lesson_back_to_course">Back to course</string>
     <string name="lesson_saved_offline">Saved offline — it will sync when you reconnect.</string>
     <string name="lesson_exit">✕</string>
+
+    <!-- Practice -->
+    <string name="practice_hero_eyebrow">Daily practice</string>
+    <string name="practice_hero_title">Today’s practice</string>
+    <string name="practice_hero_copy">Fresh exercises from your %1$s words — short sentences in the mix.</string>
+    <string name="practice_pick_level">Choose your level</string>
+    <string name="practice_band_a1">Beginner</string>
+    <string name="practice_band_a2">Elementary</string>
+    <string name="practice_band_b1">Intermediate</string>
+    <string name="practice_band_b2">Upper intermediate</string>
+    <string name="practice_start">Start session</string>
+    <string name="practice_loading">Preparing your session…</string>
+    <string name="practice_error">Could not start the session.</string>
+    <string name="practice_back_home">Back to home</string>
+    <string name="practice_to_summary">See round summary</string>
+    <string name="practice_round_title">Round complete!</string>
+    <string name="practice_round_score">%1$d / %2$d correct</string>
+    <string name="practice_session_score">Session: %1$d / %2$d correct</string>
+    <string name="practice_xp_earned">+%1$d XP</string>
+    <string name="practice_keep_going">Keep going</string>
+    <string name="practice_finish">Finish for now</string>
+    <string name="practice_results_title">Session complete!</string>
+    <string name="practice_level_up_offer">You’ve mastered most of your level — ready for %1$s?</string>
+    <string name="practice_level_up_accept">Move up to %1$s</string>
+    <string name="practice_level_up_done">Your level is now %1$s. New sessions will use it.</string>
+
+    <!-- Review -->
+    <string name="review_title">Review</string>
+    <string name="review_due">%1$d to review</string>
+    <string name="review_knew_it">I knew it</string>
+    <string name="review_still_learning">Still learning</string>
+
+    <!-- Vocabulary -->
+    <string name="vocab_title">Word list</string>
+    <string name="vocab_show">Browse words</string>
+    <string name="vocab_hide">Hide</string>
+    <string name="vocab_search_placeholder">Search words or meanings…</string>
+    <string name="vocab_loading">Loading words…</string>
+    <string name="vocab_error">Could not load the word list.</string>
+    <string name="vocab_empty">No words for this level yet.</string>
+    <string name="vocab_count">Showing %1$d-%2$d of %3$d</string>
+    <string name="vocab_prev">Previous</string>
+    <string name="vocab_next">Next</string>
+    <string name="vocab_page">Page %1$d of %2$d</string>
+
+    <!-- Accounts -->
+    <string name="auth_login">Log in</string>
+    <string name="auth_register">Sign up</string>
+    <string name="auth_email">Email</string>
+    <string name="auth_password">Password</string>
+    <string name="auth_display_name">Name</string>
+    <string name="auth_submitting">Please wait…</string>
+    <string name="auth_or">or</string>
+    <string name="guest_lead">You\'re learning as a guest. Create an account to save your progress.</string>
+    <string name="guest_save">Save my progress</string>
+    <string name="guest_create_account">Create account</string>
+    <string name="guest_email_taken">That email already has an account. Log in instead — your guest progress from this session won\'t be saved.</string>
 </resources>
