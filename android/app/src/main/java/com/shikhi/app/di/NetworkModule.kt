@@ -2,6 +2,9 @@ package com.shikhi.app.di
 
 import com.shikhi.app.BuildConfig
 import com.shikhi.app.data.api.AuthApi
+import com.shikhi.app.data.api.ContentApi
+import com.shikhi.app.data.api.LearningApi
+import com.shikhi.app.data.api.ProgressApi
 import com.shikhi.app.data.api.UserApi
 import com.shikhi.app.data.auth.AuthInterceptor
 import com.shikhi.app.data.auth.TokenAuthenticator
@@ -66,4 +69,19 @@ object NetworkModule {
 	@Singleton
 	fun userApi(@AuthedClient client: OkHttpClient): UserApi =
 		retrofit(client).create(UserApi::class.java)
+
+	@Provides
+	@Singleton
+	fun contentApi(@AuthedClient client: OkHttpClient): ContentApi =
+		retrofit(client).create(ContentApi::class.java)
+
+	@Provides
+	@Singleton
+	fun learningApi(@AuthedClient client: OkHttpClient): LearningApi =
+		retrofit(client).create(LearningApi::class.java)
+
+	@Provides
+	@Singleton
+	fun progressApi(@AuthedClient client: OkHttpClient): ProgressApi =
+		retrofit(client).create(ProgressApi::class.java)
 }

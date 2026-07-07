@@ -108,6 +108,8 @@ dependencies {
 	implementation(libs.activity.compose)
 	implementation(libs.lifecycle.runtime.compose)
 	implementation(libs.lifecycle.viewmodel.compose)
+	implementation(libs.lifecycle.process)
+	implementation(libs.navigation.compose)
 
 	implementation(libs.hilt.android)
 	implementation(libs.hilt.navigation.compose)
@@ -121,6 +123,10 @@ dependencies {
 	debugImplementation(libs.okhttp.logging)
 
 	implementation(libs.datastore.preferences)
+
+	implementation(libs.room.runtime)
+	implementation(libs.room.ktx)
+	ksp(libs.room.compiler)
 
 	testImplementation(libs.junit)
 	testImplementation(libs.mockk)

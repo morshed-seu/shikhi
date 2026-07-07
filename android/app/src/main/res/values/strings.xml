@@ -19,4 +19,36 @@
     <string name="error_generic">কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।</string>
     <string name="retry">আবার চেষ্টা করুন</string>
     <string name="loading">লোড হচ্ছে…</string>
+
+    <!-- Stats bar (web i18n stats.*) -->
+    <string name="stats_xp">⭐ %1$d XP</string>
+    <string name="stats_streak">🔥 %1$d দিনের ধারা</string>
+    <string name="stats_hearts">❤ %1$d</string>
+
+    <!-- Curriculum map (web i18n curriculum.*) -->
+    <string name="curriculum_title">আপনার কোর্স</string>
+    <string name="curriculum_loading">আপনার কোর্স লোড হচ্ছে…</string>
+    <string name="curriculum_empty">এখনও কোনো পাঠ প্রকাশিত হয়নি।</string>
+    <string name="curriculum_error">কোর্স লোড করা যায়নি।</string>
+
+    <!-- Lesson player (web i18n lesson.*) -->
+    <string name="lesson_loading">পাঠ শুরু হচ্ছে…</string>
+    <string name="lesson_error">পাঠটি লোড করা যায়নি।</string>
+    <string name="lesson_check">যাচাই করুন</string>
+    <string name="lesson_next">পরবর্তী</string>
+    <string name="lesson_finish">শেষ করুন</string>
+    <string name="lesson_correct">সঠিক!</string>
+    <string name="lesson_incorrect">ঠিক হয়নি</string>
+    <string name="lesson_word_bank_hint">বাক্যটি তৈরি করতে শব্দগুলো ক্রমানুসারে ট্যাপ করুন।</string>
+    <string name="lesson_answer_label">আপনার উত্তর</string>
+    <string name="lesson_answer_placeholder">ইংরেজিতে লিখুন…</string>
+    <string name="lesson_unsupported">এই ধরনের অনুশীলন শীঘ্রই আসছে।</string>
+    <string name="lesson_progress">%1$d / %2$d</string>
+    <string name="lesson_results_title">পাঠ সম্পন্ন!</string>
+    <string name="lesson_score">স্কোর: %1$d / %2$d</string>
+    <string name="lesson_xp_earned">অর্জিত XP: %1$d</string>
+    <string name="lesson_hearts_left">হৃদয়: %1$d</string>
+    <string name="lesson_back_to_course">কোর্সে ফিরে যান</string>
+    <string name="lesson_saved_offline">অফলাইনে সংরক্ষিত — সংযোগ ফিরলে সিঙ্ক হবে।</string>
+    <string name="lesson_exit">✕</string>
 </resources>

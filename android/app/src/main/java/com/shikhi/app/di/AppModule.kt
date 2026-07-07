@@ -4,8 +4,11 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
+import androidx.room.Room
 import com.shikhi.app.data.auth.DataStoreTokenStore
 import com.shikhi.app.data.auth.TokenStore
+import com.shikhi.app.data.db.OutboxDao
+import com.shikhi.app.data.db.ShikhiDatabase
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -31,6 +34,14 @@ object AppModule {
 	@Singleton
 	fun sessionDataStore(@ApplicationContext context: Context): DataStore<Preferences> =
 		context.sessionDataStore
+
+	@Provides
+	@Singleton
+	fun database(@ApplicationContext context: Context): ShikhiDatabase =
+		Room.databaseBuilder(context, ShikhiDatabase::class.java, "shikhi.db").build()
+
+	@Provides
+	fun outboxDao(db: ShikhiDatabase): OutboxDao = db.outboxDao()
 }
 
 @Module

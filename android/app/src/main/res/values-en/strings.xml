@@ -18,4 +18,36 @@
     <string name="error_generic">Something went wrong. Please try again.</string>
     <string name="retry">Try again</string>
     <string name="loading">Loading…</string>
+
+    <!-- Stats bar -->
+    <string name="stats_xp">⭐ %1$d XP</string>
+    <string name="stats_streak">🔥 %1$d day streak</string>
+    <string name="stats_hearts">❤ %1$d</string>
+
+    <!-- Curriculum map -->
+    <string name="curriculum_title">Your course</string>
+    <string name="curriculum_loading">Loading your course…</string>
+    <string name="curriculum_empty">No lessons are published yet.</string>
+    <string name="curriculum_error">Could not load the course.</string>
+
+    <!-- Lesson player -->
+    <string name="lesson_loading">Starting the lesson…</string>
+    <string name="lesson_error">Could not load the lesson.</string>
+    <string name="lesson_check">Check</string>
+    <string name="lesson_next">Continue</string>
+    <string name="lesson_finish">Finish</string>
+    <string name="lesson_correct">Correct!</string>
+    <string name="lesson_incorrect">Not quite</string>
+    <string name="lesson_word_bank_hint">Tap the words in order to build the sentence.</string>
+    <string name="lesson_answer_label">Your answer</string>
+    <string name="lesson_answer_placeholder">Type in English…</string>
+    <string name="lesson_unsupported">This exercise type is coming soon.</string>
+    <string name="lesson_progress">%1$d / %2$d</string>
+    <string name="lesson_results_title">Lesson complete!</string>
+    <string name="lesson_score">Score: %1$d / %2$d</string>
+    <string name="lesson_xp_earned">XP earned: %1$d</string>
+    <string name="lesson_hearts_left">Hearts: %1$d</string>
+    <string name="lesson_back_to_course">Back to course</string>
+    <string name="lesson_saved_offline">Saved offline — it will sync when you reconnect.</string>
+    <string name="lesson_exit">✕</string>
 </resources>

@@ -13,7 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.shikhi.app.data.auth.SessionState
-import com.shikhi.app.ui.home.HomeScreen
+import com.shikhi.app.ui.navigation.ShikhiNavHost
 import com.shikhi.app.ui.onboarding.OnboardingScreen
 import com.shikhi.app.ui.theme.ShikhiTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -39,7 +39,7 @@ class MainActivity : ComponentActivity() {
 						is SessionState.Unavailable,
 						-> OnboardingScreen()
 
-						is SessionState.Active -> HomeScreen()
+						is SessionState.Active -> ShikhiNavHost()
 					}
 				}
 			}
