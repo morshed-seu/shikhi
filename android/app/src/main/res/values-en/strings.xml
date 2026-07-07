@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Shikhi</string>
+
+    <string name="onboarding_tagline">English for Bengali speakers — a little every day</string>
+    <string name="continue_as_guest">Start without signing up</string>
+    <string name="onboarding_guest_hint">Your progress is saved; you can create an account later and keep it.</string>
+
+    <string name="home_greeting">Welcome, %1$s</string>
+    <string name="guest_display_name">Guest learner</string>
+    <string name="log_out">Log out</string>
+
+    <string name="health_checking">Connecting to the server…</string>
+    <string name="health_online">Server ready</string>
+    <string name="health_warming">Server is waking up — hang on…</string>
+    <string name="health_offline">Can\'t reach the server</string>
+
+    <string name="error_generic">Something went wrong. Please try again.</string>
+    <string name="retry">Try again</string>
+    <string name="loading">Loading…</string>
+</resources>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Default locale is Bengali (D1, PRD 21 §2); English lives in values-en/. -->
+<resources>
+    <string name="app_name">শিখি</string>
+
+    <string name="onboarding_tagline">বাংলাভাষীদের জন্য ইংরেজি শেখা — সহজে, প্রতিদিন</string>
+    <string name="continue_as_guest">সাইন-আপ ছাড়াই শুরু করুন</string>
+    <string name="onboarding_guest_hint">আপনার অগ্রগতি সংরক্ষিত থাকবে; পরে যেকোনো সময় অ্যাকাউন্ট খুলে তা রাখতে পারবেন।</string>
+
+    <string name="home_greeting">স্বাগতম, %1$s</string>
+    <string name="guest_display_name">অতিথি শিক্ষার্থী</string>
+    <string name="log_out">লগ আউট</string>
+
+    <string name="health_checking">সার্ভারের সাথে সংযোগ হচ্ছে…</string>
+    <string name="health_online">সার্ভার প্রস্তুত</string>
+    <string name="health_warming">সার্ভার চালু হচ্ছে — একটু অপেক্ষা করুন…</string>
+    <string name="health_offline">সংযোগ পাওয়া যাচ্ছে না</string>
+
+    <string name="error_generic">কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।</string>
+    <string name="retry">আবার চেষ্টা করুন</string>
+    <string name="loading">লোড হচ্ছে…</string>
+</resources>

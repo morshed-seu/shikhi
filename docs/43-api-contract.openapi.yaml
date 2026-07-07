@@ -161,7 +161,7 @@ paths:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/EmailOnlyRequest' } } }
       responses:
-        '202': { description: If the account exists, a reset email is sent }
+        '202': { description: 'If the account exists, a reset email is sent' }
   /auth/password/reset:
     post:
       tags: [auth]

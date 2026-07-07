@@ -24,12 +24,16 @@ Key choices (fixed):
 - **UI:** single-activity Jetpack Compose, Material 3 theme ported from the web design
   tokens (`frontend/src/index.css`), Bengali-default localization (`values/` = bn,
   `values-en/` = en) with Noto Sans Bengali.
-- **API client:** generated from `docs/43` via openapi-generator (`kotlin` /
-  `jvm-retrofit2` / kotlinx-serialization), regenerated on build, generated code not
-  committed. *Fallback* if the OpenAPI 3.1 spec generates poorly (`allOf`,
-  `additionalProperties`): hand-written DTOs + Retrofit interfaces (~20 endpoints).
-  Either way a hand-written mapping layer produces typed domain models (exercise
-  `config` payloads are intentionally schemaless in the contract).
+- **API client:** hand-written DTOs + Retrofit interfaces (~20 endpoints), with a
+  mapping layer producing typed domain models. *Spike outcome (MA1, 2026-07-07):* the
+  openapi-generator `kotlin`/`jvm-retrofit2` output was structurally sound (`allOf`
+  flattens, enums/interfaces clean) but maps the contract's intentionally schemaless
+  payloads (`Exercise.config`, `SubmitAnswerRequest.answer`) to `Map<String, Any>`,
+  which kotlinx-serialization cannot (de)serialize at runtime — unusable for the very
+  flows that matter. Hand-written DTOs type those as `JsonObject` instead. The
+  `openApiGenerate` Gradle task is kept as a manual contract-validation/reference step
+  (it caught a real YAML defect in `/auth/password/forgot` on first run); generated
+  code is never compiled into the app.
 - **Auth:** mirrors the web semantics (ADR-0005/0011) — access token in memory only;
   rotating refresh token at rest in Preferences DataStore encrypted with an Android
   Keystore AES/GCM key (the deprecated `security-crypto` library is avoided). An OkHttp
