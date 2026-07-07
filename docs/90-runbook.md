@@ -44,6 +44,18 @@ drains in-flight requests).
 Flyway runs migrations automatically on boot; Hibernate is `validate`-only (never mutates
 schema).
 
+**Android client (sideload, docs/21):**
+```bash
+cd android && ./gradlew assembleDebug     # debug APK → app/build/outputs/apk/debug/
+./gradlew assembleRelease                 # signed release; needs keystore.properties (docs/70 §13)
+adb install -r app/build/outputs/apk/release/app-release.apk
+```
+Debug builds talk to `http://10.0.2.2:8080/v1/` (host machine from the emulator); override
+with `-PapiBaseUrl=…` for a LAN device. Release builds pin the hosted backend URL at build
+time via `-PreleaseApiBaseUrl=…`. The keystore and `keystore.properties` are never committed
+(see `android/keystore.properties.example`); losing the keystore means users must uninstall
+to upgrade, so back it up.
+
 ## 4. Health, metrics, logs
 
 - **Liveness/readiness (public, for probes):** `GET /actuator/health/liveness`,

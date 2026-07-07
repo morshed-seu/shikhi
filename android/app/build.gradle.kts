@@ -128,6 +128,10 @@ dependencies {
 	implementation(libs.room.ktx)
 	ksp(libs.room.compiler)
 
+	implementation(libs.work.runtime)
+	implementation(libs.hilt.work)
+	ksp(libs.androidx.hilt.compiler)
+
 	testImplementation(libs.junit)
 	testImplementation(libs.mockk)
 	testImplementation(libs.coroutines.test)

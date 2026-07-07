@@ -63,7 +63,8 @@ class OutboxRepositoryTest {
 			.addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
 			.build()
 			.create(ProgressApi::class.java)
-		outbox = OutboxRepository(dao, dagger.Lazy { api })
+		val workManager = io.mockk.mockk<androidx.work.WorkManager>(relaxed = true)
+		outbox = OutboxRepository(dao, dagger.Lazy { api }, dagger.Lazy { workManager })
 	}
 
 	@After

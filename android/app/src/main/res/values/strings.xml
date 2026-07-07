@@ -33,7 +33,7 @@
 
     <!-- Lesson player (web i18n lesson.*) -->
     <string name="lesson_loading">পাঠ শুরু হচ্ছে…</string>
-    <string name="lesson_error">পাঠটি লোড করা যায়নি।</string>
+    <string name="lesson_error">পাঠটি লোড করা যায়নি। পাঠ খেলতে ইন্টারনেট সংযোগ প্রয়োজন — নেটওয়ার্ক দেখে আবার চেষ্টা করুন।</string>
     <string name="lesson_check">যাচাই করুন</string>
     <string name="lesson_next">পরবর্তী</string>
     <string name="lesson_finish">শেষ করুন</string>
@@ -50,6 +50,7 @@
     <string name="lesson_hearts_left">হৃদয়: %1$d</string>
     <string name="lesson_back_to_course">কোর্সে ফিরে যান</string>
     <string name="lesson_saved_offline">অফলাইনে সংরক্ষিত — সংযোগ ফিরলে সিঙ্ক হবে।</string>
+    <string name="offline_copy">অফলাইন কপি — আপনার সর্বশেষ সংরক্ষিত কোর্স দেখানো হচ্ছে।</string>
     <string name="lesson_exit">✕</string>
 
     <!-- Practice (web i18n practice.*) -->

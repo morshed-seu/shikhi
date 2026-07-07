@@ -39,9 +39,11 @@
 | Accounts (E1) | Register, log in, log out, profile (display name, UI locale); **claim guest** flow with progress kept in place; email-taken (409) explains "log in instead, guest progress is discarded" exactly like the web. | `POST /auth/{register,login,claim,logout}`, `GET/PATCH /me` |
 
 ### Phase C — Offline & polish (MA4)
-- **Offline content (goes beyond web):** curriculum tree, opened lessons, and vocabulary
-  lists cached locally keyed by content version; browsing and re-playing cached lessons
-  works offline. Cache refreshes in the background when online.
+- **Offline content (goes beyond web):** curriculum tree, learner stats, and vocabulary
+  lists cached locally; browsing them works offline (network-first, cache fallback,
+  with a visible "offline copy" indicator). Playing a lesson or practice still requires
+  the network — grading is server-side (E6), so the app never fakes answer results
+  from a cache.
 - **Outbox v2:** background sync via scheduled work (network-constrained, backoff) instead
   of foreground-only flush.
 - **Localization (E10):** full bn/en UI, Bengali default, per-app language setting;
@@ -85,7 +87,8 @@
 2. Completing a lesson in airplane mode syncs correctly (once, idempotently) on reconnect.
 3. A guest who registers keeps all progress (claim-in-place, ADR-0011); the 409
    email-taken path matches web behavior.
-4. Previously viewed curriculum and lessons open offline from cache.
+4. Previously viewed curriculum, stats, and vocabulary render offline from cache
+   (browse-only; starting a lesson offline explains that grading needs a connection).
 5. Full UI renders correctly in Bengali and English, light and dark.
 6. Kill/relaunch resumes the session silently; a revoked refresh token lands on
    onboarding without a crash or a stuck state.

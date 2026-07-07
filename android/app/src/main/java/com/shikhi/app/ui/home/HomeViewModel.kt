@@ -3,13 +3,13 @@ package com.shikhi.app.ui.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shikhi.app.data.api.AuthApi
-import com.shikhi.app.data.api.ContentApi
 import com.shikhi.app.data.api.ProgressApi
 import com.shikhi.app.data.api.dto.CurriculumTree
 import com.shikhi.app.data.api.dto.SetLevelRequest
 import com.shikhi.app.data.api.dto.Stats
 import com.shikhi.app.data.auth.AuthRepository
 import com.shikhi.app.data.auth.SessionState
+import com.shikhi.app.data.content.CachedContentRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
@@ -30,13 +30,15 @@ data class HomeUiState(
 	val health: BackendHealth = BackendHealth.CHECKING,
 	val isGuest: Boolean = false,
 	val savingLevel: Boolean = false,
+	/** True when what's on screen came from the offline cache (NFR-AN4). */
+	val fromCache: Boolean = false,
 )
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
 	private val authRepository: AuthRepository,
 	private val authApi: AuthApi,
-	private val contentApi: ContentApi,
+	private val content: CachedContentRepository,
 	private val progressApi: ProgressApi,
 ) : ViewModel() {
 
@@ -64,16 +66,24 @@ class HomeViewModel @Inject constructor(
 		}
 	}
 
-	/** Pulls stats + curriculum; called on entry and again when returning from a lesson. */
+	/**
+	 * Pulls stats + curriculum (network-first, offline cache fallback); called on entry
+	 * and again when returning from a lesson.
+	 */
 	fun refresh() {
 		viewModelScope.launch {
-			val stats = async { runCatching { progressApi.stats() }.getOrNull() }
-			val tree = async { runCatching { contentApi.curriculum() } }
-			_state.update { it.copy(stats = stats.await() ?: it.stats) }
-			tree.await().fold(
-				onSuccess = { t -> _state.update { it.copy(tree = t, curriculumLoading = false, curriculumError = false) } },
-				onFailure = { _ -> _state.update { it.copy(curriculumLoading = false, curriculumError = it.tree == null) } },
-			)
+			val stats = async { content.stats() }
+			val tree = async { content.curriculum() }
+			stats.await()?.let { s -> _state.update { it.copy(stats = s.value) } }
+			val t = tree.await()
+			_state.update {
+				it.copy(
+					tree = t?.value ?: it.tree,
+					curriculumLoading = false,
+					curriculumError = t == null && it.tree == null,
+					fromCache = t?.fromCache == true,
+				)
+			}
 		}
 	}
 

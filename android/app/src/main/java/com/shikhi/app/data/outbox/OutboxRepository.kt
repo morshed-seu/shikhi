@@ -1,5 +1,6 @@
 package com.shikhi.app.data.outbox
 
+import androidx.work.WorkManager
 import com.shikhi.app.data.api.ProgressApi
 import com.shikhi.app.data.api.dto.SyncBatchRequest
 import com.shikhi.app.data.api.dto.SyncEvent
@@ -28,6 +29,7 @@ object OutboxEventType {
 class OutboxRepository @Inject constructor(
 	private val dao: OutboxDao,
 	private val progressApi: dagger.Lazy<ProgressApi>,
+	private val workManager: dagger.Lazy<WorkManager>,
 ) {
 
 	suspend fun enqueue(type: String, payload: JsonObject) {
@@ -39,6 +41,9 @@ class OutboxRepository @Inject constructor(
 				createdAt = System.currentTimeMillis(),
 			),
 		)
+		// A buffered event means we're (probably) offline: let WorkManager deliver it
+		// with backoff as soon as connectivity returns.
+		OutboxSyncWorker.schedule(workManager.get())
 	}
 
 	/** True when the outbox ends up empty (nothing to send, or the batch was accepted). */

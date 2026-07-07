@@ -73,6 +73,7 @@ fun HomeScreen(
 				}
 			}
 			if (ui.health != BackendHealth.ONLINE) HealthBadge(ui.health)
+			if (ui.fromCache) OfflineCopyBanner()
 		}
 
 		if (ui.isGuest) {
@@ -167,6 +168,25 @@ private fun LessonRow(lesson: LessonNode, onOpenLesson: (String) -> Unit) {
 		Text(
 			mark + lesson.title.localized(),
 			color = if (done) MaterialTheme.colorScheme.primary else Color.Unspecified,
+		)
+	}
+}
+
+/** Shown when the curriculum on screen came from the Room cache, not the network (NFR-AN4). */
+@Composable
+private fun OfflineCopyBanner() {
+	Row(
+		verticalAlignment = Alignment.CenterVertically,
+		modifier = Modifier
+			.fillMaxWidth()
+			.padding(vertical = 4.dp)
+			.background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small)
+			.padding(horizontal = 10.dp, vertical = 6.dp),
+	) {
+		Text(
+			stringResource(R.string.offline_copy),
+			style = MaterialTheme.typography.bodyMedium,
+			color = MaterialTheme.colorScheme.onSurfaceVariant,
 		)
 	}
 }

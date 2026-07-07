@@ -34,7 +34,13 @@ interface OutboxDao {
 	suspend fun deleteByIds(ids: List<Long>)
 }
 
-@Database(entities = [OutboxEventEntity::class], version = 1, exportSchema = false)
+@Database(
+	entities = [OutboxEventEntity::class, CachedPayload::class],
+	version = 2,
+	exportSchema = false,
+)
 abstract class ShikhiDatabase : RoomDatabase() {
 	abstract fun outboxDao(): OutboxDao
+
+	abstract fun contentCacheDao(): ContentCacheDao
 }

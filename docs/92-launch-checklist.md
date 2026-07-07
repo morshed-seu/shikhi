@@ -40,6 +40,19 @@ Legend: ✅ done · 🟡 pilot-ready, hardening tracked · ⬜ required before s
 - ✅ Structured ECS JSON logs (prod) with request correlation id; echoed to clients.
 - 🟡 Distributed tracing (OpenTelemetry) — follow-up ⬜.
 
+## Android client (docs/21, ADR-0012 — sideload pilot, not Play Store)
+- ✅ Learner-surface parity: guest-first onboarding, lessons, practice (E12), review,
+  vocabulary, claim-guest accounts — emulator-verified against the live backend (MA1–MA3).
+- ✅ Offline: Room outbox with retained idempotency keys + WorkManager background sync;
+  curriculum/stats/vocabulary browse from cache with an "offline copy" indicator (MA4).
+- ✅ Refresh-token rotation handled single-flight with persist-before-retry (family-replay
+  revocation safe); refresh token AES/GCM-encrypted at rest, access token in-memory only.
+- ✅ bn/en per-app language, bundled Bengali font, light/dark from web design tokens.
+- ✅ Android CI job (lint + unit tests + debug APK artifact), path-filtered.
+- ⬜ Release API base URL pinned to the real hosted backend before distributing any APK
+  (placeholder Render URL 404s today; depends on merging chore/deployable-stack).
+- ⬜ Play Store publishing (identifiers/signing kept compatible; separate track).
+
 ## Ops & process
 - ✅ CI gates: backend build+test (Testcontainers), frontend lint+test+build, security scan.
 - ✅ Operations runbook with incident playbook + rollback procedure (docs/90).

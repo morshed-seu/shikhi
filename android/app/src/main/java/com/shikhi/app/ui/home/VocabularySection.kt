@@ -23,8 +23,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shikhi.app.R
-import com.shikhi.app.data.api.VocabularyApi
 import com.shikhi.app.data.api.dto.VocabularyEntry
+import com.shikhi.app.data.content.CachedContentRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -64,7 +64,7 @@ data class VocabUiState(
 
 @HiltViewModel
 class VocabViewModel @Inject constructor(
-	private val vocabularyApi: VocabularyApi,
+	private val content: CachedContentRepository,
 ) : ViewModel() {
 
 	private val _state = MutableStateFlow(VocabUiState())
@@ -92,10 +92,10 @@ class VocabViewModel @Inject constructor(
 		val level = _state.value.level
 		_state.update { it.copy(loading = true, error = false) }
 		viewModelScope.launch {
-			runCatching { vocabularyApi.list(level) }.fold(
-				onSuccess = { data -> _state.update { it.copy(entries = data, loading = false) } },
-				onFailure = { _ -> _state.update { it.copy(loading = false, error = true) } },
-			)
+			val data = content.vocabulary(level)
+			_state.update {
+				if (data != null) it.copy(entries = data.value, loading = false) else it.copy(loading = false, error = true)
+			}
 		}
 	}
 }

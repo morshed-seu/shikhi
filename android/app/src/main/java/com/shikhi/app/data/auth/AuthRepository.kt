@@ -53,6 +53,13 @@ class AuthRepository @Inject constructor(
 				if (token == null && _session.value is SessionState.Active) {
 					_session.value = SessionState.LoggedOut
 				}
+				// Reconnect after an offline launch: the Authenticator refreshed on the
+				// first 401, proving the stored session is alive — finish the bootstrap.
+				if (token != null && _session.value is SessionState.Unavailable) {
+					runCatching { userApi.get().me() }.onSuccess { user ->
+						_session.value = SessionState.Active(user)
+					}
+				}
 			}
 		}
 	}

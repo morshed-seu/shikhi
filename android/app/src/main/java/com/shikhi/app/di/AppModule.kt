@@ -5,8 +5,10 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.room.Room
+import androidx.work.WorkManager
 import com.shikhi.app.data.auth.DataStoreTokenStore
 import com.shikhi.app.data.auth.TokenStore
+import com.shikhi.app.data.db.ContentCacheDao
 import com.shikhi.app.data.db.OutboxDao
 import com.shikhi.app.data.db.ShikhiDatabase
 import dagger.Binds
@@ -38,10 +40,21 @@ object AppModule {
 	@Provides
 	@Singleton
 	fun database(@ApplicationContext context: Context): ShikhiDatabase =
-		Room.databaseBuilder(context, ShikhiDatabase::class.java, "shikhi.db").build()
+		Room.databaseBuilder(context, ShikhiDatabase::class.java, "shikhi.db")
+			// Pre-release schema changes drop local caches/outbox; fine before first ship.
+			.fallbackToDestructiveMigration(dropAllTables = true)
+			.build()
 
 	@Provides
 	fun outboxDao(db: ShikhiDatabase): OutboxDao = db.outboxDao()
+
+	@Provides
+	fun contentCacheDao(db: ShikhiDatabase): ContentCacheDao = db.contentCacheDao()
+
+	@Provides
+	@Singleton
+	fun workManager(@ApplicationContext context: Context): WorkManager =
+		WorkManager.getInstance(context)
 }
 
 @Module

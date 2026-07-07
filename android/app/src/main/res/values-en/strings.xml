@@ -32,7 +32,7 @@
 
     <!-- Lesson player -->
     <string name="lesson_loading">Starting the lesson…</string>
-    <string name="lesson_error">Could not load the lesson.</string>
+    <string name="lesson_error">Could not load the lesson. Lessons need an internet connection — check your network and try again.</string>
     <string name="lesson_check">Check</string>
     <string name="lesson_next">Continue</string>
     <string name="lesson_finish">Finish</string>
@@ -49,6 +49,7 @@
     <string name="lesson_hearts_left">Hearts: %1$d</string>
     <string name="lesson_back_to_course">Back to course</string>
     <string name="lesson_saved_offline">Saved offline — it will sync when you reconnect.</string>
+    <string name="offline_copy">Offline copy — showing your last saved course.</string>
     <string name="lesson_exit">✕</string>
 
     <!-- Practice -->

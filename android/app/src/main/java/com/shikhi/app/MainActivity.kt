@@ -35,11 +35,13 @@ class MainActivity : ComponentActivity() {
 							contentAlignment = Alignment.Center,
 						) { CircularProgressIndicator() }
 
-						is SessionState.LoggedOut,
-						is SessionState.Unavailable,
-						-> OnboardingScreen()
+						is SessionState.LoggedOut -> OnboardingScreen()
 
-						is SessionState.Active -> ShikhiNavHost()
+						// Offline/cold-start with a stored session: enter the app so cached
+						// content renders (NFR-AN4); APIs self-heal via the Authenticator.
+						is SessionState.Unavailable,
+						is SessionState.Active,
+						-> ShikhiNavHost()
 					}
 				}
 			}
