@@ -1,10 +1,11 @@
 openapi: 3.1.0
 info:
   title: Shikhi API
-  version: 0.1.0-draft
+  version: 0.2.0-draft
   description: >
     REST API contract for Shikhi (শিখি) — a Bengali→English learning platform.
-    Single source of truth for the Spring Boot backend and the React SPA (ADR-0002/0007).
+    Single source of truth for the Spring Boot backend, the React SPA (ADR-0002/0007),
+    and the native Android client (ADR-0012).
     Status: DRAFT — reviewed at Gate B. Endpoints marked `x-phase: post-pilot` are
     designed-for but may ship after the curated pilot (D6). AI grading is NOT in this
     contract (D4) — it is additive behind the grading seam and does not change these
@@ -226,6 +227,15 @@ paths:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Lesson' } } } }
         '404': { $ref: '#/components/responses/NotFound' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /vocabulary:
+    get:
+      tags: [curriculum]
+      summary: List dictionary entries for one CEFR level (word browser, alphabetical)
+      parameters:
+        - { name: level, in: query, required: false, schema: { type: string, enum: [A1, A2, B1, B2, C1], default: A1 } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/VocabularyEntry' } } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
 
   # ---------------- LEARNING (lesson sessions) ----------------
   /sessions:
@@ -524,6 +534,20 @@ components:
         ordinal: { type: integer }
         status: { type: string, enum: [NOT_STARTED, IN_PROGRESS, COMPLETED] }
         locked: { type: boolean }
+    VocabularyEntry:
+      type: object
+      description: >
+        A dictionary entry for the learner word browser (Oxford-5000 layer): one
+        CEFR-tagged headword sense with a Bengali gloss and a bilingual example.
+      properties:
+        id: { type: string, format: uuid }
+        headword: { type: string }
+        senseLabel: { type: string, nullable: true }
+        partOfSpeech: { type: string }
+        cefrLevel: { type: string, enum: [A1, A2, B1, B2, C1] }
+        bnGloss: { type: string }
+        exampleEn: { type: string, nullable: true }
+        exampleBn: { type: string, nullable: true }
     Lesson:
       type: object
       properties:

@@ -232,3 +232,22 @@ updated.
 > **Next:** `70-devops-and-infra.md` (CI/CD, environments, IaC, observability, release/
 > rollback — written provider-agnostically per the deferred cloud decision), then
 > `80-delivery-plan.md` (sequencing, RACI, DoR/DoD, risk register, traceability matrix).
+
+---
+
+## 17. Android app addendum (ADR-0012, PRD `21`) — added 2026-07-07
+
+Test pyramid for the `android/` client (server-side strategy above is unchanged):
+
+1. **JVM unit tests** (largest layer): ViewModels, domain mapping (typed exercise-config
+   parsing), outbox logic — JUnit + MockK + Turbine + coroutines-test.
+2. **Repository/HTTP tests:** against **MockWebServer** — auth flows (single-flight
+   refresh, rotated-refresh-token persistence, family-revocation handling), idempotency
+   key retention across retries, error mapping.
+3. **Compose UI tests** (thin): one per critical flow (MCQ lesson flow at minimum);
+   Robolectric for Room/DataStore where an emulator isn't warranted.
+4. **Manual device E2E per gate:** guest onboarding → lesson → airplane-mode → reconnect
+   sync, on a physical mid-range device (PRD `21` §6 acceptance list).
+
+**CI gate:** `./gradlew lint testDebugUnitTest assembleDebug` must pass in the `android`
+job for every PR that touches `android/` (see `70` §4).

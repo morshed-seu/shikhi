@@ -199,3 +199,23 @@ M0 Foundations ─▶ M1 Identity(email) ─▶ M2 Content+curriculum ─▶ M3 
 > **On Gate C approval, Phase D begins with M0 (Foundations).** I'll switch to the
 > **Developer** role (with QA/Reviewer per the mini-cycle) and scaffold the walking
 > skeleton, stopping at the M0 per-epic gate for your review.
+
+---
+
+## 12. Android track (MA0–MA4) — added 2026-07-07 (ADR-0012, PRD `21`)
+
+A parallel milestone track for the native Android client. Same gate discipline as §3;
+each gate is a user review. Backend and web milestones are unaffected.
+
+| Milestone | Deliverable | Gate exit |
+|---|---|---|
+| **MA0 — Docs & scope** | ADR-0012; Vision NG1 / BRD OOS-1 amendments; PRD `21`; NFR/test/devops addenda; contract trued (`/vocabulary`) | Docs approved, ADR-0012 → Accepted |
+| **MA1 — Walking skeleton** | `android/` standalone Gradle build; generated `/v1` client (or DTO fallback per spike); guest auth + refresh rotation; home shell with health + `/me` | Debug APK on emulator: guest start, session resume after relaunch; Authenticator tests green |
+| **MA2 — MVP core loop** | Curriculum home + stats; lesson player (MCQ, WORD_BANK, fallback card); completion; Room outbox → `/progress/sync` | On-device: guest → lesson → XP/streak; airplane-mode completion syncs on reconnect |
+| **MA3 — Learner parity** | Practice (5 types, rounds, level-up), review, vocabulary browser, accounts + claim flow | Learner surface matches web SPA, demoed on device |
+| **MA4 — Offline & release** | Room content cache, WorkManager outbox, bn/en l10n, theming, signed release APK, `android` CI job | PRD `21` §6 acceptance list passes on a clean device against the hosted backend |
+
+**Risks carried in this track:** OpenAPI-3.1→Kotlin generator fidelity (spike + DTO
+fallback, MA1); release base URL depends on merging the hosted stack from
+`chore/deployable-stack` (decide before MA4); contract drift now has two consumers
+(future CI spec-diff check noted in ADR-0012).

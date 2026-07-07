@@ -64,7 +64,10 @@ Bengali → English learner, with AI-assisted, bilingual feedback.*
   cross-device progress, and content quality we control.
 
 ### 3.2 Non-goals (initial — recorded so scope stays honest)
-- **NG1:** Native iOS/Android apps (web first; the web app should still feel app-like).
+- **NG1:** ~~Native iOS/Android apps~~ **Amended 2026-07-07 (ADR-0012):** a **native
+  Android app is now in scope** as a second client of the same `/v1` API (see PRD `21`).
+  Native **iOS remains a non-goal**. The original "leave room for NG1" clause is exactly
+  what this amendment exercises — the web app stays the primary, unchanged client.
 - **NG2:** Speech recognition / pronunciation scoring.
 - **NG3:** Social features (friends, leagues, leaderboards, chat).
 - **NG4:** Live human tutoring or community Q&A.
