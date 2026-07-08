@@ -94,3 +94,9 @@ Start at [`docs/00-vision-and-discovery.md`](docs/00-vision-and-discovery.md) an
 [delivery plan](docs/80-delivery-plan.md). Architecture decisions are in
 [`docs/adr/`](docs/adr/); the API contract is
 [`docs/43-api-contract.openapi.yaml`](docs/43-api-contract.openapi.yaml).
+
+## License
+
+Licensed under the [Apache License, Version 2.0](LICENSE) — see [`NOTICE`](NOTICE).
+This license covers the code and content in this repository; it does not grant
+rights to the **Shikhi** name or logo.
