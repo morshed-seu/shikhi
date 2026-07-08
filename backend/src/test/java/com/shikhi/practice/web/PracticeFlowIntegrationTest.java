@@ -221,7 +221,7 @@ class PracticeFlowIntegrationTest extends AbstractIntegrationTest {
 		mockMvc.perform(put("/v1/stats/level")
 						.header(HttpHeaders.AUTHORIZATION, token())
 						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"cefrLevel\":\"C1\"}"))
+						.content("{\"cefrLevel\":\"C2\"}"))
 				.andExpect(status().isBadRequest());
 	}
 
