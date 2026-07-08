@@ -27,6 +27,7 @@ tags:
   - name: progress
   - name: practice
   - name: review
+  - name: dashboard
   - name: admin-content
   - name: ops
 
@@ -356,6 +357,23 @@ paths:
       responses:
         '204': { description: Recorded }
 
+  # ---------------- DASHBOARD (learner profile & dashboard, E13; read-only) ----------------
+  /dashboard:
+    get:
+      tags: [dashboard]
+      summary: My dashboard snapshot (stats + word mastery per band + review load + lifetime totals)
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/DashboardResponse' } } } }
+  /reports/activity:
+    get:
+      tags: [dashboard]
+      summary: My per-day activity & accuracy for the last N days (UTC days; derived, read-only)
+      parameters:
+        - { name: days, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 90, default: 30 } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/ActivityReport' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
   # ---------------- ADMIN CONTENT (authoring; role-gated) ----------------
   /admin/content/drafts:
     post:
@@ -493,6 +511,7 @@ components:
         uiLocale: { $ref: '#/components/schemas/Locale' }
         roles: { type: array, items: { type: string, enum: [LEARNER, AUTHOR, ADMIN] } }
         isGuest: { type: boolean, description: True for an anonymous guest not yet claimed }
+        joinedAt: { type: string, format: date-time, description: 'Account creation instant (E13)' }
     UpdateProfileRequest:
       type: object
       properties:
@@ -624,7 +643,7 @@ components:
         longestStreak: { type: integer }
         hearts: { type: integer }
         dailyGoal: { type: integer }
-        cefrLevel: { type: string, enum: [A1, A2, B1, B2], description: 'Learner CEFR band (E12)' }
+        cefrLevel: { type: string, enum: [A1, A2, B1, B2, C1], description: 'Learner CEFR band (E12; C1 admitted in V21, 2026-07-08)' }
         accuracyByPattern:
           type: object
           additionalProperties: { type: number }
@@ -632,7 +651,46 @@ components:
       type: object
       required: [cefrLevel]
       properties:
-        cefrLevel: { type: string, enum: [A1, A2, B1, B2] }
+        cefrLevel: { type: string, enum: [A1, A2, B1, B2, C1] }
+    DashboardResponse:
+      type: object
+      description: >
+        One-round-trip learner dashboard snapshot (E13). Read-only composition of stats,
+        per-band word mastery, review load, and lifetime totals. Unlike `Stats` (hot path),
+        this payload's `stats.accuracyByPattern` is populated (from lesson answers).
+      properties:
+        stats: { $ref: '#/components/schemas/Stats' }
+        wordMastery:
+          type: array
+          description: One entry per CEFR band A1–C1, ordered
+          items: { $ref: '#/components/schemas/WordMasteryEntry' }
+        reviewDueCount: { type: integer }
+        lessonsCompleted: { type: integer }
+        practiceSessionsCompleted: { type: integer }
+        totalAnswered: { type: integer, description: Lifetime graded answers (lessons + practice) }
+        totalCorrect: { type: integer }
+    WordMasteryEntry:
+      type: object
+      properties:
+        cefrLevel: { type: string, enum: [A1, A2, B1, B2, C1] }
+        mastered: { type: integer, description: Words answered correctly at least once }
+        total: { type: integer, description: Words in this band's vocabulary }
+    ActivityReport:
+      type: object
+      description: >
+        Per-day learning activity (E13), derived from timestamped answer records; days are
+        UTC (matches streak semantics). The server returns only days with activity;
+        clients zero-fill the window.
+      properties:
+        days:
+          type: array
+          items: { $ref: '#/components/schemas/ActivityDay' }
+    ActivityDay:
+      type: object
+      properties:
+        date: { type: string, format: date, description: UTC day }
+        answered: { type: integer }
+        correct: { type: integer }
     PracticeExercise:
       type: object
       description: >

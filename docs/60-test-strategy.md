@@ -251,3 +251,28 @@ Test pyramid for the `android/` client (server-side strategy above is unchanged)
 
 **CI gate:** `./gradlew lint testDebugUnitTest assembleDebug` must pass in the `android`
 job for every PR that touches `android/` (see `70` §4).
+
+---
+
+## 18. Dashboard/reports addendum (E13, Delivery Plan `80` §13) — added 2026-07-08
+
+The pyramid and gates above apply unchanged; the one genuinely new risk is **aggregation
+correctness** — dashboard numbers must agree with what the learner actually did.
+
+- **Aggregation correctness (integration, Testcontainers + real Flyway):** new
+  `dashboard/web/DashboardFlowIntegrationTest` — register → dashboard reads all-zero →
+  drive real lesson + practice answers through the existing flows (reusing the
+  `PracticeFlowIntegrationTest` setup) → assert mastery-per-band, lifetime totals, review
+  due count, and completion counts moved by exactly the driven amounts. New
+  `dashboard/web/ReportsFlowIntegrationTest` (MD4) — submitted answers land in **today's
+  UTC bucket**; `days` param validation (0, 91 → 400 with stable code); accuracy per day
+  = correct/answered from the same rows the grading flow wrote.
+- **Contract:** both new endpoints byte-match `43` (two clients consume it — ADR-0012
+  drift risk); `joinedAt` asserted in `AuthFlowIntegrationTest`.
+- **Read-only invariant:** the dashboard module carries no write path; its integration
+  tests assert stats are unchanged after a dashboard/report read.
+- **Web:** component tests for profile view (render, edit happy path, delete confirm,
+  guest claim-CTA variant) and chart zero-fill/empty states; bn + en strings present.
+- **Android (per §17 pyramid):** `ProfileViewModelTest` (JVM), repository test for the
+  cached dashboard read (MockWebServer + cache fallback), manual device E2E per the
+  MD3/MD5 gate lists in `80` §13.

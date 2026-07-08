@@ -84,6 +84,7 @@ Content authoring
 | **E10** | Localization & accessibility | BN/EN UI, Bengali rendering, a11y | BR-2 (D1) |
 | **E11** | Operational surfaces | Health, privacy controls (export/delete) | BR-10 |
 | **E12** | Adaptive vocabulary practice | One-tap generated practice sessions from the Oxford-5000 layer, matched to the learner's CEFR level | BR-4, BR-6, BR-7 |
+| **E13** | Learner profile & dashboard | Profile view/edit, stats dashboard (word mastery, totals), activity & accuracy reports | BR-8, BR-10 |
 
 ---
 
@@ -322,6 +323,62 @@ Content authoring
 > additive strategy behind the same seam (D4). Out of scope for this slice: automatic
 > promotion, listening/audio formats, per-user timezone.
 
+### E13 — Learner profile & dashboard *(BR-8, BR-10; added 2026-07-08)*
+
+> Delivers the "stats/history view" that US-8.2 promised and §9 deferred as "richer
+> stats". One learner-facing surface on **both clients** (web SPA and Android) showing who
+> I am, how I'm doing, and how I've been doing over time — plus basic profile editing and
+> the existing account actions in one place. Adds **read-only** reporting endpoints; no
+> gamification or grading behavior changes.
+
+- **US-13.1** As a learner, I can **view my profile** — display name, masked email (for
+  registered accounts), UI language, CEFR level, and the date I joined — so I can see who
+  the app thinks I am.
+  - *Given* I'm signed in (guest or registered), *When* I open the profile/dashboard,
+    *Then* I see my display name, UI locale, CEFR badge, and joined date; *And* if I'm
+    registered I also see my masked email; *And* if I'm a guest I see a "guest" badge
+    instead.
+- **US-13.2** As a learner, I can **edit my display name and UI language** from the
+  profile, so the app fits me. *(Same semantics as US-1.5 — this story only gives it a
+  home; uses the existing `PATCH /me`.)*
+  - *Given* I change my display name, *When* I save, *Then* the new name shows everywhere
+    (including the other client after its next profile fetch).
+- **US-13.3** As a learner, I see a **dashboard snapshot**: XP, current & longest streak,
+  hearts, daily goal, lifetime answered/correct, lessons & practice sessions completed,
+  review items due, and **words mastered per CEFR band** (A1–C1) against each band's
+  total — so I can see my standing at a glance.
+  - *Given* I have practiced words in band B1, *When* I open the dashboard, *Then* the B1
+    bar shows my mastered count over the band total, and bands I've never touched show 0.
+  - *Given* I answer more items or complete sessions, *When* I revisit the dashboard,
+    *Then* the totals reflect them.
+- **US-13.4** As a learner, the profile gathers my **account actions**: export my data,
+  delete my account (registered; cross-ref US-1.6/US-11.2), or **claim my guest account**
+  (guests; cross-ref US-1.8) — so privacy and account controls are one tap away.
+  - *Given* I'm a guest, *When* I open the profile, *Then* I see the claim CTA and do
+    **not** see delete/export (those come with a registered account).
+- **US-13.5** As a learner, I see a **daily activity report** (last 30 days by default):
+  items answered per day — so I can see my consistency, not just my streak number.
+  - *Given* I answered items on some past days (lesson or practice), *When* I open the
+    report, *Then* those days show their true counts (history is derived from existing
+    answer records, so it includes activity from before this feature shipped) and quiet
+    days show zero.
+- **US-13.6** As a learner, I see my **accuracy trend** (per-day accuracy over the same
+  window) and my **accuracy by L1 pattern** (from lesson answers), so I know *what* to
+  work on — closing the `accuracyByPattern` stub that E6 left "post-pilot".
+  - *Given* a day with 20 answered and 16 correct, *Then* that day's accuracy reads 80%.
+  - *Given* I've answered lesson exercises tagged with L1 patterns, *Then* the dashboard
+    shows accuracy per pattern; patterns I've never met are omitted.
+
+> **FR-13.x highlights:** all report data is **derived from existing timestamped records**
+> (answer submissions, practice answers, session/lesson completions, per-word strength) —
+> no new write paths, no new event tables. Day boundaries are **UTC**, matching the streak
+> engine (per-user timezone remains OQ-L1). "Mastered" reuses the practice engine's
+> definition (word answered correctly at least once; strength-aware refinement later).
+> **XP-over-time is explicitly out**: per-event XP history was never recorded and cannot
+> be honestly back-derived; a daily rollup table is the recorded future option if exact
+> XP charts are ever wanted. Leaderboard `rank` stays stubbed (post-pilot). Guests get the
+> full dashboard — their data is real; only delete/export are held back until claimed.
+
 ---
 
 ## 5. Key UX flows (conceptual)
@@ -356,6 +413,12 @@ version → learners receive updated content (in-progress learners handled grace
 **Flow E — Account/data (P5):**
 `Profile → manage identities/profile → export data / delete account → confirmation →
 deletion per retention policy.`
+
+**Flow F — Profile & dashboard (E13):**
+`Home → tap profile (header icon or stats bar) → profile card (view/edit name & language,
+CEFR badge, joined date) → dashboard snapshot (stats grid, words-mastered bars per band) →
+activity & accuracy report (last 30 days) → account actions (export / delete, or claim for
+guests) → back home.`
 
 ---
 
@@ -420,8 +483,9 @@ US-10.2/3).
 **Shortly after / later tracks:**
 - Phone+OTP and social login (rest of D5).
 - Broader curriculum levels (continuous authoring track).
-- Spaced-repetition (E7) richer scheduling; achievements depth; richer stats; listening
-  expansion; streak-freeze.
+- Spaced-repetition (E7) richer scheduling; achievements depth; listening expansion;
+  streak-freeze. *(~~Richer stats~~ — scoped 2026-07-08 as **E13 learner profile &
+  dashboard**, Delivery Plan `80` §13.)*
 - **AI grading strategy** (E5 US-5.3) behind the seam.
 - Future options (recorded, not committed): offline/PWA (D2), native mobile (OOS-1).
 
@@ -438,9 +502,9 @@ US-10.2/3).
 | BR-5 (D4) | E5 |
 | BR-6 | E6 |
 | BR-7 | E7 |
-| BR-8 | E8 |
+| BR-8 | E8, E13 |
 | BR-9 | E9 |
-| BR-10 | E11 |
+| BR-10 | E11, E13 |
 | BR-11 (D4) | E5 §7 seam |
 | BR-4/6/7 (adaptive) | E12 |
 
