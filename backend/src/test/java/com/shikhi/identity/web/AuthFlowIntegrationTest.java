@@ -56,13 +56,18 @@ class AuthFlowIntegrationTest extends AbstractIntegrationTest {
 	void registerThenAccessProfile() throws Exception {
 		String tokens = register(uniqueEmail(), "s3cretpassword");
 
-		mockMvc.perform(get("/v1/me")
+		String body = mockMvc.perform(get("/v1/me")
 						.header(HttpHeaders.AUTHORIZATION, bearer(field(tokens, "$.accessToken"))))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.id").isNotEmpty())
 				.andExpect(jsonPath("$.displayName").value("Rifat"))
 				.andExpect(jsonPath("$.uiLocale").value("bn"))
-				.andExpect(jsonPath("$.roles[0]").value("LEARNER"));
+				.andExpect(jsonPath("$.roles[0]").value("LEARNER"))
+				.andExpect(jsonPath("$.joinedAt").isNotEmpty())
+				.andReturn().getResponse().getContentAsString();
+
+		// joinedAt is the account creation instant, E13 — must parse as an ISO instant.
+		java.time.Instant.parse((String) field(body, "$.joinedAt"));
 	}
 
 	@Test
