@@ -221,8 +221,29 @@ class PracticeFlowIntegrationTest extends AbstractIntegrationTest {
 		mockMvc.perform(put("/v1/stats/level")
 						.header(HttpHeaders.AUTHORIZATION, token())
 						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"cefrLevel\":\"C1\"}"))
+						.content("{\"cefrLevel\":\"C2\"}"))
 				.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void selfPlacesAtC1AndStartsARound() throws Exception {
+		String auth = token();
+
+		// C1 is a valid self-placement band (Oxford 5000, V17/V19).
+		mockMvc.perform(put("/v1/stats/level")
+						.header(HttpHeaders.AUTHORIZATION, auth)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"cefrLevel\":\"C1\"}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.cefrLevel").value("C1"));
+
+		// A round starts cleanly for the top band (BAND_ORDER includes C1).
+		mockMvc.perform(post("/v1/practice/sessions")
+						.header(HttpHeaders.AUTHORIZATION, auth))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.round").value(1))
+				.andExpect(jsonPath("$.cefrLevel").value("C1"))
+				.andExpect(jsonPath("$.exercises.length()").value(10));
 	}
 
 	private int strengthOf(PracticeExercise exercise) {
