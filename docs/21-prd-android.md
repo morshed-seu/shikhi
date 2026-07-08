@@ -115,3 +115,25 @@ true. None add backend behavior.
 - **Release base URL pinned.** The release build now pins the hosted backend
   (`shikhi.onrender.com`) via `-PreleaseApiBaseUrl` (commit `0e5385f`), closing the MA4
   risk in Delivery Plan `80` §12 about the base URL depending on the hosted-stack merge.
+
+## 8. Profile & dashboard (E13 — added 2026-07-08; Delivery Plan `80` §13, gates MD3/MD5)
+
+Android parity for PRD `20` E13. Same behavior as the web dashboard; same endpoints
+(contract `43`: enriched `GET /me`, new `GET /dashboard`, later `GET /reports/activity`).
+Like the rest of this addendum it adds **no Android-only backend behavior**.
+
+| Surface | Behavior | Endpoints |
+|---|---|---|
+| Profile entry | Profile icon in the home header; opens a `profile` navigation route. | — |
+| Profile card | Display name (inline edit), UI locale, masked email (registered) or guest badge, CEFR badge, joined date. Edits require the network (disabled offline). | `GET/PATCH /me`, `GET /me/identities` |
+| Dashboard snapshot (MD3) | Stats grid (XP, streaks, hearts, daily goal, lifetime totals, review due) + words-mastered-per-band bars A1–C1. | `GET /dashboard` |
+| Activity report (MD5) | Last-30-days answered/accuracy chart (Compose Canvas), UTC days. | `GET /reports/activity` |
+| Account actions | Registered: export, delete (confirm → sign-out). Guest: claim CTA (reuses the MA3 claim flow). | `GET /me/export`, `DELETE /me`, `POST /auth/claim` |
+
+- **Offline:** the dashboard snapshot is cached like curriculum/stats/vocabulary
+  (network-first, cache fallback, "offline copy" indicator — §2 Phase C pattern). Profile
+  **edits** and account actions need the network.
+- **Logout moves home → profile.** The home header's logout button relocates to the
+  profile screen, decluttering the practice-first home (§7). *Flagged for explicit
+  confirmation at the MD3 gate.*
+- l10n: all new strings ship bn + en, same as every other surface (§2 Phase C).

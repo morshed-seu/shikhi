@@ -79,4 +79,10 @@ public class ReviewService {
 	public int countAddedSince(UUID userId, Instant since) {
 		return (int) items.countByUserIdAndUpdatedAtGreaterThanEqual(userId, since);
 	}
+
+	/** How many review items are due right now — the dashboard's review-load seam (E13). */
+	@Transactional(readOnly = true)
+	public int dueCount(UUID userId) {
+		return (int) items.countByUserIdAndDueAtLessThanEqual(userId, Instant.now());
+	}
 }

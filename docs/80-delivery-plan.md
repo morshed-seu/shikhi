@@ -231,3 +231,32 @@ Shipped after Gate MA4; docs reconciled rather than re-gated (small increments /
 | **Practice-first Android home** | Curriculum/lesson tree hidden from the Android home; surface = stats + practice + review + vocabulary | PRD `21` §7 (+ open item on MA4 acceptance #1/#4) |
 | **Login convenience** | "Remember me" (email + password) and reveal-password toggle on web + Android login | PRD `20` US-1.1b; PRD `21` §7 |
 | **Release URL pinned** | Release APK points at the hosted Render backend | Runbook `90` §build; risk above closed |
+
+---
+
+## 13. Dashboard track (MD0–MD5) — added 2026-07-08 (PRD `20` E13, PRD `21` §8)
+
+Learner profile & dashboard across both clients. Same gate discipline as §3/§12; each
+gate is a user review. Read-only feature: no gamification/grading behavior changes.
+Phase 1 = snapshot from existing data (MD1–MD3); Phase 2 = time-series reports (MD4–MD5).
+
+| Milestone | Deliverable | Gate exit |
+|---|---|---|
+| **MD0 — Docs & contract** | PRD `20` E13 (US-13.1–13.6); PRD `21` §8; LLD `41` §1 reporting seam + §2.9 + §3.5a; contract `43` (`User.joinedAt`, `/dashboard`, `/reports/activity`; C1 enum drift trued); this section; test-strategy `60` addendum | Docs + contract diff approved |
+| **MD1 — Backend Phase 1** | `com.shikhi.dashboard` module (`GET /dashboard`); `joinedAt` on `/me`; `ReviewService.dueCount`; `PracticeStatsService.masteryByBand`; no migration | `./gradlew test` green incl. new `DashboardFlowIntegrationTest`; shapes match contract; curl demo |
+| **MD2 — Web Phase 1** | Profile view in the SPA (view state + header entry, clickable stats bar): profile card w/ edit, stats grid, mastery bars, account actions; bn/en strings | Demo: edit display name in bn UI; real mastery bars; export downloads; guest sees claim CTA (not delete/export) |
+| **MD3 — Android Phase 1** | `profile` route + screen (cached dashboard, `Sourced` offline badge); logout moved home→profile; DTOs per contract; bn/en strings. **Precondition: MD1 deployed to Render** | Clean device vs hosted backend: guest → practice → real mastery; airplane-mode cached dashboard; name edit visible on web. Confirm logout move |
+| **MD4 — Phase 2 reports (BE+web)** | V22 reporting indexes; `GET /reports/activity` (UTC days, cap 90); `accuracyByPattern` filled in dashboard payload; hand-rolled SVG activity/accuracy chart | 30-day chart on real (retro-derived) data; report p95 sampled locally per `91` habit |
+| **MD5 — Android Phase 2** | Activity chart (Compose Canvas) + DTOs. **Precondition: MD4 deployed to Render** | Chart parity on device against prod; this table marked complete |
+
+**Decisions recorded (defaults; revisit at the named gate):** guests get the full
+dashboard with claim CTA replacing delete/export (MD2); Android logout relocates to the
+profile screen (MD3); `rank` stays stubbed — leaderboard remains post-pilot; XP-over-time
+is out (not back-derivable; daily rollup table recorded in LLD §2.9 as the future path);
+day boundary UTC (OQ-L1 unchanged).
+
+**Traceability additions:**
+
+| Req ID | Requirement | Design ref | Test level(s) | Milestone |
+|---|---|---|---|---|
+| BR-8/E13 (US-8.2) | Learner profile & dashboard | LLD §2.9, API `/dashboard`, `/reports/activity`, PRD `21` §8 | Unit, integration (aggregation correctness), E2E demo per gate | MD1–MD5 |
