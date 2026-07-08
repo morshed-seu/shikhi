@@ -231,3 +231,22 @@
 > **This completes Phase A.** Next is **Gate A**: your review of `00`, `10`, `20`, `30`
 > together. On approval, Phase B (Architecture & Security) begins as the **Architect** with
 > the HLD, then LLD, ADRs, the OpenAPI contract, and the security/privacy threat model.
+
+---
+
+## 18. Android app addendum (ADR-0012, PRD `21`) — added 2026-07-07
+
+Applies to the native Android client only; server NFRs above are unchanged.
+
+- **NFR-AN1 — Device floor:** fully functional on Android 8.0+ (minSdk 26) on a
+  mid-range device (2 GB RAM, 720p); see PRD `21` §5.
+- **NFR-AN2 — Size budget:** release APK **< 15 MB** (R8-minified, resources shrunk).
+- **NFR-AN3 — Cold start:** app cold start to interactive onboarding/home **< 2.5 s**
+  on the reference device (excluding backend cold-start, which gets a visible
+  "warming up" state instead of a spinner-forever).
+- **NFR-AN4 — Offline parity:** meets NFR-N1–N4 semantics; additionally, previously
+  viewed curriculum/lessons/vocabulary open offline from local cache (beyond web).
+- **NFR-AN5 — Token safety:** access token never persisted; refresh token at rest is
+  encrypted with an Android Keystore key (see `50` and ADR-0012); no tokens in logs.
+- **NFR-AN6 — Bengali rendering:** Noto Sans Bengali bundled; correct shaping at all
+  supported font scales (ties to NFR-I2/AC*).

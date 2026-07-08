@@ -5,13 +5,29 @@ import { useAuth } from '../auth/useAuth'
 
 type Mode = 'login' | 'register'
 
+// Remembering the email (not the password) prefills the login form across visits.
+// We deliberately never persist the password: localStorage is XSS-reachable, mirroring
+// the refresh-token caveat in AuthProvider. Browsers still offer their own credential save.
+const REMEMBERED_EMAIL_KEY = 'shikhi.rememberedEmail'
+
+function readRememberedEmail(): string {
+  try {
+    return localStorage.getItem(REMEMBERED_EMAIL_KEY) ?? ''
+  } catch {
+    return ''
+  }
+}
+
 export function AuthPanel() {
   const { t, i18n } = useTranslation()
   const { user, loading, login, register, startGuest, logout } = useAuth()
   const [mode, setMode] = useState<Mode>('login')
-  const [email, setEmail] = useState('')
+  const remembered = readRememberedEmail()
+  const [email, setEmail] = useState(remembered)
   const [password, setPassword] = useState('')
   const [displayName, setDisplayName] = useState('')
+  const [rememberMe, setRememberMe] = useState(remembered !== '')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -56,6 +72,18 @@ export function AuthPanel() {
     }
   }
 
+  const persistRememberedEmail = () => {
+    try {
+      if (rememberMe) {
+        localStorage.setItem(REMEMBERED_EMAIL_KEY, email)
+      } else {
+        localStorage.removeItem(REMEMBERED_EMAIL_KEY)
+      }
+    } catch {
+      // Persistence is best-effort; a failed write just means no prefill next visit.
+    }
+  }
+
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault()
     setError(null)
@@ -66,6 +94,7 @@ export function AuthPanel() {
       } else {
         await register({ email, password, displayName: displayName || undefined })
       }
+      persistRememberedEmail()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('auth.genericError'))
     } finally {
@@ -117,15 +146,37 @@ export function AuthPanel() {
         </label>
         <label>
           {t('auth.password')}
-          <input
-            type="password"
-            required
-            minLength={mode === 'register' ? 8 : undefined}
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-          />
+          <span className="auth__password">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              required
+              minLength={mode === 'register' ? 8 : undefined}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+            />
+            <button
+              type="button"
+              className="auth__password-toggle"
+              onClick={() => setShowPassword((shown) => !shown)}
+              aria-pressed={showPassword}
+              aria-label={t(showPassword ? 'auth.hidePassword' : 'auth.showPassword')}
+            >
+              {t(showPassword ? 'auth.hidePassword' : 'auth.showPassword')}
+            </button>
+          </span>
         </label>
+
+        {mode === 'login' && (
+          <label className="auth__remember">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(event) => setRememberMe(event.target.checked)}
+            />
+            {t('auth.rememberMe')}
+          </label>
+        )}
 
         {error && (
           <p className="auth__error" role="alert">

@@ -96,7 +96,10 @@ v1 and an AI grading capability designed-for but delivered later (decision **D4*
 
 ### 4.2 Out of scope (first generation — recorded, not forgotten)
 
-- **OOS-1:** Native iOS/Android apps. *(Vision NG1)*
+- **OOS-1:** Native **iOS** app. *(Vision NG1)* — **Scope change 2026-07-07:** native
+  **Android** moved *into* scope as a second client of the existing `/v1` API, per
+  **ADR-0012** and PRD addendum `21-prd-android.md`. This exercises the optionality BO-5
+  protected; the web app remains the primary client and is unchanged.
 - **OOS-2:** AI-powered grading/feedback in v1 — *designed-for via BR-11, delivered
   later.* *(D4; Vision G4)*
 - **OOS-3:** Offline / installable PWA — v1 is "lean online + resilient." *(D2)*

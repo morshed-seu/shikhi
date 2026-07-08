@@ -13,9 +13,9 @@ export type PracticeExerciseType =
   | 'SENTENCE_BUILD'
   | 'TYPE_WORD'
 
-export type CefrLevel = 'A1' | 'A2' | 'B1' | 'B2'
+export type CefrLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1'
 
-export const CEFR_LEVELS: CefrLevel[] = ['A1', 'A2', 'B1', 'B2']
+export const CEFR_LEVELS: CefrLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1']
 
 /** The band after `level`, or null at the top. */
 export function nextLevel(level: string): CefrLevel | null {

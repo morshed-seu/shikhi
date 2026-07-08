@@ -252,6 +252,55 @@
   box-shadow: 0 0 0 3px var(--brand-tint);
 }
 
+/* Password field wraps the input + a reveal toggle so they read as one control. */
+.auth__password {
+  position: relative;
+  display: flex;
+}
+
+.auth__password input {
+  flex: 1;
+  padding-right: 4.5rem;
+}
+
+.auth__password-toggle {
+  position: absolute;
+  top: 50%;
+  inset-inline-end: var(--space-2);
+  transform: translateY(-50%);
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--brand);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.auth__password-toggle:hover {
+  text-decoration: underline;
+}
+
+.auth__password-toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--brand-tint);
+}
+
+/* Remember-me sits as a compact horizontal row, unlike the stacked field labels. */
+.auth__remember {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+}
+
+.auth__remember input {
+  width: auto;
+  accent-color: var(--brand);
+  cursor: pointer;
+}
+
 .auth__submit {
   margin-top: var(--space-2);
   padding: var(--space-3) var(--space-4);

@@ -83,7 +83,7 @@ Content authoring
 | **E9** | Content authoring & validation | Author/version/validate curriculum | BR-9 (D3/D6) |
 | **E10** | Localization & accessibility | BN/EN UI, Bengali rendering, a11y | BR-2 (D1) |
 | **E11** | Operational surfaces | Health, privacy controls (export/delete) | BR-10 |
-| **E12** | Adaptive vocabulary practice | One-tap generated practice sessions from the Oxford-3000 layer, matched to the learner's CEFR level | BR-4, BR-6, BR-7 |
+| **E12** | Adaptive vocabulary practice | One-tap generated practice sessions from the Oxford-5000 layer, matched to the learner's CEFR level | BR-4, BR-6, BR-7 |
 
 ---
 
@@ -102,6 +102,10 @@ Content authoring
     limited/unverified state per policy (policy TBD with Security).
   - *Given* an email already in use, *When* I submit, *Then* I get a clear, localized error
     (and no account enumeration leak — see Security phase).
+- **US-1.1b** As a returning learner, I can opt into **"remember me"** so my email (and,
+  when chosen, password) is pre-filled next time, and I can **reveal the password** while
+  typing to check it. *(Added 2026-07-08 — implemented on web `AuthPanel` and the Android
+  onboarding/login; convenience only, does not change auth semantics.)*
 - **US-1.2** As a learner, I can **sign in with phone number + OTP** so that I don't need a
   password. *(Phaseable — see §9.)*
   - *Given* a valid phone number, *When* I request a code, *Then* an OTP is sent and, *When*
@@ -278,14 +282,19 @@ Content authoring
 
 ### E12 — Adaptive vocabulary practice *(BR-4, BR-6, BR-7)*
 
-> Turns the Oxford-3000 vocabulary layer (V11–V15) from a read-only dictionary into the
-> primary learning experience: exercises are **generated from vocabulary rows** matched to
-> the learner's CEFR level, flowing continuously in rounds — no authored lessons required.
+> Turns the Oxford-5000 vocabulary layer (V11–V19, bands A1–C1) from a read-only dictionary
+> into the primary learning experience: exercises are **generated from vocabulary rows**
+> matched to the learner's CEFR level, flowing continuously in rounds — no authored lessons
+> required.
 
-- **US-12.1** As a learner, my account carries a **CEFR level** (A1–B2, default A1) that I
+- **US-12.1** As a learner, my account carries a **CEFR level** (A1–C1, default A1) that I
   pick at onboarding and can change anytime, so practice matches my ability.
-  - *Given* a new account, *When* I first sign in, *Then* I can self-place at A1–B2 (or
+  - *Given* a new account, *When* I first sign in, *Then* I can self-place at A1–C1 (or
     keep the A1 default) and my choice is saved to my profile.
+  - *Note (2026-07-08):* self-placement and the practice engine originally capped at B2;
+    the C1 band (vocabulary V17/V19) was admitted to the practice `BAND_ORDER`, the
+    `PUT /stats/level` validation, and the DB check constraints (migration V21). The top
+    band is C1 — C2 is still rejected.
 - **US-12.2** As a learner, after signing in I see one clear **"Start session"** action, so
   starting to learn takes a single tap.
 - **US-12.3** As a learner, exercises **keep coming one after another** in rounds of ~10;

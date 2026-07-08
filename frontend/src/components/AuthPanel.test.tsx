@@ -61,6 +61,72 @@ describe('AuthPanel (M1 identity)', () => {
     expect(localStorage.getItem('shikhi.refreshToken')).toBe('r')
   })
 
+  it('toggles the password field between hidden and visible', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(jsonResponse({ status: 'UP', service: 'shikhi' }))),
+    )
+
+    render(<App />)
+    await screen.findByRole('tab', { name: 'লগ ইন' })
+
+    const password = screen.getByLabelText('পাসওয়ার্ড') as HTMLInputElement
+    expect(password.type).toBe('password')
+
+    fireEvent.click(screen.getByRole('button', { name: 'পাসওয়ার্ড দেখান' }))
+    expect(password.type).toBe('text')
+
+    fireEvent.click(screen.getByRole('button', { name: 'পাসওয়ার্ড লুকান' }))
+    expect(password.type).toBe('password')
+  })
+
+  it('remembers the email on login and prefills it next time', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, opts?: { method?: string }) => {
+        const method = opts?.method ?? 'GET'
+        if (url === '/v1/health') {
+          return Promise.resolve(jsonResponse({ status: 'UP', service: 'shikhi' }))
+        }
+        if (url === '/v1/auth/login' && method === 'POST') {
+          return Promise.resolve(
+            jsonResponse({ accessToken: 'a', refreshToken: 'r', expiresIn: 900 }),
+          )
+        }
+        if (url === '/v1/me') {
+          return Promise.resolve(
+            jsonResponse({ id: '1', displayName: 'Nadia', uiLocale: 'bn', roles: ['LEARNER'] }),
+          )
+        }
+        return Promise.resolve(jsonResponse({ code: 'ERROR', message: 'unexpected' }, 500))
+      }),
+    )
+
+    const { unmount } = render(<App />)
+    await screen.findByRole('tab', { name: 'লগ ইন' })
+
+    fireEvent.change(screen.getByLabelText('ইমেইল'), {
+      target: { value: 'nadia@example.com' },
+    })
+    fireEvent.change(screen.getByLabelText('পাসওয়ার্ড'), {
+      target: { value: 's3cretpassword' },
+    })
+    fireEvent.click(screen.getByLabelText('আমার ইমেইল মনে রাখুন'))
+    fireEvent.click(screen.getByRole('button', { name: 'লগ ইন' }))
+
+    await waitFor(() =>
+      expect(localStorage.getItem('shikhi.rememberedEmail')).toBe('nadia@example.com'),
+    )
+
+    // A fresh mount (as on a later visit) should prefill the remembered email.
+    unmount()
+    localStorage.removeItem('shikhi.refreshToken')
+    render(<App />)
+    const email = (await screen.findByLabelText('ইমেইল')) as HTMLInputElement
+    expect(email.value).toBe('nadia@example.com')
+    expect(screen.getByLabelText('আমার ইমেইল মনে রাখুন')).toBeChecked()
+  })
+
   it('shows the server error message when login fails', async () => {
     vi.stubGlobal(
       'fetch',

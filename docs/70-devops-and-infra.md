@@ -212,3 +212,19 @@ infra/
 > Definition of Ready/Done, updated risk register, and the consolidated **traceability
 > matrix** (requirement → design → test) — after which we reach **Gate C** (green light to
 > build).
+
+---
+
+## 13. Android app addendum (ADR-0012) — added 2026-07-07
+
+- **CI:** an `android` job joins `ci.yml` alongside `backend`/`frontend`/`security`:
+  setup-java (Temurin 21) + Gradle cache, `working-directory: android`, runs
+  `./gradlew lint testDebugUnitTest assembleDebug`; uploads the debug APK as a build
+  artifact. Path-filtered to `android/**` and `docs/43-api-contract.openapi.yaml`
+  (the client is generated from the contract at build time).
+- **Secrets/signing policy:** the release keystore and `keystore.properties` are **never
+  committed** (gitignored; `keystore.properties.example` documents the shape). Local
+  release signing reads them from outside the repo; CI release signing (later, with Play
+  work) injects them via GitHub Actions secrets.
+- **Release artifact:** signed APK, versioned `versionCode = 10000·major + 100·minor +
+  patch`; sideload distribution for now (no store pipeline yet).

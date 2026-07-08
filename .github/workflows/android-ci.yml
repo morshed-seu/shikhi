@@ -1,0 +1,39 @@
+name: Android CI
+
+# Runs only when the Android client or its API contract changes
+# (docs/70-devops-and-infra.md §13, docs/60-test-strategy.md §17).
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - 'docs/43-api-contract.openapi.yaml'
+      - '.github/workflows/android-ci.yml'
+  pull_request:
+    paths:
+      - 'android/**'
+      - 'docs/43-api-contract.openapi.yaml'
+      - '.github/workflows/android-ci.yml'
+
+jobs:
+  android:
+    name: Android (lint + test + assemble)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - name: Lint, unit tests, debug APK
+        run: ./gradlew lint testDebugUnitTest assembleDebug --no-daemon --console=plain
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: shikhi-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
