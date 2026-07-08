@@ -113,4 +113,44 @@
     <string name="guest_save">Save my progress</string>
     <string name="guest_create_account">Create account</string>
     <string name="guest_email_taken">That email already has an account. Log in instead — your guest progress from this session won\'t be saved.</string>
+    <string name="auth_learner">learner</string>
+    <string name="guest_badge">You\'re exploring as a guest.</string>
+
+    <!-- Profile & dashboard (E13) -->
+    <string name="profile_open">Open profile</string>
+    <string name="profile_back">Back</string>
+    <string name="profile_title">Profile</string>
+    <string name="profile_loading">Loading your profile…</string>
+    <string name="profile_error">Could not load your profile.</string>
+    <string name="profile_save">Save</string>
+    <string name="profile_cancel">Cancel</string>
+    <string name="profile_edit_name">Edit name</string>
+    <string name="profile_language">Language</string>
+    <string name="profile_joined">Joined %1$s</string>
+    <string name="profile_offline_copy">Offline copy — showing your last saved profile.</string>
+
+    <string name="stats_label_xp">XP</string>
+    <string name="stats_label_streak">day streak</string>
+    <string name="stats_label_hearts">Hearts</string>
+
+    <string name="profile_stats_title">Your progress</string>
+    <string name="profile_stats_longest_streak">Longest streak</string>
+    <string name="profile_stats_daily_goal">Daily goal</string>
+    <string name="profile_stats_review_due">Review due</string>
+    <string name="profile_stats_lessons_completed">Lessons completed</string>
+    <string name="profile_stats_practice_sessions">Practice sessions</string>
+    <string name="profile_stats_accuracy">Lifetime accuracy</string>
+
+    <string name="profile_mastery_title">Words mastered</string>
+    <string name="profile_mastery_count">%1$d of %2$d</string>
+    <string name="profile_mastery_level">%1$s mastery</string>
+
+    <string name="profile_actions_title">Account</string>
+    <string name="profile_actions_export">Download my data</string>
+    <string name="profile_actions_export_error">Could not export your data.</string>
+    <string name="profile_actions_delete">Delete account</string>
+    <string name="profile_actions_delete_confirm_prompt">This permanently deletes your account and data. Are you sure?</string>
+    <string name="profile_actions_delete_confirm">Yes, delete</string>
+    <string name="profile_actions_delete_error">Could not delete your account.</string>
+    <string name="profile_export_subject">Shikhi data export</string>
 </resources>

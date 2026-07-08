@@ -19,6 +19,23 @@ data class User(
 	val uiLocale: String = "bn",
 	val roles: List<String> = emptyList(),
 	val isGuest: Boolean = false,
+	/** Account creation instant (E13); absent for pre-E13 rows the backend hasn't backfilled. */
+	val joinedAt: String? = null,
+)
+
+/** `PATCH /me` body — only display name and UI locale are editable (E13/US-13.1). */
+@Serializable
+data class UpdateProfileRequest(
+	val displayName: String? = null,
+	val uiLocale: String? = null,
+)
+
+/** A linked sign-in method (E13, `GET /me/identities`) — feeds the masked-email line. */
+@Serializable
+data class Identity(
+	val provider: String = "EMAIL",
+	val verified: Boolean = false,
+	val maskedRef: String = "",
 )
 
 @Serializable
