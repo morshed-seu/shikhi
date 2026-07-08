@@ -6,7 +6,9 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.room.Room
 import androidx.work.WorkManager
+import com.shikhi.app.data.auth.DataStoreLoginPrefs
 import com.shikhi.app.data.auth.DataStoreTokenStore
+import com.shikhi.app.data.auth.LoginPrefs
 import com.shikhi.app.data.auth.TokenStore
 import com.shikhi.app.data.db.ContentCacheDao
 import com.shikhi.app.data.db.OutboxDao
@@ -63,4 +65,7 @@ abstract class TokenStoreModule {
 
 	@Binds
 	abstract fun tokenStore(impl: DataStoreTokenStore): TokenStore
+
+	@Binds
+	abstract fun loginPrefs(impl: DataStoreLoginPrefs): LoginPrefs
 }

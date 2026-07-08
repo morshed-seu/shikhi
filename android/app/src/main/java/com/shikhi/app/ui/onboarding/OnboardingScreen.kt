@@ -11,16 +11,21 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -106,13 +111,36 @@ fun OnboardingScreen(viewModel: OnboardingViewModel = hiltViewModel()) {
 				modifier = Modifier.fillMaxWidth(),
 			)
 			Spacer(Modifier.height(8.dp))
+			var passwordVisible by remember { mutableStateOf(false) }
 			OutlinedTextField(
 				value = s.password,
 				onValueChange = viewModel::setPassword,
 				label = { Text(stringResource(R.string.auth_password)) },
-				visualTransformation = PasswordVisualTransformation(),
+				visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+				trailingIcon = {
+					TextButton(onClick = { passwordVisible = !passwordVisible }) {
+						Text(
+							stringResource(
+								if (passwordVisible) R.string.auth_hide_password else R.string.auth_show_password,
+							),
+							style = MaterialTheme.typography.labelSmall,
+						)
+					}
+				},
 				modifier = Modifier.fillMaxWidth(),
 			)
+			if (s.mode == AuthMode.LOGIN) {
+				Row(
+					modifier = Modifier.fillMaxWidth(),
+					verticalAlignment = Alignment.CenterVertically,
+				) {
+					Checkbox(
+						checked = s.rememberMe,
+						onCheckedChange = viewModel::setRememberMe,
+					)
+					Text(stringResource(R.string.auth_remember_me))
+				}
+			}
 			Spacer(Modifier.height(12.dp))
 			Button(
 				onClick = viewModel::submitForm,
