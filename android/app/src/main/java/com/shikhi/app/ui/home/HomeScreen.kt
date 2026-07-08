@@ -88,6 +88,7 @@ fun HomeScreen(
 					level = ui.stats?.cefrLevel ?: "A1",
 					streak = ui.stats?.currentStreak ?: 0,
 					saving = ui.savingLevel,
+					error = ui.levelError,
 					onPickLevel = viewModel::setLevel,
 					onStart = onStartPractice,
 				)

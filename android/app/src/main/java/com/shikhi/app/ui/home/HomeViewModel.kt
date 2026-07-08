@@ -30,6 +30,8 @@ data class HomeUiState(
 	val health: BackendHealth = BackendHealth.CHECKING,
 	val isGuest: Boolean = false,
 	val savingLevel: Boolean = false,
+	/** Set when a self-placement PUT fails so the hero can surface it instead of doing nothing. */
+	val levelError: Boolean = false,
 	/** True when what's on screen came from the offline cache (NFR-AN4). */
 	val fromCache: Boolean = false,
 )
@@ -57,11 +59,11 @@ class HomeViewModel @Inject constructor(
 	/** Self-placement from the practice hero's level picker (PUT /stats/level). */
 	fun setLevel(level: String) {
 		if (_state.value.savingLevel) return
-		_state.update { it.copy(savingLevel = true) }
+		_state.update { it.copy(savingLevel = true, levelError = false) }
 		viewModelScope.launch {
-			runCatching { progressApi.setLevel(SetLevelRequest(level)) }.onSuccess { stats ->
-				_state.update { it.copy(stats = stats) }
-			}
+			runCatching { progressApi.setLevel(SetLevelRequest(level)) }
+				.onSuccess { stats -> _state.update { it.copy(stats = stats, levelError = false) } }
+				.onFailure { _state.update { it.copy(levelError = true) } }
 			_state.update { it.copy(savingLevel = false) }
 		}
 	}

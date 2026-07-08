@@ -57,6 +57,7 @@
     <string name="practice_hero_title">Today’s practice</string>
     <string name="practice_hero_copy">Fresh exercises from your %1$s words — short sentences in the mix.</string>
     <string name="practice_pick_level">Choose your level</string>
+    <string name="practice_level_error">Couldn\'t change your level. Please try again.</string>
     <string name="practice_band_a1">Beginner</string>
     <string name="practice_band_a2">Elementary</string>
     <string name="practice_band_b1">Intermediate</string>

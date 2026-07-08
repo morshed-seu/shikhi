@@ -104,6 +104,7 @@ fun PracticeHero(
 	level: String,
 	streak: Int,
 	saving: Boolean,
+	error: Boolean,
 	onPickLevel: (String) -> Unit,
 	onStart: () -> Unit,
 ) {
@@ -130,6 +131,15 @@ fun PracticeHero(
 			}
 			Spacer(Modifier.height(4.dp))
 			Text(stringResource(R.string.practice_hero_copy, level), style = MaterialTheme.typography.bodyMedium)
+
+			if (error) {
+				Spacer(Modifier.height(8.dp))
+				Text(
+					stringResource(R.string.practice_level_error),
+					style = MaterialTheme.typography.bodyMedium,
+					color = MaterialTheme.colorScheme.error,
+				)
+			}
 
 			if (picking) {
 				Spacer(Modifier.height(12.dp))
