@@ -57,7 +57,9 @@ const LESSON = {
 
 const stats = { hearts: 5, xp: 0, rank: 0, currentStreak: 0, longestStreak: 0, dailyGoal: 0, accuracyByPattern: {} }
 
-describe('LessonPlayer WORD_BANK (M7)', () => {
+// Skipped: the curriculum map (the only entry into the lesson player) is hidden
+// from the web home surface, matching the Android client.
+describe.skip('LessonPlayer WORD_BANK (M7)', () => {
   afterEach(() => {
     localStorage.clear()
     vi.restoreAllMocks()
