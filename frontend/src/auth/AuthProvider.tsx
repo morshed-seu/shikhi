@@ -94,9 +94,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser((current) => (current ? { ...current, uiLocale: locale } : current))
   }, [])
 
+  // Profile edits (E13, PATCH /me) return the updated User — cache it directly rather than
+  // re-fetching, so the new name/locale show immediately everywhere `user` is read.
+  const refreshUser = useCallback((updated: User) => {
+    setUser(updated)
+  }, [])
+
   return (
     <AuthContext.Provider
-      value={{ user, loading, login, register, startGuest, claim, logout, getToken, setUiLocale }}
+      value={{
+        user,
+        loading,
+        login,
+        register,
+        startGuest,
+        claim,
+        logout,
+        getToken,
+        setUiLocale,
+        refreshUser,
+      }}
     >
       {children}
     </AuthContext.Provider>

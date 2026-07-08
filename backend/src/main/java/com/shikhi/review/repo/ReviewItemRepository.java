@@ -14,4 +14,6 @@ public interface ReviewItemRepository extends JpaRepository<ReviewItem, UUID> {
 	List<ReviewItem> findByUserIdAndDueAtLessThanEqualOrderByDueAt(UUID userId, Instant now);
 
 	long countByUserIdAndUpdatedAtGreaterThanEqual(UUID userId, Instant since);
+
+	long countByUserIdAndDueAtLessThanEqual(UUID userId, Instant now);
 }

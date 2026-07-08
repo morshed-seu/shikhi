@@ -136,6 +136,10 @@ public class User {
 		return roles;
 	}
 
+	public Instant getCreatedAt() {
+		return createdAt;
+	}
+
 	public Instant getDeletedAt() {
 		return deletedAt;
 	}

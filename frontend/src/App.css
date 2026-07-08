@@ -59,9 +59,10 @@
   gap: var(--space-2);
 }
 
-/* Header pill buttons (language + theme) share one look. */
+/* Header pill buttons (language + theme + profile) share one look. */
 .app__lang,
-.app__theme {
+.app__theme,
+.app__profile {
   padding: var(--space-2) var(--space-4);
   border-radius: var(--r-pill);
   border: 1px solid var(--border-strong);
@@ -77,10 +78,15 @@
 }
 
 .app__lang:hover,
-.app__theme:hover {
+.app__theme:hover,
+.app__profile:hover {
   border-color: var(--brand-border);
   background: var(--brand-tint);
   color: var(--brand);
+}
+
+.app__profile {
+  min-width: 2.6rem;
 }
 
 .app__theme {
@@ -411,17 +417,30 @@
   margin-top: var(--space-4);
 }
 
-/* Stats — a compact ledger row; numbers in ink, labels quiet. */
+/* Stats — a compact ledger row; numbers in ink, labels quiet. Rendered as a <button> so it
+   doubles as the profile/dashboard entry point (E13, keyboard-accessible). */
 .stats {
   display: flex;
   gap: var(--space-5);
   flex-wrap: wrap;
+  width: 100%;
   margin-top: var(--space-5);
   padding: var(--space-4) var(--space-5);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.stats:hover {
+  border-color: var(--brand-border);
+  box-shadow: var(--shadow-md);
 }
 
 .stats__item {
@@ -1456,6 +1475,303 @@
 .onboarding__level-code {
   font-weight: 700;
   font-size: 1.05rem;
+}
+
+/* ── Profile & dashboard (E13) ────────────────────────────────────────────── */
+.profile {
+  margin-top: var(--space-5);
+}
+
+.profile__back {
+  margin-bottom: var(--space-4);
+}
+
+.profile-card {
+  padding: var(--space-5);
+  border: 1px solid var(--border);
+  border-top: 4px solid var(--accent);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+.profile-card__name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.profile-card__name h2 {
+  margin: 0;
+}
+
+.profile-card__edit {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.profile-card__edit:hover {
+  border-color: var(--brand-border);
+  color: var(--brand);
+}
+
+.profile-card__name-input {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  font-size: 1rem;
+  background: var(--surface-2);
+  color: var(--fg);
+}
+
+.profile-card__name-input:focus-visible {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-tint);
+}
+
+.profile-card__name-save,
+.profile-card__name-cancel {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border-strong);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.profile-card__name-save {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: var(--on-brand);
+}
+
+.profile-card__name-cancel {
+  background: transparent;
+  color: var(--fg-muted);
+}
+
+.profile-card__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-top: var(--space-3);
+  color: var(--fg-muted);
+  font-size: 0.9rem;
+}
+
+.profile-card__level {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--brand-border);
+  border-radius: var(--r-pill);
+  background: var(--brand-tint);
+  color: var(--brand);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.profile-card__guest-badge {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  color: var(--fg-muted);
+  font-weight: 600;
+}
+
+.profile-card__locale {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  font-size: 0.9rem;
+  color: var(--fg-muted);
+}
+
+.profile-card__locale select {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--fg);
+}
+
+/* Stats grid — the expanded dashboard version of the compact stats ledger. */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+@media (max-width: 560px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.stats-grid__tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+
+.stats-grid__value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--fg);
+}
+
+.stats-grid__label {
+  font-size: 0.8rem;
+  color: var(--fg-muted);
+}
+
+/* Mastery bars — pure CSS horizontal meters, one per CEFR band. */
+.mastery {
+  margin-top: var(--space-6);
+}
+
+.mastery h3 {
+  margin: 0 0 var(--space-3);
+}
+
+.mastery__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.mastery__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.mastery__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.mastery__level {
+  font-weight: 700;
+  color: var(--fg);
+}
+
+.mastery__count {
+  font-size: 0.85rem;
+  color: var(--fg-subtle);
+}
+
+.mastery__track {
+  height: 10px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.mastery__fill {
+  height: 100%;
+  border-radius: var(--r-pill);
+  background: var(--brand);
+  transition: width 0.25s ease;
+}
+
+/* Account actions — export + delete (registered) or the reused GuestBanner (guest). */
+.account-actions {
+  margin-top: var(--space-6);
+  padding: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+
+.account-actions h3 {
+  margin: 0 0 var(--space-3);
+}
+
+.account-actions__export,
+.account-actions__delete {
+  display: block;
+  width: 100%;
+  margin-top: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--r-pill);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.account-actions__export {
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  color: var(--fg);
+}
+
+.account-actions__export:hover:not(:disabled) {
+  border-color: var(--brand-border);
+  color: var(--brand);
+}
+
+.account-actions__delete {
+  border: 1px solid var(--danger-border);
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.account-actions__delete:hover:not(:disabled) {
+  filter: brightness(0.97);
+}
+
+.account-actions__confirm {
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--danger-border);
+  border-radius: var(--r-md);
+  background: var(--danger-bg);
+}
+
+.account-actions__confirm p {
+  margin: 0 0 var(--space-3);
+  color: var(--danger);
+}
+
+.account-actions__delete-confirm,
+.account-actions__delete-cancel {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  font-weight: 600;
+  margin-inline-end: var(--space-2);
+}
+
+.account-actions__delete-confirm {
+  border: none;
+  background: var(--danger);
+  color: #ffffff;
+}
+
+.account-actions__delete-cancel {
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--fg-muted);
 }
 
 .onboarding__level-name {

@@ -48,7 +48,8 @@ public class PracticeSessionService {
 	/** Level-up suggested once this share of the current band has been answered correctly. */
 	static final double LEVEL_UP_THRESHOLD = 0.6;
 
-	private static final List<String> BAND_ORDER = List.of("A1", "A2", "B1", "B2", "C1");
+	/** Package-visible so {@link PracticeStatsService} (E13 dashboard seam) stays in lockstep. */
+	static final List<String> BAND_ORDER = List.of("A1", "A2", "B1", "B2", "C1");
 
 	private static final Bilingual CORRECT_FEEDBACK = new Bilingual("Correct!", "সঠিক!");
 

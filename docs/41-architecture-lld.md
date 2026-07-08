@@ -38,6 +38,9 @@ graph TD
     practice --> content
     practice --> progress
     practice --> grading
+    dashboard --> progress
+    dashboard --> practice
+    dashboard --> review
     progress
     grading
 ```
@@ -49,8 +52,21 @@ graph TD
 - `progress` is self-contained (owns XP/streak/hearts/sync); no upward dependencies.
 - `grading` is pure/stateless per call; depends only on its input context.
 - `practice` (E12) reads `content`'s vocabulary, calls `progress`, and reuses `grading`'s
-  answer normalizer; nothing depends on `practice`.
-- No module accesses another module's tables directly (only via interfaces).
+  answer normalizer; only `dashboard` depends on `practice` (read-only, E13).
+- `dashboard` (E13) is a **top-of-graph read-only composer** like `learning`: it calls
+  `progress`, `practice`, and `review` application services and **never writes**.
+- No module accesses another module's tables directly (only via interfaces) — with one
+  sanctioned exception: the **reporting seam** below.
+
+**Reporting seam (E13, sanctioned exception):** `dashboard` owns a read-only query
+repository that runs **aggregate SQL across other modules' tables** (answer submissions,
+practice answers/sessions, user progress) — a CQRS-style read model for lifetime totals
+and time-series reports. Rationale: threading five one-line COUNT methods through three
+owning modules adds coupling without adding safety; a single, clearly-labelled read-only
+reporting repository is more honest. Constraints: **SELECT-only**, no entity mappings from
+other modules (scalar projections), and any new table it touches must be listed in §2.9.
+If per-day aggregation ever gets hot, the recorded evolution is a daily rollup table
+owned by `dashboard` (see §2.9) — "measure then scale" (NFR R9).
 
 ---
 
@@ -138,6 +154,38 @@ graph TD
   day activity/streak, heart on wrong, `XP_PER_CORRECT` on right (practice has no
   lesson-completion XP event).
 
+### 2.9 dashboard (learner profile & dashboard — E13)
+
+- **Responsibilities:** compose the learner-facing dashboard snapshot (`GET /dashboard`)
+  and activity reports (`GET /reports/activity`) from data the other modules already own.
+  **Read-only**: it never mutates state; profile *edits* stay in `identity` (`PATCH /me`).
+- **Key interfaces:**
+  - `DashboardService` — `snapshot(userId)`: `{ stats (via ProgressService.getState),
+    wordMastery[] per band A1–C1 (via practice), reviewDueCount (via
+    ReviewService.dueCount), lessonsCompleted, practiceSessionsCompleted, totalAnswered,
+    totalCorrect, accuracyByPattern }`.
+  - `ReportsService`/same service — `activity(userId, days)`: per-UTC-day
+    `{date, answered, correct}` for the last *n* days (default 30, max 90).
+- **Composition seams added in owning modules (thin, service-level):**
+  - `review`: `ReviewService.dueCount(userId)`.
+  - `practice`: `PracticeStatsService.masteryByBand(userId)` — "mastered" =
+    `times_correct > 0` (same semantics as level-up eligibility's
+    `countMasteredInBand`); band totals from `vocabulary` counts.
+- **Reporting seam queries** (the §1 sanctioned read-only repository), all scalar
+  projections: lifetime answered/correct = UNION ALL over `answer_submissions` +
+  `practice_answers`; per-day buckets = same union grouped by UTC day; completed counts
+  from `user_progress` / `practice_sessions`; `accuracyByPattern` grouped over
+  `answer_submissions.matched_pattern_code`. Day boundary is **UTC**, deliberately
+  matching `ProgressService.today()` (per-user timezone stays OQ-L1).
+- **Derivability contract:** everything is back-derivable from existing timestamped rows —
+  no new write paths, no event tables. **XP-over-time is not offered** (per-event XP was
+  never recorded; practice XP is `10 × correct` but lesson XP is a lump completion award).
+  If exact XP charts are wanted later, the evolution is a `dashboard`-owned daily rollup
+  table populated on write — recorded here, not built (NFR R9).
+- **Performance:** V22 adds `(user_id, submitted_at)` indexes on `practice_answers` and
+  `answer_submissions` (§3.5a); report window capped at 90 days; the aggregate runs only
+  on dashboard open, never on the hot answer path (`GET /stats` is untouched).
+
 ---
 
 ## 3. Data model (ERD)
@@ -224,8 +272,18 @@ erDiagram
 | `user_stats.cefr_level` | (column on existing table) `varchar(2)` A1–C1, default `'A1'` | The learner's self-placed / confirmed band. Check constraint widened to include C1 in V21 (`practice_sessions.cefr_level` likewise) |
 | `practice_sessions` | id, user_id, cefr_level, rounds_played, correct_count, total_count, started_at, completed_at | One continuous practice run; level pinned at start |
 | `practice_exercises` | id, session_id, round, ordinal, vocabulary_id, type, prompt_en, prompt_bn, payload `JSONB`, **answer_key `JSONB`**, answered_correct | `payload` is learner-visible (no correctness); `answer_key` is server-only |
-| `practice_answers` | id, user_id, session_id, exercise_id, **idempotency_key**, is_correct, created_at | **UNIQUE(user_id, idempotency_key)** — same replay-safety as `answer_submissions` |
+| `practice_answers` | id, user_id, session_id, exercise_id, **idempotency_key**, correct, submitted_at | **UNIQUE(user_id, idempotency_key)** — same replay-safety as `answer_submissions`. *(Column names corrected 2026-07-08 to match V16: `correct`, `submitted_at`.)* |
 | `practice_word_progress` | **PK(user_id, vocabulary_id)**, times_seen, times_correct, strength, last_seen_at | Drives weak-word priority + level-up eligibility |
+
+### 3.5a reporting indexes (E13 — V22)
+
+No new tables. `V22__reporting_indexes.sql` adds two additive indexes for the §2.9
+reporting seam's per-user aggregation:
+
+| Index | On | Serves |
+|---|---|---|
+| `ix_practice_answers_user_time` | `practice_answers (user_id, submitted_at)` | daily activity buckets, lifetime totals |
+| `ix_answer_submissions_user_time` | `answer_submissions (user_id, submitted_at)` | daily activity buckets, lifetime totals, accuracy-by-pattern |
 
 ---
 
@@ -379,6 +437,7 @@ All errors return a structured envelope:
 | progress | `/progress`, `/progress/sync`, `/stats`, `/stats/level` |
 | practice | `/practice/sessions`, `/practice/sessions/{id}/answers`, `/practice/sessions/{id}/rounds`, `/practice/sessions/{id}/complete` |
 | review | `/review/due`, `/review/results` |
+| dashboard | `/dashboard`, `/reports/activity` (E13, read-only) |
 | ops | `/health`, `/ready` |
 
 ---

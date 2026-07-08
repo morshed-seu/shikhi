@@ -12,6 +12,7 @@ import { Onboarding } from './components/Onboarding'
 import { OfflineBanner } from './components/OfflineBanner'
 import { PracticeHero } from './components/PracticeHero'
 import { PracticePlayer } from './components/PracticePlayer'
+import { ProfileView } from './components/ProfileView'
 import { ReviewPanel } from './components/ReviewPanel'
 import { StatsBar } from './components/StatsBar'
 import { VocabularyBrowser } from './components/VocabularyBrowser'
@@ -26,11 +27,11 @@ function AppShell() {
   const { theme, toggleTheme } = useTheme()
   const { user, getToken, setUiLocale } = useAuth()
   const [health, setHealth] = useState<HealthState>('loading')
-  const [practicing, setPracticing] = useState(false)
+  const [view, setView] = useState<'home' | 'practice' | 'profile'>('home')
   const [refreshKey, setRefreshKey] = useState(0)
 
   const exitPractice = () => {
-    setPracticing(false)
+    setView('home')
     setRefreshKey((k) => k + 1)
   }
 
@@ -115,6 +116,16 @@ function AppShell() {
           >
             {i18n.language === 'bn' ? 'English' : 'বাংলা'}
           </button>
+          {user && (
+            <button
+              type="button"
+              className="app__profile"
+              onClick={() => setView('profile')}
+              aria-label={t('profile.open')}
+            >
+              👤
+            </button>
+          )}
         </div>
       </header>
       <p className="app__tagline">{t('app.tagline')}</p>
@@ -124,13 +135,15 @@ function AppShell() {
       <OfflineBanner />
       <AuthPanel />
       <GuestBanner />
-      <StatsBar refreshKey={refreshKey} />
-      {practicing ? (
+      <StatsBar refreshKey={refreshKey} onOpenProfile={() => setView('profile')} />
+      {view === 'practice' ? (
         <PracticePlayer onExit={exitPractice} />
+      ) : view === 'profile' ? (
+        <ProfileView onBack={() => setView('home')} />
       ) : (
         <>
           <Onboarding />
-          <PracticeHero refreshKey={refreshKey} onStart={() => setPracticing(true)} />
+          <PracticeHero refreshKey={refreshKey} onStart={() => setView('practice')} />
           <ReviewPanel refreshKey={refreshKey} />
           {/* Curriculum map hidden from the web client — the guided lesson tree is
               intentionally not surfaced here, matching the Android home. Practice +

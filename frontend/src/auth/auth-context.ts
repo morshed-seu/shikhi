@@ -16,6 +16,13 @@ export interface AuthState {
   getToken: () => string | null
   /** Update the cached user's UI locale (kept in sync with a language toggle). */
   setUiLocale: (locale: Locale) => void
+  /**
+   * Replace the cached user (e.g. after PATCH /me returns the updated profile).
+   * Caution: full replace — callers must carry over the current cached `uiLocale`
+   * (it's owned by the optimistic locale-toggle flow; a response racing that flow may
+   * still hold the old locale, and adopting it would flip the UI language back).
+   */
+  refreshUser: (user: User) => void
 }
 
 export const AuthContext = createContext<AuthState | null>(null)
