@@ -98,45 +98,8 @@ fun HomeScreen(
 			ReviewSection(items = reviewItems, onMark = reviewViewModel::mark)
 		}
 
-		item(key = "curriculum-title") {
-			Text(
-				stringResource(R.string.curriculum_title),
-				style = MaterialTheme.typography.titleLarge,
-				modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
-			)
-		}
-
-		when {
-			ui.curriculumLoading -> item { Text(stringResource(R.string.curriculum_loading)) }
-			ui.curriculumError -> item {
-				Text(stringResource(R.string.curriculum_error), color = MaterialTheme.colorScheme.error)
-			}
-
-			ui.tree != null && ui.tree!!.levels.isEmpty() -> item { Text(stringResource(R.string.curriculum_empty)) }
-
-			else -> ui.tree?.levels?.forEach { level ->
-				item(key = level.id) {
-					Text(
-						level.title.localized(),
-						style = MaterialTheme.typography.titleMedium,
-						modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
-					)
-				}
-				level.units.forEach { unit ->
-					item(key = unit.id) {
-						Text(
-							unit.title.localized(),
-							style = MaterialTheme.typography.labelLarge,
-							color = MaterialTheme.colorScheme.secondary,
-							modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
-						)
-					}
-					items(unit.lessons, key = { it.id }) { lesson ->
-						LessonRow(lesson, onOpenLesson)
-					}
-				}
-			}
-		}
+		// Curriculum section hidden from the Android client — the guided lesson tree is
+		// intentionally not surfaced here. Practice + review + vocabulary remain the home surface.
 
 		item(key = "vocabulary") {
 			VocabularySection(

@@ -35,7 +35,7 @@ val debugApiBaseUrl: String = (findProperty("apiBaseUrl") as String?)
 
 // Hosted backend (chore/deployable-stack, Render free tier — expect cold starts).
 val releaseApiBaseUrl: String = (findProperty("releaseApiBaseUrl") as String?)
-	?: "https://shikhi-backend.onrender.com/v1/"
+	?: "https://shikhi.onrender.com/v1/"
 
 val keystoreProps = Properties().apply {
 	val f = rootProject.file("keystore.properties")
@@ -51,8 +51,8 @@ android {
 		minSdk = 26
 		targetSdk = 36
 		// versionCode = 10000*major + 100*minor + patch (docs/70 §13)
-		versionCode = 100
-		versionName = "0.1.0"
+		versionCode = 101
+		versionName = "0.1.1"
 		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 	}
 
