@@ -61,6 +61,7 @@
     <string name="practice_band_a2">Elementary</string>
     <string name="practice_band_b1">Intermediate</string>
     <string name="practice_band_b2">Upper intermediate</string>
+    <string name="practice_band_c1">Advanced</string>
     <string name="practice_start">Start session</string>
     <string name="practice_loading">Preparing your session…</string>
     <string name="practice_error">Could not start the session.</string>

@@ -6,8 +6,8 @@ import kotlinx.serialization.Serializable
 
 // ---- Adaptive practice (E12) ----
 
-/** CEFR bands a learner can practice at; C1 vocabulary exists but E12 stops at B2. */
-val CEFR_LEVELS = listOf("A1", "A2", "B1", "B2")
+/** CEFR bands a learner can practice at (A1–C1, the full seeded Oxford 5000 range). */
+val CEFR_LEVELS = listOf("A1", "A2", "B1", "B2", "C1")
 
 /** The band after [level], or null at the top (web `nextLevel`). */
 fun nextLevel(level: String): String? {

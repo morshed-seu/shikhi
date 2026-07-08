@@ -33,7 +33,8 @@ private fun bandName(band: String): String = stringResource(
 		"A1" -> R.string.practice_band_a1
 		"A2" -> R.string.practice_band_a2
 		"B1" -> R.string.practice_band_b1
-		else -> R.string.practice_band_b2
+		"B2" -> R.string.practice_band_b2
+		else -> R.string.practice_band_c1
 	},
 )
 

@@ -62,6 +62,7 @@
     <string name="practice_band_a2">প্রাথমিক</string>
     <string name="practice_band_b1">মধ্যম</string>
     <string name="practice_band_b2">উচ্চতর</string>
+    <string name="practice_band_c1">দক্ষ</string>
     <string name="practice_start">সেশন শুরু করুন</string>
     <string name="practice_loading">আপনার সেশন তৈরি হচ্ছে…</string>
     <string name="practice_error">সেশন শুরু করা যায়নি।</string>
