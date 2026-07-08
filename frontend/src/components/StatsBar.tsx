@@ -6,9 +6,11 @@ import { useAuth } from '../auth/useAuth'
 interface Props {
   /** Bumped by the parent after a lesson finishes, to re-pull the latest stats. */
   refreshKey: number
+  /** Opens the profile/dashboard view (E13) — the bar doubles as an entry point. */
+  onOpenProfile: () => void
 }
 
-export function StatsBar({ refreshKey }: Props) {
+export function StatsBar({ refreshKey, onOpenProfile }: Props) {
   const { t } = useTranslation()
   const { user, getToken } = useAuth()
   const [stats, setStats] = useState<Stats | null>(null)
@@ -37,10 +39,10 @@ export function StatsBar({ refreshKey }: Props) {
   if (!user || !stats) return null
 
   return (
-    <section className="stats" aria-label={t('stats.title')}>
+    <button type="button" className="stats" aria-label={t('profile.openFromStats')} onClick={onOpenProfile}>
       <span className="stats__item">⭐ {stats.xp} {t('stats.xp')}</span>
       <span className="stats__item">🔥 {stats.currentStreak} {t('stats.streak')}</span>
       <span className="stats__item" aria-label={t('stats.hearts')}>❤ {stats.hearts}</span>
-    </section>
+    </button>
   )
 }

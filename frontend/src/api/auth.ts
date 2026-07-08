@@ -11,6 +11,15 @@ export interface User {
   roles: string[]
   /** True for an anonymous guest that hasn't claimed the account yet. */
   isGuest: boolean
+  /** Account creation instant (E13). */
+  joinedAt?: string
+}
+
+/** A linked sign-in method (E13, GET /me/identities) — used to show the masked email etc. */
+export interface Identity {
+  provider: 'EMAIL' | 'PHONE' | 'GOOGLE'
+  verified: boolean
+  maskedRef: string
 }
 
 export interface TokenPair {
@@ -61,4 +70,11 @@ export const authApi = {
 
   updateProfile: (token: string, patch: { uiLocale?: Locale; displayName?: string }) =>
     apiFetch<User>('/me', { method: 'PATCH', token, body: patch }),
+
+  // Account/profile actions (E13).
+  fetchIdentities: (token: string) => apiFetch<Identity[]>('/me/identities', { token }),
+
+  exportAccount: (token: string) => apiFetch<Record<string, unknown>>('/me/export', { token }),
+
+  deleteAccount: (token: string) => apiFetch<void>('/me', { method: 'DELETE', token }),
 }
