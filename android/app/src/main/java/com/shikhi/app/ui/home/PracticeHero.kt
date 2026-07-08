@@ -1,16 +1,19 @@
 package com.shikhi.app.ui.home
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -22,6 +25,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.shikhi.app.R
@@ -37,6 +42,58 @@ private fun bandName(band: String): String = stringResource(
 		else -> R.string.practice_band_c1
 	},
 )
+
+/**
+ * One selectable CEFR level: the band code worn as a badge (echoing the hero's own),
+ * its plain-language name, and a check on the current level. Full-width so nothing wraps.
+ */
+@Composable
+private fun LevelOption(
+	band: String,
+	name: String,
+	active: Boolean,
+	enabled: Boolean,
+	onClick: () -> Unit,
+) {
+	Surface(
+		onClick = onClick,
+		enabled = enabled,
+		shape = RoundedCornerShape(12.dp),
+		color = if (active) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent,
+		border = BorderStroke(
+			1.dp,
+			if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+		),
+		modifier = Modifier.fillMaxWidth(),
+	) {
+		Row(
+			Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+			verticalAlignment = Alignment.CenterVertically,
+			horizontalArrangement = Arrangement.spacedBy(12.dp),
+		) {
+			Box(
+				Modifier
+					.size(width = 40.dp, height = 28.dp)
+					.clip(RoundedCornerShape(8.dp))
+					.background(
+						if (active) MaterialTheme.colorScheme.primary
+						else MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+					),
+				contentAlignment = Alignment.Center,
+			) {
+				Text(
+					band,
+					style = MaterialTheme.typography.labelLarge,
+					color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+				)
+			}
+			Text(name, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+			if (active) {
+				Text("✓", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+			}
+		}
+	}
+}
 
 /**
  * The signed-in home hero (web PracticeHero, E12/US-12.2): one clear "start session"
@@ -77,29 +134,19 @@ fun PracticeHero(
 			if (picking) {
 				Spacer(Modifier.height(12.dp))
 				Text(stringResource(R.string.practice_pick_level), style = MaterialTheme.typography.labelLarge)
-				Spacer(Modifier.height(6.dp))
-				Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+				Spacer(Modifier.height(8.dp))
+				Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
 					CEFR_LEVELS.forEach { band ->
-						val active = band == level
-						OutlinedButton(
+						LevelOption(
+							band = band,
+							name = bandName(band),
+							active = band == level,
+							enabled = !saving,
 							onClick = {
 								onPickLevel(band)
 								picking = false
 							},
-							enabled = !saving,
-							colors = if (active) {
-								ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
-							} else {
-								ButtonDefaults.outlinedButtonColors()
-							},
-							contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-							modifier = Modifier.weight(1f),
-						) {
-							Column(horizontalAlignment = Alignment.CenterHorizontally) {
-								Text(band, style = MaterialTheme.typography.labelLarge)
-								Text(bandName(band), style = MaterialTheme.typography.labelSmall)
-							}
-						}
+						)
 					}
 				}
 			}
