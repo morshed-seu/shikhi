@@ -66,7 +66,7 @@ const resources = {
       },
       vocab: {
         title: 'Word list',
-        subtitle: 'The Oxford 3000 core words, with Bangla meanings and examples.',
+        subtitle: 'The Oxford 5000 core words, with Bangla meanings and examples.',
         show: 'Browse words',
         hide: 'Hide',
         searchPlaceholder: 'Search a word or meaning…',
