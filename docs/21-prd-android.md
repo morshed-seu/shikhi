@@ -26,7 +26,7 @@
 |---|---|---|
 | Onboarding | Guest-first start (ADR-0011): one tap → learning. Locale picker (bn default). | `POST /auth/guest` |
 | Session resume | Silent sign-in on launch via stored refresh token; expired/revoked → onboarding. | `POST /auth/refresh`, `GET /me` |
-| Home / curriculum map | Levels → units → lessons with progress overlay and lock states (E3); stats bar (XP, streak, hearts — E6); backend "warming up" state for free-tier cold starts. | `GET /curriculum`, `GET /stats`, `GET /health` |
+| Home | Stats bar (XP, streak, hearts — E6); backend "warming up" state for free-tier cold starts. **Practice-first home** — see §7 divergence: the guided curriculum/lesson tree is *not* surfaced on the Android home. | `GET /stats`, `GET /health` |
 | Lesson player (E4) | **MCQ and WORD_BANK** renderers (all seeded pilot content); other exercise types show a graceful "not yet supported on Android" card and are skipped without losing the session. Hearts, per-answer verdict + feedback (E5), completion screen (score, XP, unlocks). | `GET /lessons/{id}`, `POST /sessions`, `POST /sessions/{id}/answers`, `POST /sessions/{id}/complete` |
 | Progress durability (E8) | Failed completions/answers are buffered in a local outbox and re-synced idempotently — same semantics as the web outbox. | `POST /progress/sync` |
 
@@ -92,3 +92,26 @@
 5. Full UI renders correctly in Bengali and English, light and dark.
 6. Kill/relaunch resumes the session silently; a revoked refresh token lands on
    onboarding without a crash or a stuck state.
+
+## 7. Post-MA4 divergences (reconciled 2026-07-08)
+
+These shipped as code after Gate MA4 and are recorded here to keep the doc-first record
+true. None add backend behavior.
+
+- **Practice-first home (curriculum tree hidden).** The home screen no longer renders the
+  curriculum levels → units → lessons tree (`HomeScreen.kt`, commit `0e5385f`). The home
+  surface is now **stats + practice + review + vocabulary**. §2 Phase-A "Home / curriculum
+  map" and the offline-curriculum copy in §3/§6 are superseded for what the learner *sees*;
+  the `/curriculum` and `/lessons/*` endpoints and the lesson-player renderers still exist
+  in the client but are not linked from home.
+  - **Open item for the product owner:** MA4 acceptance #1 ("completes a lesson") and #4
+    ("previously viewed curriculum … render offline") assume a reachable lesson tree. With
+    the tree hidden, either re-expose an entry point or restate those criteria around the
+    practice loop. *(Deferred — flagged, not decided.)*
+- **Login convenience (E1).** Onboarding/login now offers **"remember me"** (persists the
+  email, and — later — the password) and a **reveal-password** toggle, mirroring the web
+  `AuthPanel` (commits `ae3c863`, `ecc4836`; web `63b9109`). Stored via `LoginPrefs`.
+  Guest-first entry is unchanged.
+- **Release base URL pinned.** The release build now pins the hosted backend
+  (`shikhi.onrender.com`) via `-PreleaseApiBaseUrl` (commit `0e5385f`), closing the MA4
+  risk in Delivery Plan `80` §12 about the base URL depending on the hosted-stack merge.

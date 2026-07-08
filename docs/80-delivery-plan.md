@@ -216,6 +216,18 @@ each gate is a user review. Backend and web milestones are unaffected.
 | **MA4 — Offline & release** | Room content cache, WorkManager outbox, bn/en l10n, theming, signed release APK, `android` CI job | PRD `21` §6 acceptance list passes on a clean device against the hosted backend |
 
 **Risks carried in this track:** OpenAPI-3.1→Kotlin generator fidelity (spike + DTO
-fallback, MA1); release base URL depends on merging the hosted stack from
-`chore/deployable-stack` (decide before MA4); contract drift now has two consumers
+fallback, MA1); ~~release base URL depends on merging the hosted stack from
+`chore/deployable-stack` (decide before MA4)~~ **resolved 2026-07-08 — release build pins
+`shikhi.onrender.com` via `-PreleaseApiBaseUrl`**; contract drift now has two consumers
 (future CI spec-diff check noted in ADR-0012).
+
+### Post-MA4 changes (recorded 2026-07-08)
+
+Shipped after Gate MA4; docs reconciled rather than re-gated (small increments / one pivot):
+
+| Change | What | Docs updated |
+|---|---|---|
+| **C1 CEFR band** | Self-placement, practice `BAND_ORDER`, `PUT /stats/level`, and DB check constraints (V21) widened A1–B2 → **A1–C1** (C1 vocab was already seeded V17/V19) | PRD `20` E12/US-12.1; LLD `41` §3.5 |
+| **Practice-first Android home** | Curriculum/lesson tree hidden from the Android home; surface = stats + practice + review + vocabulary | PRD `21` §7 (+ open item on MA4 acceptance #1/#4) |
+| **Login convenience** | "Remember me" (email + password) and reveal-password toggle on web + Android login | PRD `20` US-1.1b; PRD `21` §7 |
+| **Release URL pinned** | Release APK points at the hosted Render backend | Runbook `90` §build; risk above closed |

@@ -221,7 +221,7 @@ erDiagram
 
 | Table | Key columns | Notes |
 |---|---|---|
-| `user_stats.cefr_level` | (column on existing table) `varchar(2)` A1–B2, default `'A1'` | The learner's self-placed / confirmed band |
+| `user_stats.cefr_level` | (column on existing table) `varchar(2)` A1–C1, default `'A1'` | The learner's self-placed / confirmed band. Check constraint widened to include C1 in V21 (`practice_sessions.cefr_level` likewise) |
 | `practice_sessions` | id, user_id, cefr_level, rounds_played, correct_count, total_count, started_at, completed_at | One continuous practice run; level pinned at start |
 | `practice_exercises` | id, session_id, round, ordinal, vocabulary_id, type, prompt_en, prompt_bn, payload `JSONB`, **answer_key `JSONB`**, answered_correct | `payload` is learner-visible (no correctness); `answer_key` is server-only |
 | `practice_answers` | id, user_id, session_id, exercise_id, **idempotency_key**, is_correct, created_at | **UNIQUE(user_id, idempotency_key)** — same replay-safety as `answer_submissions` |
