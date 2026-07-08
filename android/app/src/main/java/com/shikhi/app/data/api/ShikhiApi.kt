@@ -3,8 +3,10 @@ package com.shikhi.app.data.api
 import com.shikhi.app.data.api.dto.AnswerResult
 import com.shikhi.app.data.api.dto.ClaimRequest
 import com.shikhi.app.data.api.dto.CurriculumTree
+import com.shikhi.app.data.api.dto.DashboardResponse
 import com.shikhi.app.data.api.dto.GuestRequest
 import com.shikhi.app.data.api.dto.IdempotentRequest
+import com.shikhi.app.data.api.dto.Identity
 import com.shikhi.app.data.api.dto.LessonResult
 import com.shikhi.app.data.api.dto.LessonSession
 import com.shikhi.app.data.api.dto.LessonView
@@ -21,11 +23,15 @@ import com.shikhi.app.data.api.dto.Stats
 import com.shikhi.app.data.api.dto.SubmitAnswerRequest
 import com.shikhi.app.data.api.dto.SyncBatchRequest
 import com.shikhi.app.data.api.dto.TokenPair
+import com.shikhi.app.data.api.dto.UpdateProfileRequest
 import com.shikhi.app.data.api.dto.User
 import com.shikhi.app.data.api.dto.VocabularyEntry
+import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
@@ -56,12 +62,32 @@ interface UserApi {
 	@GET("me")
 	suspend fun me(): User
 
+	/** Display name and/or UI locale (E13/US-13.1) — the same edit surface as guest-claim. */
+	@PATCH("me")
+	suspend fun updateProfile(@Body body: UpdateProfileRequest): User
+
 	@POST("auth/logout")
 	suspend fun logout(): Response<Unit>
 
 	/** In-place guest upgrade (ADR-0011); authenticated as the guest, returns rotated tokens. */
 	@POST("auth/claim")
 	suspend fun claim(@Body body: ClaimRequest): TokenPair
+}
+
+/** Learner profile & dashboard (E13) — read-only snapshot, linked identities, privacy actions. */
+interface DashboardApi {
+	@GET("dashboard")
+	suspend fun dashboard(): DashboardResponse
+
+	@GET("me/identities")
+	suspend fun identities(): List<Identity>
+
+	/** Raw JSON body (NFR-PR2) — kept as bytes so the export stays byte-faithful; not decoded. */
+	@GET("me/export")
+	suspend fun export(): ResponseBody
+
+	@DELETE("me")
+	suspend fun deleteAccount(): Response<Unit>
 }
 
 /** Published curriculum + lessons (content module, read-only). */

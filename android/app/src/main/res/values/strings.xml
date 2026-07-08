@@ -114,4 +114,44 @@
     <string name="guest_save">আমার অগ্রগতি সংরক্ষণ করুন</string>
     <string name="guest_create_account">অ্যাকাউন্ট তৈরি করুন</string>
     <string name="guest_email_taken">এই ইমেইলে ইতিমধ্যে একটি অ্যাকাউন্ট আছে। বরং লগ ইন করুন — এই সেশনের অতিথি অগ্রগতি সংরক্ষিত হবে না।</string>
+    <string name="auth_learner">শিক্ষার্থী</string>
+    <string name="guest_badge">আপনি অতিথি হিসেবে দেখছেন।</string>
+
+    <!-- Profile & dashboard (web i18n profile.*, E13) -->
+    <string name="profile_open">প্রোফাইল খুলুন</string>
+    <string name="profile_back">ফিরে যান</string>
+    <string name="profile_title">প্রোফাইল</string>
+    <string name="profile_loading">আপনার প্রোফাইল লোড হচ্ছে…</string>
+    <string name="profile_error">আপনার প্রোফাইল লোড করা যায়নি।</string>
+    <string name="profile_save">সংরক্ষণ করুন</string>
+    <string name="profile_cancel">বাতিল করুন</string>
+    <string name="profile_edit_name">নাম সম্পাদনা করুন</string>
+    <string name="profile_language">ভাষা</string>
+    <string name="profile_joined">%1$s তারিখে যোগ দিয়েছেন</string>
+    <string name="profile_offline_copy">অফলাইন কপি — আপনার সর্বশেষ সংরক্ষিত প্রোফাইল দেখানো হচ্ছে।</string>
+
+    <string name="stats_label_xp">XP</string>
+    <string name="stats_label_streak">দিনের ধারা</string>
+    <string name="stats_label_hearts">হৃদয়</string>
+
+    <string name="profile_stats_title">আপনার অগ্রগতি</string>
+    <string name="profile_stats_longest_streak">দীর্ঘতম ধারা</string>
+    <string name="profile_stats_daily_goal">দৈনিক লক্ষ্য</string>
+    <string name="profile_stats_review_due">পুনরালোচনা বাকি</string>
+    <string name="profile_stats_lessons_completed">সম্পন্ন পাঠ</string>
+    <string name="profile_stats_practice_sessions">অনুশীলন সেশন</string>
+    <string name="profile_stats_accuracy">সামগ্রিক নির্ভুলতা</string>
+
+    <string name="profile_mastery_title">আয়ত্ত করা শব্দ</string>
+    <string name="profile_mastery_count">%2$dটির মধ্যে %1$dটি</string>
+    <string name="profile_mastery_level">%1$s আয়ত্ত</string>
+
+    <string name="profile_actions_title">অ্যাকাউন্ট</string>
+    <string name="profile_actions_export">আমার তথ্য ডাউনলোড করুন</string>
+    <string name="profile_actions_export_error">আপনার তথ্য এক্সপোর্ট করা যায়নি।</string>
+    <string name="profile_actions_delete">অ্যাকাউন্ট মুছে ফেলুন</string>
+    <string name="profile_actions_delete_confirm_prompt">এটি আপনার অ্যাকাউন্ট ও সব তথ্য স্থায়ীভাবে মুছে ফেলবে। আপনি কি নিশ্চিত?</string>
+    <string name="profile_actions_delete_confirm">হ্যাঁ, মুছে ফেলুন</string>
+    <string name="profile_actions_delete_error">আপনার অ্যাকাউন্ট মুছে ফেলা যায়নি।</string>
+    <string name="profile_export_subject">শিখি ডেটা এক্সপোর্ট</string>
 </resources>

@@ -51,8 +51,8 @@ android {
 		minSdk = 26
 		targetSdk = 36
 		// versionCode = 10000*major + 100*minor + patch (docs/70 §13)
-		versionCode = 105
-		versionName = "0.1.5"
+		versionCode = 106
+		versionName = "0.1.6"
 		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 	}
 
@@ -106,6 +106,10 @@ dependencies {
 	debugImplementation(libs.compose.ui.tooling)
 
 	implementation(libs.activity.compose)
+	// Per-app language (E13 profile locale switch): AppCompatDelegate.setApplicationLocales
+	// works without AppCompatActivity since appcompat 1.6.0, and backports the platform
+	// LocaleManager (API 33+, matches res/xml/locales_config.xml) down to minSdk.
+	implementation(libs.appcompat)
 	implementation(libs.lifecycle.runtime.compose)
 	implementation(libs.lifecycle.viewmodel.compose)
 	implementation(libs.lifecycle.process)

@@ -113,8 +113,4 @@ class HomeViewModel @Inject constructor(
 			_state.update { it.copy(health = BackendHealth.OFFLINE) }
 		}
 	}
-
-	fun logout() {
-		viewModelScope.launch { authRepository.logout() }
-	}
 }

@@ -12,6 +12,7 @@ import com.shikhi.app.data.api.dto.User
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 import java.io.IOException
@@ -111,6 +112,16 @@ class AuthRepository @Inject constructor(
 	private suspend fun activate(pair: TokenPair) {
 		tokenStore.setSession(pair.accessToken, pair.refreshToken)
 		_session.value = SessionState.Active(userApi.get().me())
+	}
+
+	/**
+	 * Replaces the user inside the current Active session after a profile edit (E13/US-13.2:
+	 * the new name/locale must show everywhere, not just on the screen that PATCHed it —
+	 * ProfileViewModel is back-stack-entry-scoped, so a revisit re-seeds from this session).
+	 * Tokens are untouched; a no-op unless a session is Active.
+	 */
+	fun updateActiveUser(user: User) {
+		_session.update { current -> if (current is SessionState.Active) SessionState.Active(user) else current }
 	}
 
 	suspend fun logout() {

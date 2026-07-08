@@ -1,9 +1,9 @@
 package com.shikhi.app
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
@@ -18,8 +18,12 @@ import com.shikhi.app.ui.onboarding.OnboardingScreen
 import com.shikhi.app.ui.theme.ShikhiTheme
 import dagger.hilt.android.AndroidEntryPoint
 
+// AppCompatActivity (not ComponentActivity) is load-bearing for the E13 locale switch:
+// AppCompatDelegate.setApplicationLocales only STORES the choice on API < 33 — it is
+// APPLIED via AppCompatActivity.attachBaseContext. On the PRD's reference devices
+// (Android 9–13, mostly pre-33) a ComponentActivity would silently never switch language.
 @AndroidEntryPoint
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
 
 	private val viewModel: MainViewModel by viewModels()
 
