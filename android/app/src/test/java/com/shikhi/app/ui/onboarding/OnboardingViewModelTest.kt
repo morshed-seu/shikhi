@@ -5,6 +5,7 @@ import com.shikhi.app.data.api.AuthApi
 import com.shikhi.app.data.api.UserApi
 import com.shikhi.app.data.auth.AuthRepository
 import com.shikhi.app.data.auth.LoginPrefs
+import com.shikhi.app.data.auth.RememberedLogin
 import com.shikhi.app.data.auth.TokenStore
 import io.mockk.every
 import io.mockk.mockk
@@ -24,19 +25,19 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * Mirrors the web AuthPanel tests: a remembered login email prefills a later visit with the
- * box already ticked, and an empty store leaves the form blank. The password is never
- * handed to LoginPrefs (only the email is).
+ * Mirrors the web AuthPanel tests: a remembered login prefills a later visit with the box
+ * already ticked, and an empty store leaves the form blank. "Remember me" now stores the
+ * password too (sealed at rest by the real LoginPrefs).
  */
 class OnboardingViewModelTest {
 
 	private val dispatcher = StandardTestDispatcher()
 
-	private class FakeLoginPrefs(initial: String? = null) : LoginPrefs {
-		var stored: String? = initial
-		override suspend fun rememberedEmail(): String? = stored
-		override suspend fun setRememberedEmail(email: String?) {
-			stored = email
+	private class FakeLoginPrefs(initial: RememberedLogin? = null) : LoginPrefs {
+		var stored: RememberedLogin? = initial
+		override suspend fun remembered(): RememberedLogin? = stored
+		override suspend fun setRemembered(email: String?, password: String?) {
+			stored = if (email.isNullOrBlank()) null else RememberedLogin(email, password)
 		}
 	}
 
@@ -58,8 +59,8 @@ class OnboardingViewModelTest {
 	fun tearDown() = Dispatchers.resetMain()
 
 	@Test
-	fun `prefills remembered email and ticks the box`() = runTest(dispatcher) {
-		val prefs = FakeLoginPrefs(initial = "nadia@example.com")
+	fun `prefills remembered email and password and ticks the box`() = runTest(dispatcher) {
+		val prefs = FakeLoginPrefs(RememberedLogin("nadia@example.com", "s3cretpassword"))
 		val vm = OnboardingViewModel(repository(), prefs)
 
 		vm.state.test {
@@ -67,6 +68,7 @@ class OnboardingViewModelTest {
 			assertEquals("", awaitItem().email)
 			val loaded = awaitItem()
 			assertEquals("nadia@example.com", loaded.email)
+			assertEquals("s3cretpassword", loaded.password)
 			assertTrue(loaded.rememberMe)
 		}
 	}
@@ -78,6 +80,7 @@ class OnboardingViewModelTest {
 
 		val s = vm.state.value
 		assertEquals("", s.email)
+		assertEquals("", s.password)
 		assertFalse(s.rememberMe)
 		assertNull(prefs.stored)
 	}

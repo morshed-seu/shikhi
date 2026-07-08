@@ -106,7 +106,7 @@
     <string name="auth_password">পাসওয়ার্ড</string>
     <string name="auth_show_password">পাসওয়ার্ড দেখান</string>
     <string name="auth_hide_password">পাসওয়ার্ড লুকান</string>
-    <string name="auth_remember_me">আমার ইমেইল মনে রাখুন</string>
+    <string name="auth_remember_me">আমাকে মনে রাখুন</string>
     <string name="auth_display_name">নাম</string>
     <string name="auth_submitting">অপেক্ষা করুন…</string>
     <string name="auth_or">অথবা</string>

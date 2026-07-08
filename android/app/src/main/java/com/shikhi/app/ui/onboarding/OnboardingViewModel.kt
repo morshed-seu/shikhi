@@ -39,7 +39,7 @@ class OnboardingViewModel @Inject constructor(
 	val state: StateFlow<OnboardingUiState> = _state
 
 	init {
-		loadRememberedEmail()
+		loadRemembered()
 	}
 
 	private fun uiLocale() = if (Locale.getDefault().language == "en") "en" else "bn"
@@ -56,10 +56,12 @@ class OnboardingViewModel @Inject constructor(
 
 	fun setRememberMe(v: Boolean) = _state.update { it.copy(rememberMe = v) }
 
-	/** Prefill the login form with the last remembered email (checkbox ticked to match). */
-	private fun loadRememberedEmail() = viewModelScope.launch {
-		val saved = loginPrefs.rememberedEmail() ?: return@launch
-		_state.update { it.copy(email = saved, rememberMe = true) }
+	/** Prefill the login form with the last remembered credentials (checkbox ticked to match). */
+	private fun loadRemembered() = viewModelScope.launch {
+		val saved = loginPrefs.remembered() ?: return@launch
+		_state.update {
+			it.copy(email = saved.email, password = saved.password ?: it.password, rememberMe = true)
+		}
 	}
 
 	fun startAsGuest() = submit { authRepository.startGuest(uiLocale()) }
@@ -71,8 +73,9 @@ class OnboardingViewModel @Inject constructor(
 			when (s.mode) {
 				AuthMode.LOGIN -> {
 					authRepository.login(s.email, s.password)
-					// Remember (or forget) the email only after the credentials are accepted.
-					loginPrefs.setRememberedEmail(if (s.rememberMe) s.email else null)
+					// Remember (or forget) the credentials only after they're accepted.
+					if (s.rememberMe) loginPrefs.setRemembered(s.email, s.password)
+					else loginPrefs.setRemembered(null, null)
 				}
 				AuthMode.REGISTER -> authRepository.register(
 					s.email,
@@ -93,9 +96,9 @@ class OnboardingViewModel @Inject constructor(
 				// Success flips the app-level SessionState and this screen goes away, but the
 				// ViewModel is Activity-scoped so it outlives the screen. Reset to a clean form
 				// so a later logout returns to onboarding without a stale busy flag or fields —
-				// then re-prefill the remembered email for that next visit.
+				// then re-prefill the remembered credentials for that next visit.
 				_state.value = OnboardingUiState()
-				loadRememberedEmail()
+				loadRemembered()
 			} catch (e: Exception) {
 				_state.update {
 					it.copy(
