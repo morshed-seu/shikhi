@@ -71,7 +71,10 @@ class OnboardingViewModel @Inject constructor(
 		viewModelScope.launch {
 			try {
 				action()
-				// Success flips the app-level SessionState; this screen goes away.
+				// Success flips the app-level SessionState and this screen goes away, but the
+				// ViewModel is Activity-scoped so it outlives the screen. Reset to a clean form
+				// so a later logout returns to onboarding without a stale busy flag or fields.
+				_state.value = OnboardingUiState()
 			} catch (e: Exception) {
 				_state.update {
 					it.copy(
