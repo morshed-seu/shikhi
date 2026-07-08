@@ -7,9 +7,7 @@ import { flushOutbox, pendingCount } from './api/outbox'
 import { AuthProvider } from './auth/AuthProvider'
 import { useAuth } from './auth/useAuth'
 import { AuthPanel } from './components/AuthPanel'
-import { CurriculumMap } from './components/CurriculumMap'
 import { GuestBanner } from './components/GuestBanner'
-import { LessonPlayer } from './components/LessonPlayer'
 import { Onboarding } from './components/Onboarding'
 import { OfflineBanner } from './components/OfflineBanner'
 import { PracticeHero } from './components/PracticeHero'
@@ -28,15 +26,8 @@ function AppShell() {
   const { theme, toggleTheme } = useTheme()
   const { user, getToken, setUiLocale } = useAuth()
   const [health, setHealth] = useState<HealthState>('loading')
-  const [activeLessonId, setActiveLessonId] = useState<string | null>(null)
   const [practicing, setPracticing] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
-
-  // Leaving a lesson bumps the refresh key so stats + the map re-pull progress.
-  const exitLesson = () => {
-    setActiveLessonId(null)
-    setRefreshKey((k) => k + 1)
-  }
 
   const exitPractice = () => {
     setPracticing(false)
@@ -136,14 +127,14 @@ function AppShell() {
       <StatsBar refreshKey={refreshKey} />
       {practicing ? (
         <PracticePlayer onExit={exitPractice} />
-      ) : activeLessonId ? (
-        <LessonPlayer lessonId={activeLessonId} onExit={exitLesson} />
       ) : (
         <>
           <Onboarding />
           <PracticeHero refreshKey={refreshKey} onStart={() => setPracticing(true)} />
           <ReviewPanel refreshKey={refreshKey} />
-          <CurriculumMap onSelectLesson={setActiveLessonId} refreshKey={refreshKey} />
+          {/* Curriculum map hidden from the web client — the guided lesson tree is
+              intentionally not surfaced here, matching the Android home. Practice +
+              review + vocabulary remain the home surface. */}
           <VocabularyBrowser />
         </>
       )}

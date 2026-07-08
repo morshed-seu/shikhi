@@ -32,7 +32,9 @@ const CURRICULUM = {
   ],
 }
 
-describe('CurriculumMap (M2)', () => {
+// Skipped: the curriculum map is hidden from the web home surface (matching the
+// Android client) — this App-level flow is unreachable until the map is restored.
+describe.skip('CurriculumMap (M2)', () => {
   afterEach(() => {
     localStorage.clear()
     vi.restoreAllMocks()
