@@ -58,10 +58,6 @@ private val DarkColors = darkColorScheme(
 	outlineVariant = Color(0xFF322F3D), // --border (dark)
 )
 
-/** The heart/streak color (web --heart), same role in both themes. */
-val HeartLight = Color(0xFFD6456B)
-val HeartDark = Color(0xFFFF6D92)
-
 @Composable
 fun ShikhiTheme(
 	darkTheme: Boolean = isSystemInDarkTheme(),

@@ -4,13 +4,16 @@ import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.shikhi.app.data.auth.SessionState
 import com.shikhi.app.ui.navigation.ShikhiNavHost
@@ -31,6 +34,13 @@ class MainActivity : AppCompatActivity() {
 		super.onCreate(savedInstanceState)
 		setContent {
 			ShikhiTheme {
+				// The -night resource qualifier alone isn't enough: a manual Light/Dark
+				// override can disagree with the system night mode it's evaluated against,
+				// so the status-bar icon color has to follow the theme actually in effect.
+				val darkTheme = isSystemInDarkTheme()
+				SideEffect {
+					WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = !darkTheme
+				}
 				Surface(modifier = Modifier.fillMaxSize()) {
 					val session by viewModel.session.collectAsStateWithLifecycle()
 					when (session) {

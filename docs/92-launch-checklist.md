@@ -47,8 +47,17 @@ Legend: ✅ done · 🟡 pilot-ready, hardening tracked · ⬜ required before s
   curriculum/stats/vocabulary browse from cache with an "offline copy" indicator (MA4).
 - ✅ Refresh-token rotation handled single-flight with persist-before-retry (family-replay
   revocation safe); refresh token AES/GCM-encrypted at rest, access token in-memory only.
-- ✅ bn/en per-app language, bundled Bengali font, light/dark from web design tokens.
+- ✅ bn/en per-app language, bundled Bengali font, light/dark from web design tokens, with a
+  System/Light/Dark switch persisted across restarts (E14).
 - ✅ Android CI job (lint + unit tests + debug APK artifact), path-filtered.
+- ⬜ **Edge-to-edge insets unhandled on most screens.** `targetSdk = 36` means Android 15+
+  draws under the system bars, but only `OnboardingScreen` and the `HomeScreen` header call
+  `statusBarsPadding()` (added in E14, after a theme button rendered *behind* the status bar
+  and became untappable — the bar consumed every touch). `ProfileScreen`, `LessonScreen` and
+  `PracticeScreen` use the same `padding(top = 12.dp)` header pattern against a status-bar
+  inset measured at ~163px on a Pixel 8 (API 35), so their top controls — including the
+  profile back button — are expected to sit under the bar. Verify on an Android 15+ device
+  and apply `statusBarsPadding()` per screen. Present in `shikhi-0.1.7.apk`.
 - ⬜ Release API base URL pinned to the real hosted backend before distributing any APK
   (placeholder Render URL 404s today; depends on merging chore/deployable-stack).
 - ⬜ Play Store publishing (identifiers/signing kept compatible; separate track).

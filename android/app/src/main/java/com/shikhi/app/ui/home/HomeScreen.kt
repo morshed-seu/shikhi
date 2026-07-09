@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -33,6 +34,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.shikhi.app.R
 import com.shikhi.app.data.api.dto.LessonNode
+import com.shikhi.app.ui.theme.ThemeMenu
 import com.shikhi.app.ui.util.localized
 
 @Composable
@@ -57,13 +59,19 @@ fun HomeScreen(
 
 	LazyColumn(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
 		item(key = "header") {
-			Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+			// statusBarsPadding: targetSdk 36 forces edge-to-edge on Android 15+, which would
+			// otherwise leave this row — icon buttons included — under the status bar.
+			Row(
+				Modifier.fillMaxWidth().statusBarsPadding().padding(top = 12.dp),
+				verticalAlignment = Alignment.CenterVertically,
+			) {
 				Text(
 					stringResource(R.string.app_name),
 					style = MaterialTheme.typography.headlineSmall,
 					color = MaterialTheme.colorScheme.primary,
 				)
 				Spacer(Modifier.weight(1f))
+				ThemeMenu()
 				// Logout lives in the profile screen now (PRD 21 §8) — this is just the entry point.
 				IconButton(onClick = onOpenProfile) {
 					Icon(Icons.Filled.AccountCircle, contentDescription = stringResource(R.string.profile_open))
@@ -165,10 +173,10 @@ private fun OfflineCopyBanner() {
 @Composable
 private fun HealthBadge(health: BackendHealth) {
 	val (color, label) = when (health) {
-		BackendHealth.CHECKING -> Color(0xFF9E9E9E) to R.string.health_checking
-		BackendHealth.ONLINE -> Color(0xFF2E7D32) to R.string.health_online
-		BackendHealth.WARMING -> Color(0xFFF9A825) to R.string.health_warming
-		BackendHealth.OFFLINE -> Color(0xFFC62828) to R.string.health_offline
+		BackendHealth.CHECKING -> MaterialTheme.colorScheme.outline to R.string.health_checking
+		BackendHealth.ONLINE -> MaterialTheme.colorScheme.tertiary to R.string.health_online
+		BackendHealth.WARMING -> MaterialTheme.colorScheme.secondary to R.string.health_warming
+		BackendHealth.OFFLINE -> MaterialTheme.colorScheme.error to R.string.health_offline
 	}
 	Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
 		Box(Modifier.size(10.dp).background(color, CircleShape))

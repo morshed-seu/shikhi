@@ -42,6 +42,8 @@ val keystoreProps = Properties().apply {
 	if (f.exists()) f.inputStream().use { load(it) }
 }
 
+val appVersionName = "0.1.7"
+
 android {
 	namespace = "com.shikhi.app"
 	compileSdk = 36
@@ -51,8 +53,8 @@ android {
 		minSdk = 26
 		targetSdk = 36
 		// versionCode = 10000*major + 100*minor + patch (docs/70 §13)
-		versionCode = 106
-		versionName = "0.1.6"
+		versionCode = 107
+		versionName = appVersionName
 		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 	}
 
@@ -89,6 +91,17 @@ android {
 	compileOptions {
 		sourceCompatibility = JavaVersion.VERSION_17
 		targetCompatibility = JavaVersion.VERSION_17
+	}
+}
+
+// Ship the release APK as shikhi-<versionName>.apk instead of app-release.apk. The public
+// VariantOutput interface exposes no filename setter, so this reaches for VariantOutputImpl;
+// applicationVariants would be the older way in, but AGP 9 removes it.
+androidComponents {
+	onVariants(selector().withBuildType("release")) { variant ->
+		variant.outputs
+			.filterIsInstance<com.android.build.api.variant.impl.VariantOutputImpl>()
+			.forEach { it.outputFileName.set("shikhi-$appVersionName.apk") }
 	}
 }
 

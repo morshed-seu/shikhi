@@ -13,6 +13,8 @@ import com.shikhi.app.data.auth.TokenStore
 import com.shikhi.app.data.db.ContentCacheDao
 import com.shikhi.app.data.db.OutboxDao
 import com.shikhi.app.data.db.ShikhiDatabase
+import com.shikhi.app.data.prefs.SharedPrefsThemePrefs
+import com.shikhi.app.data.prefs.ThemePrefs
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -68,4 +70,7 @@ abstract class TokenStoreModule {
 
 	@Binds
 	abstract fun loginPrefs(impl: DataStoreLoginPrefs): LoginPrefs
+
+	@Binds
+	abstract fun themePrefs(impl: SharedPrefsThemePrefs): ThemePrefs
 }

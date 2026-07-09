@@ -118,6 +118,10 @@
 
     <!-- Profile & dashboard (E13) -->
     <string name="profile_open">Open profile</string>
+    <string name="theme_menu_open">Switch theme</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
     <string name="profile_back">Back</string>
     <string name="profile_title">Profile</string>
     <string name="profile_loading">Loading your profile…</string>

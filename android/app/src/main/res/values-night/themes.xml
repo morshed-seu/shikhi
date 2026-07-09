@@ -1,0 +1,9 @@
+<resources>
+    <!-- DarkColors.background in Theme.kt — kept in sync manually since Compose owns the
+         palette and this file only sets pre-Compose window chrome. -->
+    <style name="Theme.Shikhi" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:windowBackground">#16151D</item>
+        <item name="android:statusBarColor">#16151D</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

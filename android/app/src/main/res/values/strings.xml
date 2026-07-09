@@ -119,6 +119,10 @@
 
     <!-- Profile & dashboard (web i18n profile.*, E13) -->
     <string name="profile_open">প্রোফাইল খুলুন</string>
+    <string name="theme_menu_open">থিম পরিবর্তন করুন</string>
+    <string name="theme_system">সিস্টেম</string>
+    <string name="theme_light">আলো</string>
+    <string name="theme_dark">অন্ধকার</string>
     <string name="profile_back">ফিরে যান</string>
     <string name="profile_title">প্রোফাইল</string>
     <string name="profile_loading">আপনার প্রোফাইল লোড হচ্ছে…</string>

@@ -1,8 +1,8 @@
 <resources>
     <!-- AppCompat parent is required by MainActivity (AppCompatActivity — the E13 per-app
-         language backport applies locales through it on API < 33). Window chrome stays
-         pinned to the light paper color exactly as before; Compose's ShikhiTheme owns all
-         in-app colors, including dark. -->
+         language backport applies locales through it on API < 33). Window chrome now follows
+         the theme choice (E14 System/Light/Dark switch) via the day/night resource split —
+         this file is the light variant; Compose's ShikhiTheme owns all in-app colors. -->
     <style name="Theme.Shikhi" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="android:windowBackground">#FAF8F3</item>
         <item name="android:statusBarColor">#FAF8F3</item>
