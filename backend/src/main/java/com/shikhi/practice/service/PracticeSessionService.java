@@ -14,12 +14,15 @@ import com.shikhi.practice.repo.PracticeExerciseRepository;
 import com.shikhi.practice.repo.PracticeSessionRepository;
 import com.shikhi.practice.repo.PracticeWordProgressRepository;
 import com.shikhi.practice.web.PracticeAnswerResult;
+import com.shikhi.practice.web.PracticeAnswerVerdict;
+import com.shikhi.practice.web.PracticeBatchResult;
 import com.shikhi.practice.web.PracticeResultResponse;
 import com.shikhi.practice.web.PracticeRoundResponse;
 import com.shikhi.practice.web.PracticeVerdict;
 import com.shikhi.practice.web.SubmitPracticeAnswerRequest;
+import com.shikhi.practice.web.SubmitPracticeAnswersRequest;
+import com.shikhi.practice.web.SubmitPracticeAnswersRequest.BatchAnswerItem;
 import com.shikhi.progress.service.ProgressService;
-import com.shikhi.progress.web.Stats;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -124,22 +127,66 @@ public class PracticeSessionService {
 			throw ApiException.conflict("SESSION_COMPLETED", "This session is already completed");
 		}
 
-		boolean correct = grade(exercise, request.answer());
-		Stats stats = progress.recordPracticeAnswer(userId, correct);
+		boolean correct = recordOne(session, exercise, request.idempotencyKey(), request.answer());
+		return new PracticeAnswerResult(verdict(correct, exercise), progress.getState(userId));
+	}
+
+	/**
+	 * Batch submit (web client grades locally, then submits a whole round at once). Each
+	 * item is re-graded server-side — never trust a client-supplied verdict — via the same
+	 * {@link #recordOne} core the single-answer path uses, so idempotent replay and
+	 * hearts/XP/word-strength bookkeeping behave identically either way.
+	 */
+	@Transactional
+	public PracticeBatchResult submitAnswers(UUID userId, UUID sessionId,
+			SubmitPracticeAnswersRequest request) {
+		PracticeSession session = ownedSession(userId, sessionId);
+		if (session.isCompleted()) {
+			throw ApiException.conflict("SESSION_COMPLETED", "This session is already completed");
+		}
+
+		List<PracticeAnswerVerdict> verdicts = new ArrayList<>(request.answers().size());
+		for (BatchAnswerItem item : request.answers()) {
+			PracticeExercise exercise = exercises.findById(item.exerciseId())
+					.filter(e -> e.getSessionId().equals(sessionId))
+					.orElseThrow(() -> ApiException.notFound("Exercise not found"));
+			boolean correct = recordOne(session, exercise, item.idempotencyKey(), item.answer());
+			verdicts.add(new PracticeAnswerVerdict(exercise.getId(), correct));
+		}
+		return new PracticeBatchResult(progress.getState(userId), verdicts);
+	}
+
+	/**
+	 * Grade-and-record core shared by the single-answer and batch paths: idempotent replay
+	 * (a previously stored {@code idempotencyKey} skips re-grading and returns the original
+	 * correctness), otherwise grades against the server-only answer key, then updates
+	 * hearts/XP, session/exercise/word-strength bookkeeping, and persists the answer row.
+	 */
+	private boolean recordOne(PracticeSession session, PracticeExercise exercise,
+			String idempotencyKey, Map<String, Object> answer) {
+		UUID userId = session.getUserId();
+		PracticeAnswer existing = answers.findByUserIdAndIdempotencyKey(userId, idempotencyKey)
+				.orElse(null);
+		if (existing != null) {
+			return existing.isCorrect();
+		}
+
+		boolean correct = grade(exercise, answer);
+		progress.recordPracticeAnswer(userId, correct);
 		session.recordAnswer(correct);
 		exercise.markAnswered(correct);
 		recordWordProgress(userId, exercise.getVocabularyId(), correct);
 
-		PracticeAnswer answer = new PracticeAnswer(sessionId, userId, exercise.getId(),
-				request.idempotencyKey(), correct);
+		PracticeAnswer record = new PracticeAnswer(session.getId(), userId, exercise.getId(),
+				idempotencyKey, correct);
 		try {
-			answers.saveAndFlush(answer);
+			answers.saveAndFlush(record);
 		}
 		catch (DataIntegrityViolationException race) {
 			// Concurrent duplicate for the same key: roll back (no double heart/XP).
 			throw ApiException.conflict("DUPLICATE_SUBMISSION", "Answer already submitted");
 		}
-		return new PracticeAnswerResult(verdict(correct, exercise), stats);
+		return correct;
 	}
 
 	@Transactional

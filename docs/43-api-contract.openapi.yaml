@@ -319,6 +319,18 @@ paths:
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/AnswerResult' } } } }
         '409': { $ref: '#/components/responses/Conflict' }
+  /practice/sessions/{sessionId}/answers/batch:
+    post:
+      tags: [practice]
+      summary: Submit all buffered answers at once; server re-grades authoritatively (idempotent per key), returns final stats + per-exercise verdicts (E12, ADR-0013)
+      parameters:
+        - { name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/PracticeAnswerBatch' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/PracticeBatchResult' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
   /practice/sessions/{sessionId}/rounds:
     post:
       tags: [practice]
@@ -694,15 +706,26 @@ components:
     PracticeExercise:
       type: object
       description: >
-        A generated vocabulary exercise (E12). Like `Exercise`, type-specific fields live
-        under `config` and correctness is NEVER sent to the client — grading is server-side
-        against the stored answer key.
+        A generated vocabulary exercise (E12). Type-specific presentation fields live under
+        `config` (never any correctness flag). Unlike graded lessons, practice also serves a
+        `solution` so the web client can grade instantly and locally (ADR-0013); the server
+        still re-grades authoritatively on submit.
       properties:
         id: { type: string, format: uuid }
         type: { type: string, enum: [WORD_MEANING, MEANING_WORD, SENTENCE_GAP, SENTENCE_BUILD, TYPE_WORD] }
         ordinal: { type: integer }
         prompt: { $ref: '#/components/schemas/Bilingual' }
         config: { type: object, additionalProperties: true, description: 'e.g., options[], tokens[] (no correctness flags)' }
+        solution: { $ref: '#/components/schemas/PracticeSolution' }
+    PracticeSolution:
+      type: object
+      description: >
+        The correct answer for a practice exercise (ADR-0013). Served for practice only; graded
+        lesson sessions keep a server-only answer key.
+      properties:
+        correctOptionId: { type: string, nullable: true, description: 'Correct option id for MCQ types (WORD_MEANING, MEANING_WORD, SENTENCE_GAP)' }
+        accepted: { type: array, items: { type: string }, nullable: true, description: 'Accepted normalized answers for SENTENCE_BUILD / TYPE_WORD' }
+        reveal: { type: string, description: 'Correct-answer text shown in the wrong-answer reveal' }
     PracticeRound:
       type: object
       properties:
@@ -720,6 +743,26 @@ components:
         xpEarned: { type: integer }
         levelUpEligible: { type: boolean }
         stats: { $ref: '#/components/schemas/Stats' }
+    PracticeAnswerBatch:
+      type: object
+      required: [answers]
+      description: All answers buffered client-side for one flush (E12, ADR-0013).
+      properties:
+        answers:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/SubmitAnswerRequest' }
+    PracticeBatchResult:
+      type: object
+      properties:
+        stats: { $ref: '#/components/schemas/Stats' }
+        verdicts:
+          type: array
+          items:
+            type: object
+            properties:
+              exerciseId: { type: string, format: uuid }
+              correct: { type: boolean }
     SyncBatchRequest:
       type: object
       required: [events]

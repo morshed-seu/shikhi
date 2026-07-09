@@ -13,6 +13,7 @@ import com.shikhi.practice.domain.PracticeWordProgress;
 import com.shikhi.practice.repo.PracticeExerciseRepository;
 import com.shikhi.practice.repo.PracticeWordProgressRepository;
 import com.shikhi.support.AbstractIntegrationTest;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -93,6 +94,11 @@ class PracticeFlowIntegrationTest extends AbstractIntegrationTest {
 				.andReturn().getResponse().getContentAsString();
 	}
 
+	private String batchItemJson(String idempotencyKey, UUID exerciseId, String answerJson) {
+		return "{\"idempotencyKey\":\"" + idempotencyKey + "\",\"exerciseId\":\"" + exerciseId
+				+ "\",\"answer\":" + answerJson + "}";
+	}
+
 	@Test
 	void fullPracticeJourney() throws Exception {
 		String auth = token();
@@ -116,9 +122,12 @@ class PracticeFlowIntegrationTest extends AbstractIntegrationTest {
 				.andExpect(jsonPath("$.exercises[0].prompt.bn").isNotEmpty())
 				.andReturn().getResponse().getContentAsString();
 
-		// Correctness never reaches the client (answer key stays server-side).
-		assertThat(round1).doesNotContain("correctOptionId", "accepted", "revealText",
-				"answerKey");
+		// The learner-visible config never leaks correctness — the server-only answer key
+		// is intentionally exposed via the sibling `solution` field, not `config`.
+		for (Object config : JsonPath.<List<Object>>read(round1, "$.exercises[*].config")) {
+			assertThat(config.toString()).doesNotContain("correctOptionId", "accepted",
+					"revealText");
+		}
 
 		String sessionId = JsonPath.read(round1, "$.sessionId");
 		List<PracticeExercise> generated = exercises
@@ -164,7 +173,10 @@ class PracticeFlowIntegrationTest extends AbstractIntegrationTest {
 				.andExpect(jsonPath("$.round").value(2))
 				.andExpect(jsonPath("$.exercises.length()").value(10))
 				.andReturn().getResponse().getContentAsString();
-		assertThat(round2).doesNotContain("correctOptionId");
+		for (Object config : JsonPath.<List<Object>>read(round2, "$.exercises[*].config")) {
+			assertThat(config.toString()).doesNotContain("correctOptionId", "accepted",
+					"revealText");
+		}
 
 		var round1Words = generated.stream().map(PracticeExercise::getVocabularyId)
 				.collect(Collectors.toSet());
@@ -192,6 +204,98 @@ class PracticeFlowIntegrationTest extends AbstractIntegrationTest {
 		mockMvc.perform(post("/v1/practice/sessions/" + sessionId + "/rounds")
 						.header(HttpHeaders.AUTHORIZATION, auth))
 				.andExpect(status().isConflict());
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void batchSubmitJourney() throws Exception {
+		String auth = token();
+
+		String round1 = mockMvc.perform(post("/v1/practice/sessions")
+						.header(HttpHeaders.AUTHORIZATION, auth))
+				.andExpect(status().isCreated())
+				.andReturn().getResponse().getContentAsString();
+		String sessionId = JsonPath.read(round1, "$.sessionId");
+
+		List<PracticeExercise> generated = exercises
+				.findBySessionIdAndRoundOrderByOrdinal(UUID.fromString(sessionId), 1);
+		assertThat(generated).hasSize(10);
+
+		// Each served exercise carries its solution (mirroring the server's answer key) —
+		// the learner-visible config still leaks nothing.
+		List<Map<String, Object>> exerciseNodes = JsonPath.read(round1, "$.exercises");
+		Map<String, Map<String, Object>> nodesById = exerciseNodes.stream()
+				.collect(Collectors.toMap(n -> n.get("id").toString(), n -> n));
+		for (PracticeExercise exercise : generated) {
+			Map<String, Object> node = nodesById.get(exercise.getId().toString());
+			assertThat(node.get("config").toString()).doesNotContain("correctOptionId",
+					"accepted", "revealText");
+
+			Map<String, Object> solution = (Map<String, Object>) node.get("solution");
+			Map<String, Object> key = exercise.getAnswerKey();
+			switch (exercise.getType()) {
+				case WORD_MEANING, MEANING_WORD, SENTENCE_GAP -> {
+					assertThat(solution.get("correctOptionId"))
+							.isEqualTo(key.get("correctOptionId"));
+					assertThat(solution.get("accepted")).isNull();
+				}
+				case SENTENCE_BUILD, TYPE_WORD -> {
+					assertThat(solution.get("correctOptionId")).isNull();
+					assertThat(solution.get("accepted")).isEqualTo(key.get("accepted"));
+				}
+			}
+			assertThat(solution.get("reveal")).isEqualTo(key.get("revealText"));
+		}
+
+		// Grade locally from the served solution, then submit the whole round as one batch:
+		// the first six correct, the last four deliberately wrong.
+		List<String> items = new ArrayList<>();
+		for (int i = 0; i < generated.size(); i++) {
+			PracticeExercise exercise = generated.get(i);
+			String answerJson = i < 6 ? correctAnswerJson(exercise) : wrongAnswerJson(exercise);
+			items.add(batchItemJson("batch-" + i, exercise.getId(), answerJson));
+		}
+		String batchBody = "{\"answers\":[" + String.join(",", items) + "]}";
+
+		String batchResult = mockMvc
+				.perform(post("/v1/practice/sessions/" + sessionId + "/answers/batch")
+						.header(HttpHeaders.AUTHORIZATION, auth)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(batchBody))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.stats.xp").value(60)) // 6 correct * XP_PER_CORRECT(10)
+				.andExpect(jsonPath("$.stats.hearts").value(1)) // 5 - 4 wrong
+				.andExpect(jsonPath("$.verdicts.length()").value(10))
+				.andReturn().getResponse().getContentAsString();
+
+		List<Boolean> correctness = JsonPath.read(batchResult, "$.verdicts[*].correct");
+		assertThat(correctness).containsExactly(
+				true, true, true, true, true, true, false, false, false, false);
+		List<String> verdictExerciseIds = JsonPath.read(batchResult, "$.verdicts[*].exerciseId");
+		assertThat(verdictExerciseIds).containsExactlyElementsOf(
+				generated.stream().map(e -> e.getId().toString()).toList());
+
+		// Word strength moved for both a correct and a wrong answer (US-12.6).
+		assertThat(strengthOf(generated.get(0)))
+				.isEqualTo(PracticeWordProgress.UNSEEN_STRENGTH + 1);
+		assertThat(strengthOf(generated.get(6))).isZero();
+
+		// Idempotent replay: the identical batch again does not double-count XP/hearts.
+		mockMvc.perform(post("/v1/practice/sessions/" + sessionId + "/answers/batch")
+						.header(HttpHeaders.AUTHORIZATION, auth)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(batchBody))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.stats.xp").value(60))
+				.andExpect(jsonPath("$.stats.hearts").value(1));
+
+		// IDOR: another learner cannot batch-submit against this session.
+		String intruder = token();
+		mockMvc.perform(post("/v1/practice/sessions/" + sessionId + "/answers/batch")
+						.header(HttpHeaders.AUTHORIZATION, intruder)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(batchBody))
+				.andExpect(status().isNotFound());
 	}
 
 	@Test

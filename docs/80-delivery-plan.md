@@ -158,6 +158,7 @@ M0 Foundations ─▶ M1 Identity(email) ─▶ M2 Content+curriculum ─▶ M3 
 | BR-5/E5 (D4) | Deterministic grading + hints | LLD §2.4/§5, ADR-0006 | Unit (per type), integration | M3 |
 | BR-11/E5 seam | AI grading seam preserved | ADR-0006, NFR-M6 | Contract/seam tests (SC-5) | M3 (seam); AI post-pilot |
 | BR-6/E6 | XP/streak/hearts/unlock | LLD §2.5/§7, API `/stats`,`/sessions/complete` | Unit, integration (idempotency), E2E | M4 |
+| E12 (ADR-0013) | Web practice: client-side grading + batched submit | ADR-0013, API `/practice/sessions*` (`solution`, `/answers/batch`), `60` §5, `50` | Unit (client grader, all 5 types), integration (`batchSubmitJourney` — server re-grade, idempotent replay, IDOR), component (no per-answer call; one batch POST) | E12 |
 | BR-7/E7 | Spaced-repetition review | LLD §2.6, API `/review/*` | Unit, integration | M6 |
 | BR-8/E8 | Cross-device sync | LLD §4.4/§7, API `/progress/sync` | Integration, E2E J3/J4 | M4 |
 | BR-9/E9 (D6) | Authoring/validation/versioning | LLD §2.2, API `/admin/content/*` | Integration, E2E J5 | M2 + content track |

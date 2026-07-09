@@ -40,6 +40,13 @@ public class PracticeController {
 		return sessions.submitAnswer(principal.id(), sessionId, request);
 	}
 
+	/** Batch submit (web client grades locally, then submits a round in one call). */
+	@PostMapping("/{sessionId}/answers/batch")
+	public PracticeBatchResult submitAnswers(@AuthenticationPrincipal AuthenticatedUser principal,
+			@PathVariable UUID sessionId, @Valid @RequestBody SubmitPracticeAnswersRequest request) {
+		return sessions.submitAnswers(principal.id(), sessionId, request);
+	}
+
 	/** "Keep going" — generate the next round for this session. */
 	@PostMapping("/{sessionId}/rounds")
 	public PracticeRoundResponse nextRound(@AuthenticationPrincipal AuthenticatedUser principal,

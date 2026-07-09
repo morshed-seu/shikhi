@@ -95,7 +95,8 @@ pieces fit; a thin layer of E2E covers the handful of journeys that must never b
 | **Content versioning** | Publish/rollback; in-progress pinning; validation rejects bad content (US-9.3) |
 | **Grading seam (future-proofing)** | Verdict shape stable; swapping strategy doesn't change player/progress (SC-5) |
 | **Resilience** | Redis down → DB fallback; provider (email/SMS) down → queue/retry; timeouts/circuit breakers |
-| **Practice generation** (E12) | Band mix ≈70/30; weak/unseen words prioritized; no repeats within a session; distractors valid + unique; sentence formats only for short examples; **answer key never serialized** to the client; idempotent replay; level-up eligibility threshold; IDOR on another user's session → 404 |
+| **Practice generation** (E12) | Band mix ≈70/30; weak/unseen words prioritized; no repeats within a session; distractors valid + unique; sentence formats only for short examples; idempotent replay; level-up eligibility threshold; IDOR on another user's session → 404 |
+| **Practice client-side grading** (E12, ADR-0013) | Round response serves a per-exercise `solution` (correct answer + reveal) for **practice only** — the learner-visible `config`/payload still leaks no key, and **graded lesson sessions keep their server-only answer key** (see Grading correctness R1); client grader matches server normalization across all five exercise types; batch submit (`/answers/batch`) **re-grades server-side authoritatively** (client verdict never trusted); batch replay is idempotent per key (flush-then-complete does not double-count XP/hearts); IDOR on another user's session → 404 |
 
 ---
 

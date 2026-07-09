@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { Bilingual } from '../api/curriculum'
 import {
   completePractice,
+  gradeLocally,
   nextLevel,
   nextPracticeRound,
   type PracticeAnswerPayload,
@@ -11,9 +12,9 @@ import {
   type PracticeRound,
   setLevel,
   startPractice,
-  submitPracticeAnswer,
   type PracticeVerdict,
 } from '../api/practice'
+import { enqueuePracticeAnswers, flushPracticeAnswers, type PracticeAnswerItem } from '../api/outbox'
 import { fetchStats } from '../api/sessions'
 import { useAuth } from '../auth/useAuth'
 
@@ -47,13 +48,52 @@ export function PracticePlayer({ onExit }: Props) {
   const [leveledUpTo, setLeveledUpTo] = useState<string | null>(null)
   const startedRef = useRef(false)
   const promptRef = useRef<HTMLHeadingElement>(null)
+  // Answers checked this session but not yet submitted — mirrors the outbox's PRACTICE_ANSWERS
+  // snapshot for this session (see api/outbox.ts) so a batch flush has everything to send.
+  const pendingRef = useRef<PracticeAnswerItem[]>([])
+  // Kept in sync with `round` so the visibilitychange/pagehide listener (registered once) can
+  // read the current sessionId without becoming stale.
+  const roundRef = useRef<PracticeRound | null>(null)
 
   const label = (b: Bilingual) => (i18n.language === 'bn' ? b.bn : b.en)
+
+  useEffect(() => {
+    roundRef.current = round
+  }, [round])
 
   // Move focus to each new exercise prompt so screen-reader users hear it (a11y).
   useEffect(() => {
     if (phase === 'playing') promptRef.current?.focus()
   }, [index, phase])
+
+  // Best-effort flush on tab-close/backgrounding so a crash or closed tab doesn't lose the
+  // buffered round. sendBeacon can't attach an Authorization header, and the batch endpoint is
+  // authenticated, so fall back to a keepalive fetch — browsers still let it start during
+  // unload and finish after the page is gone. This never clears `pendingRef`/the outbox
+  // snapshot (we can't confirm delivery here) — the next explicit flush or app-level
+  // flushOutbox retries it; per-answer idempotency keys make a duplicate submit harmless.
+  useEffect(() => {
+    const beaconFlush = () => {
+      const token = getToken()
+      const r = roundRef.current
+      if (!token || !r || pendingRef.current.length === 0) return
+      void fetch(`/v1/practice/sessions/${r.sessionId}/answers/batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ answers: pendingRef.current }),
+        keepalive: true,
+      }).catch(() => undefined)
+    }
+    const onVisibility = () => {
+      if (document.hidden) beaconFlush()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('pagehide', beaconFlush)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('pagehide', beaconFlush)
+    }
+  }, [getToken])
 
   useEffect(() => {
     // Guard against React 19 StrictMode double-invoking the effect (would start two sessions).
@@ -83,6 +123,22 @@ export function PracticePlayer({ onExit }: Props) {
     setVerdict(null)
   }
 
+  /**
+   * Submit the buffered batch for the current session (E12 batch grading) and reconcile
+   * hearts from the authoritative server stats. Resolves once there is nothing left pending —
+   * on failure the batch stays buffered in the outbox for the next attempt, so callers don't
+   * need to treat this as fallible.
+   */
+  const flushPending = (token: string, sessionId: string): Promise<void> => {
+    if (pendingRef.current.length === 0) return Promise.resolve()
+    return flushPracticeAnswers(token, sessionId).then((result) => {
+      if (result) {
+        pendingRef.current = []
+        setHearts(result.stats.hearts)
+      }
+    })
+  }
+
   const finish = () => {
     const token = getToken()
     if (!token || !round) {
@@ -90,7 +146,9 @@ export function PracticePlayer({ onExit }: Props) {
       return
     }
     setBusy(true)
-    completePractice(token, round.sessionId, crypto.randomUUID())
+    flushPending(token, round.sessionId)
+      .catch(() => undefined)
+      .then(() => completePractice(token, round.sessionId, crypto.randomUUID()))
       .then((r) => {
         setResult(r)
         setPhase('finished')
@@ -103,7 +161,10 @@ export function PracticePlayer({ onExit }: Props) {
   const exit = () => {
     const token = getToken()
     if (token && round && phase !== 'finished') {
-      void completePractice(token, round.sessionId, crypto.randomUUID()).catch(() => undefined)
+      void flushPending(token, round.sessionId)
+        .catch(() => undefined)
+        .then(() => completePractice(token, round.sessionId, crypto.randomUUID()))
+        .catch(() => undefined)
     }
     onExit()
   }
@@ -150,7 +211,9 @@ export function PracticePlayer({ onExit }: Props) {
       const token = getToken()
       if (!token) return
       setBusy(true)
-      nextPracticeRound(token, round.sessionId)
+      flushPending(token, round.sessionId)
+        .catch(() => undefined)
+        .then(() => nextPracticeRound(token, round.sessionId))
         .then((r) => {
           setRound(r)
           setIndex(0)
@@ -222,22 +285,25 @@ export function PracticePlayer({ onExit }: Props) {
     return { selectedOptionId: answer }
   }
 
+  /**
+   * Grade instantly and locally (E12 batch grading) — no network round-trip. The answer is
+   * buffered (ref + outbox snapshot) rather than submitted; the whole round's buffer is sent
+   * as one batch when the learner leaves the flow (see flushPending / the exit paths below).
+   * The server re-grades authoritatively on submit — this verdict is display-only.
+   */
   const check = () => {
-    const token = getToken()
-    if (!token || !canCheck) return
-    setBusy(true)
-    submitPracticeAnswer(token, round.sessionId, {
-      idempotencyKey: crypto.randomUUID(),
-      exerciseId: exercise.id,
-      answer: buildPayload(),
-    })
-      .then((res) => {
-        setVerdict(res.verdict)
-        setHearts(res.stats.hearts)
-        setStrokes((s) => [...s, res.verdict.correct])
-      })
-      .catch(() => setVerdict({ correct: false, feedback: { en: '', bn: '' } }))
-      .finally(() => setBusy(false))
+    if (!canCheck) return
+    const payload = buildPayload()
+    const localVerdict = gradeLocally(exercise, payload)
+    setVerdict(localVerdict)
+    setStrokes((s) => [...s, localVerdict.correct])
+    if (!localVerdict.correct) setHearts((h) => (h === null ? h : Math.max(0, h - 1)))
+
+    pendingRef.current = [
+      ...pendingRef.current,
+      { idempotencyKey: crypto.randomUUID(), exerciseId: exercise.id, answer: payload },
+    ]
+    enqueuePracticeAnswers(round.sessionId, pendingRef.current)
   }
 
   const next = () => {
