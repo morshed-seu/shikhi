@@ -18,6 +18,8 @@ import { StatsBar } from './components/StatsBar'
 import { VocabularyBrowser } from './components/VocabularyBrowser'
 import { useTheme } from './hooks/useTheme'
 import { changeLocale } from './i18n'
+import { DeleteAccountPage } from './pages/DeleteAccountPage'
+import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage'
 import './App.css'
 
 type HealthState = HealthStatus | 'loading' | 'error'
@@ -155,7 +157,23 @@ function AppShell() {
   )
 }
 
+// Minimal pathname-based routing (no router library — just these two standalone,
+// directly-linkable Play Store compliance pages; everything else stays the single-page
+// app it always was). Cloudflare Pages serves index.html for any path (SPA fallback),
+// so reading location.pathname at startup is enough — no history/route-matching needed.
 function App() {
+  // Strip one trailing slash so /privacy/ matches too; '/' itself stays the app root.
+  const path = window.location.pathname.replace(/(.)\/$/, '$1')
+  if (path === '/privacy') {
+    return <PrivacyPolicyPage />
+  }
+  if (path === '/delete-account') {
+    return (
+      <AuthProvider>
+        <DeleteAccountPage />
+      </AuthProvider>
+    )
+  }
   return (
     <AuthProvider>
       <AppShell />
