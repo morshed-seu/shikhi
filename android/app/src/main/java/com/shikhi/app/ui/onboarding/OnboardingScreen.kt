@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
@@ -46,6 +47,10 @@ fun OnboardingScreen(viewModel: OnboardingViewModel = hiltViewModel()) {
 			modifier = Modifier
 				.fillMaxSize()
 				.verticalScroll(rememberScrollState())
+				// navigationBarsPadding after verticalScroll: extra scrollable content padding,
+				// so the form's submit button can scroll clear of the gesture bar rather than
+				// being clipped/covered by it.
+				.navigationBarsPadding()
 				.padding(horizontal = 32.dp, vertical = 48.dp),
 			horizontalAlignment = Alignment.CenterHorizontally,
 			verticalArrangement = Arrangement.Center,

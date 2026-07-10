@@ -5,9 +5,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -57,7 +60,13 @@ fun HomeScreen(
 		reviewViewModel.refresh()
 	}
 
-	LazyColumn(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
+	// contentPadding (not a Modifier) for the bottom inset: it becomes scrollable content
+	// space, so the vocabulary section can scroll clear of the gesture bar instead of the
+	// list's own viewport just shrinking under it.
+	LazyColumn(
+		modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
+		contentPadding = WindowInsets.navigationBars.asPaddingValues(),
+	) {
 		item(key = "header") {
 			// statusBarsPadding: targetSdk 36 forces edge-to-edge on Android 15+, which would
 			// otherwise leave this row — icon buttons included — under the status bar.

@@ -12,7 +12,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -98,8 +100,10 @@ private fun RoundDoneContent(
 	onFinish: () -> Unit,
 	onAcceptLevelUp: () -> Unit,
 ) {
+	// Centered but growable (level-up banner + two buttons), so on short screens the finish
+	// button can land under the gesture bar — inset padding keeps both edges clear.
 	Column(
-		Modifier.fillMaxSize().padding(24.dp),
+		Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(24.dp),
 		verticalArrangement = Arrangement.Center,
 		horizontalAlignment = Alignment.CenterHorizontally,
 	) {
@@ -167,7 +171,17 @@ private fun PracticeContent(
 		else -> false
 	}
 
-	Column(Modifier.fillMaxSize().padding(20.dp).verticalScroll(rememberScrollState())) {
+	// statusBarsPadding before the scroll (fixed viewport start below the status bar);
+	// navigationBarsPadding after it (extra scrollable content so the check/next button
+	// can scroll clear of the gesture bar) — same idiom as HomeScreen/OnboardingScreen (E14).
+	Column(
+		Modifier
+			.fillMaxSize()
+			.statusBarsPadding()
+			.padding(20.dp)
+			.verticalScroll(rememberScrollState())
+			.navigationBarsPadding(),
+	) {
 		Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
 			TextButton(onClick = onExit) { Text(stringResource(R.string.lesson_exit)) }
 			Spacer(Modifier.width(8.dp))

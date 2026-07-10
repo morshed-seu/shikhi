@@ -11,7 +11,9 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -86,9 +88,17 @@ fun ProfileScreen(onBack: () -> Unit, viewModel: ProfileViewModel = hiltViewMode
 		Modifier
 			.fillMaxSize()
 			.verticalScroll(rememberScrollState())
+			// navigationBarsPadding after verticalScroll: extra scrollable content padding,
+			// so the delete/logout actions can scroll clear of the gesture bar.
+			.navigationBarsPadding()
 			.padding(horizontal = 20.dp),
 	) {
-		Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+		// statusBarsPadding: targetSdk 36 forces edge-to-edge on Android 15+, which would
+		// otherwise leave the back button under the status bar (E14 precedent).
+		Row(
+			Modifier.fillMaxWidth().statusBarsPadding().padding(top = 12.dp),
+			verticalAlignment = Alignment.CenterVertically,
+		) {
 			IconButton(onClick = onBack) {
 				Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.profile_back))
 			}

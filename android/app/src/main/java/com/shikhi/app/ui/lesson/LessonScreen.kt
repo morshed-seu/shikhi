@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.rememberScrollState
@@ -71,8 +73,10 @@ fun LessonScreen(onExit: () -> Unit, viewModel: LessonViewModel = hiltViewModel(
 
 @Composable
 private fun LessonResultContent(s: LessonUiState.Finished, onExit: () -> Unit) {
+	// Centered but growable (the saved-offline note adds lines), so on short screens the
+	// back button can land under the gesture bar — inset padding keeps both edges clear.
 	Column(
-		Modifier.fillMaxSize().padding(24.dp),
+		Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(24.dp),
 		verticalArrangement = Arrangement.Center,
 		horizontalAlignment = Alignment.CenterHorizontally,
 	) {
@@ -122,7 +126,15 @@ fun LessonContent(
 	}
 
 	Column(
-		Modifier.fillMaxSize().padding(20.dp).verticalScroll(rememberScrollState()),
+		// statusBarsPadding before the scroll (fixed viewport start below the status bar);
+		// navigationBarsPadding after it (extra scrollable content so the check/next button
+		// can scroll clear of the gesture bar) — same idiom as HomeScreen/OnboardingScreen (E14).
+		Modifier
+			.fillMaxSize()
+			.statusBarsPadding()
+			.padding(20.dp)
+			.verticalScroll(rememberScrollState())
+			.navigationBarsPadding(),
 	) {
 		Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
 			TextButton(onClick = onExit) { Text(stringResource(R.string.lesson_exit)) }

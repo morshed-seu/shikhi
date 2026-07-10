@@ -50,16 +50,20 @@ Legend: ✅ done · 🟡 pilot-ready, hardening tracked · ⬜ required before s
 - ✅ bn/en per-app language, bundled Bengali font, light/dark from web design tokens, with a
   System/Light/Dark switch persisted across restarts (E14).
 - ✅ Android CI job (lint + unit tests + debug APK artifact), path-filtered.
-- ⬜ **Edge-to-edge insets unhandled on most screens.** `targetSdk = 36` means Android 15+
-  draws under the system bars, but only `OnboardingScreen` and the `HomeScreen` header call
+- 🟡 **Edge-to-edge insets** now handled on every screen. `targetSdk = 36` means Android 15+
+  draws under the system bars; `OnboardingScreen` and the `HomeScreen` header already called
   `statusBarsPadding()` (added in E14, after a theme button rendered *behind* the status bar
   and became untappable — the bar consumed every touch). `ProfileScreen`, `LessonScreen` and
-  `PracticeScreen` use the same `padding(top = 12.dp)` header pattern against a status-bar
-  inset measured at ~163px on a Pixel 8 (API 35), so their top controls — including the
-  profile back button — are expected to sit under the bar. Verify on an Android 15+ device
-  and apply `statusBarsPadding()` per screen. Present in `shikhi-0.1.7.apk`.
-- ⬜ Release API base URL pinned to the real hosted backend before distributing any APK
-  (placeholder Render URL 404s today; depends on merging chore/deployable-stack).
+  `PracticeScreen` used the same `padding(top = 12.dp)` header pattern with no inset handling,
+  so their top controls — including the profile back button — sat under the bar (status-bar
+  inset measured at ~163px on a Pixel 8, API 35). All three now call `statusBarsPadding()` on
+  the header, matching the E14 idiom; their scrollable columns and `HomeScreen`'s list also
+  carry `navigationBarsPadding()` / nav-bar `contentPadding` so bottom controls scroll clear of
+  the gesture bar instead of sitting under it. Confirmation on a physical Android 15+ device
+  (only emulator/tooling checks possible here) before Play submission ⬜.
+- ✅ Release API base URL pinned to the real hosted backend: `https://shikhi.onrender.com/v1/`
+  is live (`GET /v1/health` → `{"status":"UP","service":"shikhi"}`, verified 2026-07-10) and
+  the release build config already points at it.
 - ⬜ Play Store publishing (identifiers/signing kept compatible; separate track).
 
 ## Ops & process
