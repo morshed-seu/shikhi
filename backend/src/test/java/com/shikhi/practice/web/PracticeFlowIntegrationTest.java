@@ -11,87 +11,34 @@ import com.shikhi.content.repo.VocabularyRepository;
 import com.shikhi.practice.domain.PracticeExercise;
 import com.shikhi.practice.domain.PracticeWordProgress;
 import com.shikhi.practice.repo.PracticeExerciseRepository;
+import com.shikhi.practice.repo.PracticeSessionRepository;
 import com.shikhi.practice.repo.PracticeWordProgressRepository;
-import com.shikhi.support.AbstractIntegrationTest;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
 
 /**
  * Adaptive practice end-to-end against real Postgres (journey J8): self-place → start →
- * answer right/wrong (hearts/XP/word strength) → idempotent replay → next round (no word
+ * answer right/wrong (hearts/XP/word mastery) → idempotent replay → next round (no word
  * repeats) → complete (idempotent) — plus the IDOR and no-answer-leak guarantees.
  */
-@AutoConfigureMockMvc
-class PracticeFlowIntegrationTest extends AbstractIntegrationTest {
-
-	@Autowired
-	MockMvc mockMvc;
+class PracticeFlowIntegrationTest extends AbstractPracticeFlowIntegrationTest {
 
 	@Autowired
 	PracticeExerciseRepository exercises;
+
+	@Autowired
+	PracticeSessionRepository sessions;
 
 	@Autowired
 	PracticeWordProgressRepository wordProgress;
 
 	@Autowired
 	VocabularyRepository vocabulary;
-
-	/** Register a real learner and return their bearer token. */
-	private String token() throws Exception {
-		String email = "practicer-" + UUID.randomUUID() + "@example.com";
-		String body = mockMvc.perform(post("/v1/auth/register")
-						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"email\":\"" + email + "\",\"password\":\"s3cretpassword\"}"))
-				.andExpect(status().isCreated())
-				.andReturn().getResponse().getContentAsString();
-		return "Bearer " + JsonPath.read(body, "$.accessToken");
-	}
-
-	/** Build a correct answer for any generated exercise from its server-side answer key. */
-	private String correctAnswerJson(PracticeExercise exercise) {
-		Map<String, Object> key = exercise.getAnswerKey();
-		return switch (exercise.getType()) {
-			case WORD_MEANING, MEANING_WORD, SENTENCE_GAP ->
-				"{\"selectedOptionId\":\"" + key.get("correctOptionId") + "\"}";
-			case TYPE_WORD -> "{\"text\":\"" + firstAccepted(key) + "\"}";
-			case SENTENCE_BUILD -> "{\"tokenOrder\":[" + java.util.Arrays
-					.stream(firstAccepted(key).split("\\s+"))
-					.map(t -> "\"" + t + "\"")
-					.collect(Collectors.joining(",")) + "]}";
-		};
-	}
-
-	private String wrongAnswerJson(PracticeExercise exercise) {
-		return switch (exercise.getType()) {
-			case WORD_MEANING, MEANING_WORD, SENTENCE_GAP ->
-				"{\"selectedOptionId\":\"" + UUID.randomUUID() + "\"}";
-			case TYPE_WORD -> "{\"text\":\"zzz-not-a-word\"}";
-			case SENTENCE_BUILD -> "{\"tokenOrder\":[\"zzz\"]}";
-		};
-	}
-
-	private String firstAccepted(Map<String, Object> key) {
-		return ((List<?>) key.get("accepted")).getFirst().toString();
-	}
-
-	private String submit(String auth, String sessionId, String exerciseId, String answer,
-			String idempotencyKey) throws Exception {
-		return mockMvc.perform(post("/v1/practice/sessions/" + sessionId + "/answers")
-						.header(HttpHeaders.AUTHORIZATION, auth)
-						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"idempotencyKey\":\"" + idempotencyKey + "\","
-								+ "\"exerciseId\":\"" + exerciseId + "\",\"answer\":" + answer + "}"))
-				.andExpect(status().isOk())
-				.andReturn().getResponse().getContentAsString();
-	}
 
 	@Test
 	void fullPracticeJourney() throws Exception {
@@ -120,9 +67,9 @@ class PracticeFlowIntegrationTest extends AbstractIntegrationTest {
 		assertThat(round1).doesNotContain("correctOptionId", "accepted", "revealText",
 				"answerKey");
 
-		String sessionId = JsonPath.read(round1, "$.sessionId");
+		UUID sessionId = UUID.fromString(JsonPath.read(round1, "$.sessionId"));
 		List<PracticeExercise> generated = exercises
-				.findBySessionIdAndRoundOrderByOrdinal(UUID.fromString(sessionId), 1);
+				.findBySessionIdAndRoundOrderByOrdinal(sessionId, 1);
 		assertThat(generated).hasSize(10);
 
 		// ~70/30 band mix: both the current band and earlier-band review words appear.
@@ -131,28 +78,25 @@ class PracticeFlowIntegrationTest extends AbstractIntegrationTest {
 				.collect(Collectors.toSet());
 		assertThat(bandsUsed).contains("A2", "A1");
 
-		// Right answer: +10 XP, full hearts, word strengthened above baseline.
+		// Right answer: +10 XP, full hearts, word mastery strengthened above baseline.
 		PracticeExercise first = generated.get(0);
-		String rightResult = submit(auth, sessionId, first.getId().toString(),
-				correctAnswerJson(first), "key-right");
+		String rightResult = submit(auth, sessionId, first, correctAnswerJson(first), "key-right");
 		assertThat((boolean) JsonPath.read(rightResult, "$.verdict.correct")).isTrue();
 		assertThat((int) JsonPath.read(rightResult, "$.stats.xp")).isEqualTo(10);
 		assertThat((int) JsonPath.read(rightResult, "$.stats.hearts")).isEqualTo(5);
-		assertThat(strengthOf(first)).isEqualTo(3);
+		assertThat(masteryScoreOf(first)).isEqualTo(3);
 
 		// Wrong answer: heart lost, feedback reveals the correct answer, word weakened.
 		PracticeExercise second = generated.get(1);
-		String wrongResult = submit(auth, sessionId, second.getId().toString(),
-				wrongAnswerJson(second), "key-wrong");
+		String wrongResult = submit(auth, sessionId, second, wrongAnswerJson(second), "key-wrong");
 		assertThat((boolean) JsonPath.read(wrongResult, "$.verdict.correct")).isFalse();
 		assertThat((String) JsonPath.read(wrongResult, "$.verdict.feedback.en"))
 				.startsWith("Correct answer:");
 		assertThat((int) JsonPath.read(wrongResult, "$.stats.hearts")).isEqualTo(4);
-		assertThat(strengthOf(second)).isZero();
+		assertThat(masteryScoreOf(second)).isZero();
 
 		// Idempotent replay: same key returns the original verdict, nothing charged twice.
-		String replay = submit(auth, sessionId, second.getId().toString(),
-				wrongAnswerJson(second), "key-wrong");
+		String replay = submit(auth, sessionId, second, wrongAnswerJson(second), "key-wrong");
 		assertThat((boolean) JsonPath.read(replay, "$.verdict.correct")).isFalse();
 		assertThat((int) JsonPath.read(replay, "$.stats.hearts")).isEqualTo(4);
 		assertThat((int) JsonPath.read(replay, "$.stats.xp")).isEqualTo(10);
@@ -169,7 +113,7 @@ class PracticeFlowIntegrationTest extends AbstractIntegrationTest {
 		var round1Words = generated.stream().map(PracticeExercise::getVocabularyId)
 				.collect(Collectors.toSet());
 		var round2Words = exercises
-				.findBySessionIdAndRoundOrderByOrdinal(UUID.fromString(sessionId), 2).stream()
+				.findBySessionIdAndRoundOrderByOrdinal(sessionId, 2).stream()
 				.map(PracticeExercise::getVocabularyId)
 				.collect(Collectors.toSet());
 		assertThat(round2Words).hasSize(10).doesNotContainAnyElementsOf(round1Words);
@@ -246,12 +190,13 @@ class PracticeFlowIntegrationTest extends AbstractIntegrationTest {
 				.andExpect(jsonPath("$.exercises.length()").value(10));
 	}
 
-	private int strengthOf(PracticeExercise exercise) {
-		return wordProgress.findAll().stream()
-				.filter(p -> p.getKey().vocabularyId().equals(exercise.getVocabularyId()))
-				.map(PracticeWordProgress::getStrength)
-				.findFirst()
-				.orElseThrow();
+	private int masteryScoreOf(PracticeExercise exercise) {
+		// Key on the owning learner too: the Postgres container is shared across the whole
+		// test run, so another flow test may have progress rows for the same word.
+		UUID userId = sessions.findById(exercise.getSessionId()).orElseThrow().getUserId();
+		return wordProgress.findById(new PracticeWordProgress.Key(userId, exercise.getVocabularyId()))
+				.orElseThrow()
+				.getMasteryScore();
 	}
 
 	private String wordBand(UUID vocabularyId) {

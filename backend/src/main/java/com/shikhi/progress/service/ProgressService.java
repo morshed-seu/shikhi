@@ -23,8 +23,13 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * The progress/gamification core (LLD §2.5): persistent XP, a daily streak, hearts, lesson
@@ -47,23 +52,73 @@ public class ProgressService implements CurriculumProgressOverlay {
 	private final UnitRepository units;
 	private final LessonRepository lessons;
 
+	/**
+	 * Used only by {@link #getOrCreate} to isolate a first-insert race (doc 43 §4 Fix 2) in its
+	 * own committing transaction — not for general use in this service.
+	 */
+	private final TransactionTemplate requiresNewTransaction;
+
 	public ProgressService(UserStatsRepository stats, UserProgressRepository progress,
 			ContentVersionRepository versions, LevelRepository levels, UnitRepository units,
-			LessonRepository lessons) {
+			LessonRepository lessons, PlatformTransactionManager transactionManager) {
 		this.stats = stats;
 		this.progress = progress;
 		this.versions = versions;
 		this.levels = levels;
 		this.units = units;
 		this.lessons = lessons;
+		this.requiresNewTransaction = new TransactionTemplate(transactionManager);
+		this.requiresNewTransaction.setPropagationBehavior(
+				TransactionDefinition.PROPAGATION_REQUIRES_NEW);
 	}
 
 	private LocalDate today() {
 		return LocalDate.now(ZoneOffset.UTC);
 	}
 
+	/**
+	 * Find-or-create a learner's stats row, race-safe (doc 43 §4 Fix 2 — the class-level
+	 * replacement for {@code PracticeSessionService}'s old {@code warmUpStats} bandaid, which
+	 * only covered one known caller). The insert on a cache miss runs in its own {@code
+	 * REQUIRES_NEW} transaction, isolated from whatever transaction the caller is already in —
+	 * same race pattern as {@code DailyPlanService.getOrCreateToday}. A concurrent duplicate
+	 * insert (e.g. two nested planner paths both warming up the same brand-new learner's row)
+	 * is caught and resolved by re-reading the winner's already-committed row instead of letting
+	 * the {@code DataIntegrityViolationException} propagate and poison the caller's own
+	 * transaction. Committing independently of the caller is safe here specifically because a
+	 * freshly-created {@link UserStats} is nothing but constructor defaults — there is no
+	 * caller-supplied data to lose even if the caller's own transaction later rolls back.
+	 *
+	 * <p>Exception: a caller in a read-only ambient transaction (e.g. {@code DashboardService},
+	 * whose class javadoc guarantees it "never writes") gets the original lazy, non-committing
+	 * behavior instead — a plain {@code save} that Hibernate's read-only session never
+	 * auto-flushes, so it never actually reaches the database (see
+	 * {@code DashboardFlowIntegrationTest#dashboardAsVeryFirstRequestWritesNoUserStatsRow}). A
+	 * transaction that never flushes can never lose a unique-constraint race either, so skipping
+	 * the {@code REQUIRES_NEW} isolation there is safe, not just permissible.
+	 */
 	private UserStats getOrCreate(UUID userId) {
-		return stats.findById(userId).orElseGet(() -> stats.save(new UserStats(userId)));
+		return stats.findById(userId).orElseGet(() -> createIfAbsent(userId));
+	}
+
+	private UserStats createIfAbsent(UUID userId) {
+		if (TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
+			return stats.save(new UserStats(userId));
+		}
+		return createRaceSafe(userId);
+	}
+
+	private UserStats createRaceSafe(UUID userId) {
+		try {
+			return requiresNewTransaction
+					.execute(status -> stats.saveAndFlush(new UserStats(userId)));
+		}
+		catch (DataIntegrityViolationException race) {
+			// Another concurrent caller won the unique-constraint race; its insert already
+			// committed (and rolled back its own, now-released, isolated transaction on our
+			// side), so this plain read on the caller's transaction is safe.
+			return stats.findById(userId).orElseThrow(() -> race);
+		}
 	}
 
 	@Transactional

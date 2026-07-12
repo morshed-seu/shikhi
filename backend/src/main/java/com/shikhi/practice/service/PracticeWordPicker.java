@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Selects vocabulary for practice rounds (E12). One SQL round-trip joins the band's words
- * with the learner's per-word strength and orders weakest-first: missed words (strength
+ * with the learner's per-word mastery score and orders weakest-first: missed words (mastery
  * 0–1) lead, unseen words (no row → COALESCE {@code 2}) follow, mastered words (3–5) trail;
  * ties are randomized so rounds stay varied. Reads the content module's vocabulary table
  * (read-only, per the LLD dependency rules).
@@ -33,7 +33,7 @@ public class PracticeWordPicker {
 				left join practice_word_progress p
 				  on p.vocabulary_id = v.id and p.user_id = :userId
 				where v.cefr_level in (:bands) %s
-				order by coalesce(p.strength, 2), random()
+				order by coalesce(p.mastery_score, 2), random()
 				limit :limit
 				""".formatted(exclusion), Vocabulary.class)
 				.setParameter("userId", userId)
@@ -41,6 +41,34 @@ public class PracticeWordPicker {
 				.setParameter("limit", limit);
 		if (!usedIds.isEmpty()) {
 			query.setParameter("usedIds", usedIds);
+		}
+		return query.getResultList();
+	}
+
+	/**
+	 * Free-practice top-up (doc 42 §8.6, doc 43 §3 VE4): previously-seen words only, weakest
+	 * first — used by {@code PlanRoundComposer} once today's plan is exhausted, since free
+	 * practice must never introduce an unseen word. An inner join on
+	 * {@code practice_word_progress} is what enforces "seen" here (unlike {@link #pick}'s left
+	 * join, which also matches never-seen words via its {@code coalesce}).
+	 */
+	@SuppressWarnings("unchecked")
+	public List<Vocabulary> seenWords(UUID userId, Collection<String> bands,
+			Collection<UUID> excludeIds, int limit) {
+		String exclusion = excludeIds.isEmpty() ? "" : "and v.id not in (:excludeIds)";
+		var query = em.createNativeQuery("""
+				select v.* from vocabulary v
+				inner join practice_word_progress p
+				  on p.vocabulary_id = v.id and p.user_id = :userId
+				where v.cefr_level in (:bands) %s
+				order by coalesce(p.mastery_score, 2), random()
+				limit :limit
+				""".formatted(exclusion), Vocabulary.class)
+				.setParameter("userId", userId)
+				.setParameter("bands", bands)
+				.setParameter("limit", limit);
+		if (!excludeIds.isEmpty()) {
+			query.setParameter("excludeIds", excludeIds);
 		}
 		return query.getResultList();
 	}
