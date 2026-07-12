@@ -5,10 +5,11 @@ import com.shikhi.content.repo.VocabularyRepository;
 import com.shikhi.content.web.Bilingual;
 import com.shikhi.learning.grading.AnswerNormalizer;
 import com.shikhi.platform.error.ApiException;
+import com.shikhi.practice.config.PlannerProperties;
 import com.shikhi.practice.domain.PracticeAnswer;
 import com.shikhi.practice.domain.PracticeExercise;
 import com.shikhi.practice.domain.PracticeSession;
-import com.shikhi.practice.domain.PracticeWordProgress;
+import com.shikhi.practice.plan.PlanRoundComposer;
 import com.shikhi.practice.repo.PracticeAnswerRepository;
 import com.shikhi.practice.repo.PracticeExerciseRepository;
 import com.shikhi.practice.repo.PracticeSessionRepository;
@@ -25,9 +26,12 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,12 +39,22 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Orchestrates a practice run (E12, LLD §2.8): start pins the learner's CEFR level and
  * serves round 1; each "keep going" generates another round; answers are graded against
- * the stored server-only answer key and update per-word strength plus hearts/XP/streak
- * (via {@link ProgressService}). Submission and completion are idempotent so client
- * retries are safe (NFR-DI1), mirroring the lesson-session contract.
+ * the stored server-only answer key and update per-word mastery, the review ladder (via
+ * {@link WordProgressService}, doc 43 §5 VE2), and hearts/XP/streak (via
+ * {@link ProgressService}). Submission and completion are idempotent so client retries are
+ * safe (NFR-DI1), mirroring the lesson-session contract.
+ *
+ * <p>Round composition (doc 43 §3/§4 VE4) has two paths behind {@link PlannerProperties#isEnabled()}:
+ * when enabled, {@link PlanRoundComposer} serves words from the learner's daily plan (falling
+ * back to free practice once the plan is exhausted) in the plan's own bucket-mixed order — never
+ * reshuffled; when disabled, or when the planner produces nothing usable (doc 43 §1.4: planner
+ * failure must never block learning), rounds fall back to the legacy weakest-first
+ * {@link PracticeWordPicker}, shuffled, exactly as before VE4.
  */
 @Service
 public class PracticeSessionService {
+
+	private static final Logger log = LoggerFactory.getLogger(PracticeSessionService.class);
 
 	static final int ROUND_SIZE = 10;
 	/** Words per round drawn from earlier bands for reinforcement (US-12.4, ~30%). */
@@ -48,8 +62,12 @@ public class PracticeSessionService {
 	/** Level-up suggested once this share of the current band has been answered correctly. */
 	static final double LEVEL_UP_THRESHOLD = 0.6;
 
-	/** Package-visible so {@link PracticeStatsService} (E13 dashboard seam) stays in lockstep. */
-	static final List<String> BAND_ORDER = List.of("A1", "A2", "B1", "B2", "C1");
+	/**
+	 * Public so {@link PracticeStatsService} (E13 dashboard seam) and
+	 * {@code com.shikhi.practice.plan.DailyPlanService} (VE3 daily planner) stay in lockstep —
+	 * one band ordering shared by every CEFR-aware consumer, never duplicated.
+	 */
+	public static final List<String> BAND_ORDER = List.of("A1", "A2", "B1", "B2", "C1");
 
 	private static final Bilingual CORRECT_FEEDBACK = new Bilingual("Correct!", "সঠিক!");
 
@@ -61,12 +79,16 @@ public class PracticeSessionService {
 	private final PracticeGenerator generator;
 	private final VocabularyRepository vocabulary;
 	private final ProgressService progress;
+	private final WordProgressService wordProgressService;
+	private final PlanRoundComposer planComposer;
+	private final PlannerProperties planner;
 
 	public PracticeSessionService(PracticeSessionRepository sessions,
 			PracticeExerciseRepository exercises, PracticeAnswerRepository answers,
 			PracticeWordProgressRepository wordProgress, PracticeWordPicker picker,
 			PracticeGenerator generator, VocabularyRepository vocabulary,
-			ProgressService progress) {
+			ProgressService progress, WordProgressService wordProgressService,
+			PlanRoundComposer planComposer, PlannerProperties planner) {
 		this.sessions = sessions;
 		this.exercises = exercises;
 		this.answers = answers;
@@ -75,6 +97,9 @@ public class PracticeSessionService {
 		this.generator = generator;
 		this.vocabulary = vocabulary;
 		this.progress = progress;
+		this.wordProgressService = wordProgressService;
+		this.planComposer = planComposer;
+		this.planner = planner;
 	}
 
 	@Transactional
@@ -128,7 +153,7 @@ public class PracticeSessionService {
 		Stats stats = progress.recordPracticeAnswer(userId, correct);
 		session.recordAnswer(correct);
 		exercise.markAnswered(correct);
-		recordWordProgress(userId, exercise.getVocabularyId(), correct);
+		wordProgressService.recordAnswer(userId, exercise.getVocabularyId(), correct);
 
 		PracticeAnswer answer = new PracticeAnswer(sessionId, userId, exercise.getId(),
 				request.idempotencyKey(), correct);
@@ -157,11 +182,48 @@ public class PracticeSessionService {
 	// ---- generation -----------------------------------------------------------------------
 
 	/**
-	 * Pick round words — mostly the session's band, a few from earlier bands (US-12.4) —
-	 * then hand them to the generator. Words already used in this session are excluded;
-	 * if the exclusion exhausts the pool the round simply comes up shorter.
+	 * Selects round words, then hands them to the generator (shared tail, {@link #buildRound}).
+	 * When the planner is enabled (doc 43 §3/§4 VE4), the daily plan supplies the words in its
+	 * own bucket-mixed serve order — plan-backed rounds are never shuffled (doc 42 §8.3: the
+	 * mix decided at plan creation is the serve order). A planner failure, or the planner
+	 * producing nothing usable (plan exhausted with no seen words left for free practice
+	 * either), falls through to the legacy path so a broken planner never blocks learning
+	 * (doc 43 §1.4). With the flag off, this is byte-for-byte the pre-VE4 legacy path.
+	 *
+	 * <p>{@code buildRound} for the plan-backed path runs OUTSIDE the try block, on purpose
+	 * (doc 43 §1.4 fix): {@code composeRound} is {@code REQUIRES_NEW} (see its javadoc) and has
+	 * already committed its own item consumption by the time it returns, independent of this
+	 * transaction. If {@code buildRound}/exercise generation then failed while still inside the
+	 * try, the catch below would silently fall back to legacy and re-serve those already-
+	 * consumed plan words — quietly discarding them from today's plan for nothing. Letting a
+	 * post-composition failure propagate is louder but correct; only a {@code composeRound}
+	 * failure (nothing committed yet) is a legitimate reason to fall back.
 	 */
 	private List<PracticeExercise> generateRound(PracticeSession session, Set<UUID> usedIds) {
+		if (planner.isEnabled()) {
+			Optional<List<Vocabulary>> planned = Optional.empty();
+			try {
+				planned = planComposer.composeRound(
+						session.getUserId(), session.getId(), usedIds, ROUND_SIZE);
+			}
+			catch (Exception e) {
+				log.warn("Planner failed to compose a round for session {}; "
+						+ "falling back to the legacy picker", session.getId(), e);
+			}
+			if (planned.isPresent()) {
+				return buildRound(session, planned.get(), false);
+			}
+		}
+		return buildRound(session, legacyPick(session, usedIds), true);
+	}
+
+	/**
+	 * Legacy word selection (pre-VE4, unchanged): mostly the session's band, a few from
+	 * earlier bands (US-12.4), topped up from all eligible bands if the band-restricted pick
+	 * comes up short. Words already used in this session are excluded; if the exclusion
+	 * exhausts the pool the round simply comes up shorter.
+	 */
+	private List<Vocabulary> legacyPick(PracticeSession session, Set<UUID> usedIds) {
 		String current = session.getCefrLevel();
 		List<String> earlier = BAND_ORDER.subList(0, BAND_ORDER.indexOf(current));
 
@@ -181,19 +243,34 @@ public class PracticeSessionService {
 			words.addAll(picker.pick(session.getUserId(), allBands, exclude,
 					ROUND_SIZE - words.size()));
 		}
+		return words;
+	}
+
+	/**
+	 * Shared tail for both selection paths: shuffle (legacy only — plan-backed order is
+	 * preserved as-is), build distractor pools, generate exercises, persist. Empty input is a
+	 * hard failure either way — the caller must have already fallen back if a source produced
+	 * nothing.
+	 */
+	private List<PracticeExercise> buildRound(PracticeSession session, List<Vocabulary> words,
+			boolean shuffle) {
 		if (words.isEmpty()) {
 			throw ApiException.conflict("NO_VOCABULARY",
 					"No vocabulary is available for this level");
 		}
-		Collections.shuffle(words);
+		List<Vocabulary> ordered = words;
+		if (shuffle) {
+			ordered = new ArrayList<>(words);
+			Collections.shuffle(ordered);
+		}
 
-		Map<String, List<Vocabulary>> pools = words.stream()
+		Map<String, List<Vocabulary>> pools = ordered.stream()
 				.map(Vocabulary::getCefrLevel)
 				.distinct()
 				.collect(Collectors.toMap(band -> band, band -> picker.distractorPool(band, 40)));
 
 		List<PracticeExercise> round = generator.generateRound(session.getId(),
-				session.getRoundsPlayed(), words, pools);
+				session.getRoundsPlayed(), ordered, pools);
 		return exercises.saveAll(round);
 	}
 
@@ -240,14 +317,6 @@ public class PracticeSessionService {
 		return key.get("accepted") instanceof List<?> list
 				? list.stream().map(this::asString).toList()
 				: List.of();
-	}
-
-	private void recordWordProgress(UUID userId, UUID vocabularyId, boolean correct) {
-		PracticeWordProgress state = wordProgress
-				.findById(new PracticeWordProgress.Key(userId, vocabularyId))
-				.orElseGet(() -> new PracticeWordProgress(userId, vocabularyId));
-		state.recordAnswer(correct);
-		wordProgress.save(state);
 	}
 
 	private boolean levelUpEligible(UUID userId, String cefrLevel) {
