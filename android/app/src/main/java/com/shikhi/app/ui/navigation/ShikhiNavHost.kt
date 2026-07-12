@@ -7,6 +7,7 @@ import androidx.navigation.compose.rememberNavController
 import com.shikhi.app.ui.home.HomeScreen
 import com.shikhi.app.ui.lesson.LessonScreen
 import com.shikhi.app.ui.practice.PracticeScreen
+import com.shikhi.app.ui.profile.ProfileScreen
 
 @Composable
 fun ShikhiNavHost() {
@@ -16,6 +17,7 @@ fun ShikhiNavHost() {
 			HomeScreen(
 				onOpenLesson = { lessonId -> nav.navigate("lesson/$lessonId") },
 				onStartPractice = { nav.navigate("practice") },
+				onOpenProfile = { nav.navigate("profile") },
 			)
 		}
 		composable("lesson/{lessonId}") {
@@ -23,6 +25,9 @@ fun ShikhiNavHost() {
 		}
 		composable("practice") {
 			PracticeScreen(onExit = { nav.popBackStack() })
+		}
+		composable("profile") {
+			ProfileScreen(onBack = { nav.popBackStack() })
 		}
 	}
 }

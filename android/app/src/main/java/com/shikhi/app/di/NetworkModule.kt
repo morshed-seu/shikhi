@@ -3,6 +3,7 @@ package com.shikhi.app.di
 import com.shikhi.app.BuildConfig
 import com.shikhi.app.data.api.AuthApi
 import com.shikhi.app.data.api.ContentApi
+import com.shikhi.app.data.api.DashboardApi
 import com.shikhi.app.data.api.LearningApi
 import com.shikhi.app.data.api.PracticeApi
 import com.shikhi.app.data.api.ProgressApi
@@ -102,4 +103,9 @@ object NetworkModule {
 	@Singleton
 	fun vocabularyApi(@AuthedClient client: OkHttpClient): VocabularyApi =
 		retrofit(client).create(VocabularyApi::class.java)
+
+	@Provides
+	@Singleton
+	fun dashboardApi(@AuthedClient client: OkHttpClient): DashboardApi =
+		retrofit(client).create(DashboardApi::class.java)
 }
