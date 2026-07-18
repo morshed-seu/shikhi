@@ -53,6 +53,8 @@ class CachedContentRepositoryTest {
 		override suspend fun getLessonsForUnit(unitId: String): List<LocalLesson> =
 			lessons.filter { it.unitId == unitId }.sortedBy { it.ordinal }
 
+		override suspend fun getLesson(lessonId: String): LocalLesson? = lessons.find { it.id == lessonId }
+
 		override suspend fun getExercisesForLesson(lessonId: String): List<LocalExercise> = emptyList()
 
 		override suspend fun insertVocabulary(rows: List<LocalVocabulary>) {

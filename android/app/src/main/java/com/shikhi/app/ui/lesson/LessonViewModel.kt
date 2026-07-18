@@ -3,19 +3,17 @@ package com.shikhi.app.ui.lesson
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.shikhi.app.data.api.ContentApi
-import com.shikhi.app.data.api.LearningApi
-import com.shikhi.app.data.api.dto.IdempotentRequest
 import com.shikhi.app.data.api.dto.LessonResult
 import com.shikhi.app.data.api.dto.LessonView
 import com.shikhi.app.data.api.dto.Stats
-import com.shikhi.app.data.api.dto.SubmitAnswerRequest
 import com.shikhi.app.data.api.dto.Verdict
+import com.shikhi.app.data.connectivity.ConnectivityChecker
+import com.shikhi.app.data.lesson.LessonPlaySource
+import com.shikhi.app.data.lesson.LocalLessonSource
+import com.shikhi.app.data.lesson.RemoteLessonSource
 import com.shikhi.app.data.outbox.OutboxEventType
 import com.shikhi.app.data.outbox.OutboxRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -26,14 +24,17 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import retrofit2.HttpException
 import java.io.IOException
-import java.util.UUID
 import javax.inject.Inject
 
 /**
  * Lesson play-through state machine, a direct port of the web player
  * (frontend/src/components/LessonPlayer.tsx): load lesson + start session → per-exercise
- * answer with server-side grading → complete. Completion that fails for a network/5xx
- * reason is buffered to the outbox and shown as "saved offline" (D2/NFR-N2).
+ * answer with grading → complete. Grading/completion are backed by a [LessonPlaySource]
+ * resolved once per session start (OF3, docs/93-offline-learning-design.md §3.3): online users
+ * get [RemoteLessonSource] (today's server-graded behavior, unchanged); offline devices get
+ * [LocalLessonSource] (bundled content + the local grading engine). A remote completion that
+ * fails for a network/5xx reason is still buffered to the outbox and shown as "saved offline"
+ * (D2/NFR-N2), exactly as before OF3.
  */
 sealed interface LessonUiState {
 	data object Loading : LessonUiState
@@ -68,8 +69,9 @@ val TEXT_TYPES = setOf("TYPE_TRANSLATION", "FILL_BLANK")
 @HiltViewModel
 class LessonViewModel @Inject constructor(
 	savedStateHandle: SavedStateHandle,
-	private val contentApi: ContentApi,
-	private val learningApi: LearningApi,
+	private val remoteSource: RemoteLessonSource,
+	private val localSource: LocalLessonSource,
+	private val connectivity: ConnectivityChecker,
 	private val outbox: OutboxRepository,
 ) : ViewModel() {
 
@@ -80,16 +82,23 @@ class LessonViewModel @Inject constructor(
 
 	private var sessionId: String? = null
 
+	/** Resolved once in [init] and reused for the whole session — never re-checked mid-play
+	 * (§3.3), so a session's grading source can't switch mid-answer. */
+	private lateinit var source: LessonPlaySource
+
+	/** True when [source] is [localSource] — a completion under this source is never confirmed
+	 * by a live server round trip, so it always renders as "saved offline" (unlike the remote
+	 * path, where that's only true on a completion failure). */
+	private var usingLocalSource: Boolean = false
+
 	init {
 		viewModelScope.launch {
 			try {
-				coroutineScope {
-					val lesson = async { contentApi.lesson(lessonId) }
-					val session = async { learningApi.startSession(com.shikhi.app.data.api.dto.StartSessionRequest(lessonId)) }
-					val started = session.await()
-					sessionId = started.id
-					_state.value = LessonUiState.Playing(lesson.await(), index = 0, hearts = started.heartsRemaining)
-				}
+				usingLocalSource = !connectivity.isOnline()
+				source = if (usingLocalSource) localSource else remoteSource
+				val playable = source.start(lessonId)
+				sessionId = playable.sessionId
+				_state.value = LessonUiState.Playing(playable.lesson, index = 0, hearts = playable.heartsRemaining)
 			} catch (e: Exception) {
 				_state.value = LessonUiState.LoadError
 			}
@@ -158,20 +167,13 @@ class LessonViewModel @Inject constructor(
 		_state.value = s.copy(busy = true)
 		viewModelScope.launch {
 			try {
-				val res = learningApi.submitAnswer(
-					session,
-					SubmitAnswerRequest(
-						idempotencyKey = UUID.randomUUID().toString(),
-						exerciseId = s.exercise.id,
-						answer = answer,
-					),
-				)
+				val outcome = source.grade(session, s.exercise, answer)
 				_state.update { cur ->
 					(cur as? LessonUiState.Playing)?.copy(
 						busy = false,
-						verdict = res.verdict,
-						hearts = res.stats.hearts,
-						correctCount = cur.correctCount + if (res.verdict.correct) 1 else 0,
+						verdict = outcome.verdict,
+						hearts = outcome.heartsRemaining,
+						correctCount = cur.correctCount + if (outcome.verdict.correct) 1 else 0,
 					) ?: cur
 				}
 			} catch (e: Exception) {
@@ -209,10 +211,14 @@ class LessonViewModel @Inject constructor(
 		_state.value = s.copy(busy = true)
 		viewModelScope.launch {
 			try {
-				val result = learningApi.completeSession(session, IdempotentRequest(UUID.randomUUID().toString()))
-				_state.value = LessonUiState.Finished(result, total = s.lesson.exercises.size, savedOffline = false)
-				// Post-lesson flush trigger: reconcile anything buffered from earlier failures.
-				outbox.flush()
+				val result = source.complete(session, s.correctCount)
+				_state.value = LessonUiState.Finished(result, total = s.lesson.exercises.size, savedOffline = usingLocalSource)
+				if (!usingLocalSource) {
+					// Post-lesson flush trigger: reconcile anything buffered from earlier failures.
+					// (LocalLessonSource already buffered this completion itself — no live
+					// connection to flush against, so this call is remote-path-only.)
+					outbox.flush()
+				}
 			} catch (e: Exception) {
 				val recoverable = e is IOException || (e is HttpException && e.code() >= 500)
 				if (recoverable) {

@@ -10,6 +10,7 @@ import com.shikhi.app.data.auth.DataStoreLoginPrefs
 import com.shikhi.app.data.auth.DataStoreTokenStore
 import com.shikhi.app.data.auth.LoginPrefs
 import com.shikhi.app.data.auth.TokenStore
+import com.shikhi.app.data.content.db.ContentAnswerKeyDao
 import com.shikhi.app.data.content.db.ContentDatabase
 import com.shikhi.app.data.content.db.ContentReadDao
 import com.shikhi.app.data.db.ContentCacheDao
@@ -66,6 +67,11 @@ object AppModule {
 
 	@Provides
 	fun contentReadDao(db: ContentDatabase): ContentReadDao = db.contentReadDao()
+
+	// Answer-key-only surface (OF3 §4.1): only injected into the local grading path
+	// (LocalLessonSource / LessonGradingEngine), never into UI-facing code.
+	@Provides
+	fun contentAnswerKeyDao(db: ContentDatabase): ContentAnswerKeyDao = db.contentAnswerKeyDao()
 
 	@Provides
 	@Singleton

@@ -26,6 +26,10 @@ interface ContentReadDao {
 	@Query("SELECT * FROM local_lessons WHERE unitId = :unitId ORDER BY ordinal")
 	suspend fun getLessonsForUnit(unitId: String): List<LocalLesson>
 
+	/** Single-lesson lookup for offline lesson play (OF3) — same table, no answer-key columns. */
+	@Query("SELECT * FROM local_lessons WHERE id = :lessonId")
+	suspend fun getLesson(lessonId: String): LocalLesson?
+
 	@Query(
 		"SELECT id, lessonId, type, ordinal, promptEn, promptBn, mediaRef " +
 			"FROM local_exercises WHERE lessonId = :lessonId ORDER BY ordinal",
