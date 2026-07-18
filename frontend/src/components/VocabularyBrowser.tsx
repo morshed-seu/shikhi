@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { type CefrLevel, fetchVocabulary, type VocabularyEntry } from '../api/vocabulary'
 import { useAuth } from '../auth/useAuth'
+import { isSpeechSupported, speakEnglish } from '../lib/speech'
 
 type LoadState = 'idle' | 'loading' | 'error'
 
@@ -12,6 +13,7 @@ const PAGE_SIZE = 40
 export function VocabularyBrowser() {
   const { t } = useTranslation()
   const { user, getToken } = useAuth()
+  const speechEnabled = useMemo(isSpeechSupported, [])
   const [level, setLevel] = useState<CefrLevel>('A1')
   const [entries, setEntries] = useState<VocabularyEntry[]>([])
   const [state, setState] = useState<LoadState>('idle')
@@ -120,6 +122,25 @@ export function VocabularyBrowser() {
                   <li key={e.id} className="vocab__card">
                     <div className="vocab__term">
                       <span className="vocab__word">{e.headword}</span>
+                      {speechEnabled && (
+                        <button
+                          type="button"
+                          className="vocab__speak"
+                          onClick={() => speakEnglish(e.headword)}
+                          aria-label={t('vocab.pronounce', { word: e.headword })}
+                        >
+                          <svg
+                            aria-hidden="true"
+                            viewBox="0 0 24 24"
+                            width="16"
+                            height="16"
+                            fill="currentColor"
+                          >
+                            <path d="M4 9v6h4l5 5V4L8 9H4z" />
+                            <path d="M16.5 12a4.5 4.5 0 0 0-2.2-3.9l.9-1.6A6.5 6.5 0 0 1 18.5 12a6.5 6.5 0 0 1-3.3 5.5l-.9-1.6A4.5 4.5 0 0 0 16.5 12z" />
+                          </svg>
+                        </button>
+                      )}
                       <span className="vocab__pos">{e.partOfSpeech}</span>
                       {e.senseLabel && <span className="vocab__sense">({e.senseLabel})</span>}
                     </div>

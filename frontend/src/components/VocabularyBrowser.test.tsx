@@ -34,6 +34,7 @@ describe('VocabularyBrowser pagination', () => {
   afterEach(() => {
     localStorage.clear()
     vi.restoreAllMocks()
+    vi.unstubAllGlobals()
   })
 
   it('paginates the word list instead of silently truncating it', async () => {
@@ -83,5 +84,50 @@ describe('VocabularyBrowser pagination', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'পূর্ববর্তী' }))
     await waitFor(() => expect(screen.getByText('word40')).toBeInTheDocument())
+  })
+
+  it('speaks a word aloud via the Web Speech API when supported', async () => {
+    const speak = vi.fn()
+    vi.stubGlobal('speechSynthesis', { speak, cancel: vi.fn() })
+    vi.stubGlobal(
+      'SpeechSynthesisUtterance',
+      class {
+        text: string
+        lang = ''
+        constructor(text: string) {
+          this.text = text
+        }
+      },
+    )
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, opts?: { method?: string; body?: string }) => {
+        const method = opts?.method ?? 'GET'
+        if (url === '/v1/health') return Promise.resolve(jsonResponse({ status: 'UP', service: 'shikhi' }))
+        if (url === '/v1/auth/register' && method === 'POST')
+          return Promise.resolve(jsonResponse({ accessToken: 'a', refreshToken: 'r', expiresIn: 900 }, 201))
+        if (url === '/v1/me')
+          return Promise.resolve(jsonResponse({ id: '1', displayName: 'Nadia', uiLocale: 'bn', roles: ['LEARNER'] }))
+        if (url === '/v1/curriculum') return Promise.resolve(jsonResponse({ contentVersion: 'v1', levels: [] }))
+        if (url === '/v1/review/due') return Promise.resolve(jsonResponse([]))
+        if (url === '/v1/stats' && method === 'GET') return Promise.resolve(jsonResponse(stats))
+        if (url === '/v1/vocabulary?level=A1') return Promise.resolve(jsonResponse(words))
+        return Promise.resolve(jsonResponse({ code: 'ERROR', message: 'unexpected' }, 500))
+      }),
+    )
+
+    render(<App />)
+    await screen.findByRole('tab', { name: 'নিবন্ধন' })
+    fireEvent.click(screen.getByRole('tab', { name: 'নিবন্ধন' }))
+    fireEvent.change(screen.getByLabelText('ইমেইল'), { target: { value: 'nadia@example.com' } })
+    fireEvent.change(screen.getByLabelText('পাসওয়ার্ড'), { target: { value: 's3cretpassword' } })
+    fireEvent.click(screen.getByRole('button', { name: 'নিবন্ধন' }))
+
+    await screen.findByText('শব্দ দেখুন')
+    fireEvent.click(screen.getByRole('button', { name: 'শব্দ দেখুন' }))
+
+    await screen.findByText('word0')
+    fireEvent.click(screen.getByRole('button', { name: '"word0" শুনুন' }))
+    expect(speak).toHaveBeenCalledTimes(1)
   })
 })

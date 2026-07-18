@@ -769,6 +769,25 @@
   color: var(--fg);
 }
 
+.vocab__speak {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--fg-subtle);
+  cursor: pointer;
+}
+
+.vocab__speak:hover {
+  color: var(--fg);
+  border-color: var(--fg-subtle);
+}
+
 .vocab__pos {
   color: var(--fg-subtle);
   font-size: 0.85rem;
