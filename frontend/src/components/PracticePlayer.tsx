@@ -16,6 +16,7 @@ import {
 } from '../api/practice'
 import { fetchStats } from '../api/sessions'
 import { useAuth } from '../auth/useAuth'
+import { SpeakButton } from './SpeakButton'
 
 interface Props {
   onExit: () => void
@@ -24,6 +25,19 @@ interface Props {
 type Phase = 'loading' | 'error' | 'playing' | 'roundDone' | 'finished'
 
 const XP_PER_CORRECT = 10
+
+/** Pulls the curly-quoted headword out of a WORD_MEANING prompt (e.g. `What does “X” mean?`) —
+ * it's already given to the learner as plain text, so speaking it back reveals nothing new. */
+function quotedWord(text: string): string | null {
+  const match = text.match(/“([^”]+)”/)
+  return match ? match[1] : null
+}
+
+/** A wrong-answer reveal reads `Correct answer: word — বাংলা gloss` or a plain English
+ * sentence; either way the part before the first em dash is clean, speakable English. */
+function revealWord(feedbackEn: string): string {
+  return feedbackEn.replace(/^Correct answer: /, '').split(' — ')[0].trim()
+}
 
 /**
  * The continuous practice flow (E12, US-12.3): exercises keep coming in rounds; each round
@@ -202,6 +216,10 @@ export function PracticePlayer({ onExit }: Props) {
     exercise.type === 'SENTENCE_GAP'
   const isBuild = exercise.type === 'SENTENCE_BUILD'
   const isType = exercise.type === 'TYPE_WORD'
+  // Options are only real English words (safe to pronounce as-is) for these two types —
+  // WORD_MEANING's MCQ options are Bengali meanings, which an en-US voice would mangle.
+  const optionsAreEnglish = exercise.type === 'MEANING_WORD' || exercise.type === 'SENTENCE_GAP'
+  const promptWord = exercise.type === 'WORD_MEANING' ? quotedWord(exercise.prompt.en) : null
   const tokens = exercise.config.tokens ?? []
   const answered = verdict !== null
   const canCheck =
@@ -289,9 +307,14 @@ export function PracticePlayer({ onExit }: Props) {
         </span>
       </div>
 
-      <h2 className="lesson__prompt" ref={promptRef} tabIndex={-1}>
-        {label(exercise.prompt)}
-      </h2>
+      <div className="lesson__prompt-row">
+        <h2 className="lesson__prompt" ref={promptRef} tabIndex={-1}>
+          {label(exercise.prompt)}
+        </h2>
+        {promptWord && (
+          <SpeakButton text={promptWord} label={t('practice.pronounce', { word: promptWord })} />
+        )}
+      </div>
 
       {exercise.type === 'SENTENCE_GAP' && exercise.config.contextBn && (
         <p className="practice__context">{exercise.config.contextBn}</p>
@@ -303,7 +326,7 @@ export function PracticePlayer({ onExit }: Props) {
       {isMcq && (
         <ul className="lesson__options">
           {(exercise.config.options ?? []).map((opt) => (
-            <li key={opt.id}>
+            <li key={opt.id} className="lesson__option-row">
               <button
                 type="button"
                 className={`lesson__option${answer === opt.id ? ' lesson__option--selected' : ''}`}
@@ -313,6 +336,12 @@ export function PracticePlayer({ onExit }: Props) {
               >
                 {label(opt.text)}
               </button>
+              {optionsAreEnglish && (
+                <SpeakButton
+                  text={opt.text.en}
+                  label={t('practice.pronounce', { word: opt.text.en })}
+                />
+              )}
             </li>
           ))}
         </ul>
@@ -342,24 +371,40 @@ export function PracticePlayer({ onExit }: Props) {
               placed.map((id) => {
                 const tk = tokens.find((x) => x.id === id)
                 return (
-                  <button
-                    key={id}
-                    type="button"
-                    className="lesson__token lesson__token--placed"
-                    disabled={answered}
-                    onClick={() => setPlaced((p) => p.filter((x) => x !== id))}
-                  >
-                    {tk ? tk.text.en : ''}
-                  </button>
+                  <span key={id} className="lesson__token-row">
+                    <button
+                      type="button"
+                      className="lesson__token lesson__token--placed"
+                      disabled={answered}
+                      onClick={() => setPlaced((p) => p.filter((x) => x !== id))}
+                    >
+                      {tk ? tk.text.en : ''}
+                    </button>
+                    {tk && (
+                      <SpeakButton
+                        text={tk.text.en}
+                        label={t('practice.pronounce', { word: tk.text.en })}
+                      />
+                    )}
+                  </span>
                 )
               })
             )}
           </div>
+          {placed.length === tokens.length && tokens.length > 0 && (
+            <span className="lesson__listen-sentence">
+              <SpeakButton
+                text={placed.map((id) => tokens.find((tk) => tk.id === id)?.text.en ?? '').join(' ')}
+                label={t('practice.listenSentence')}
+              />
+              {t('practice.listenSentence')}
+            </span>
+          )}
           <ul className="lesson__bank">
             {tokens
               .filter((tk) => !placed.includes(tk.id))
               .map((tk) => (
-                <li key={tk.id}>
+                <li key={tk.id} className="lesson__token-row">
                   <button
                     type="button"
                     className="lesson__token"
@@ -368,6 +413,10 @@ export function PracticePlayer({ onExit }: Props) {
                   >
                     {tk.text.en}
                   </button>
+                  <SpeakButton
+                    text={tk.text.en}
+                    label={t('practice.pronounce', { word: tk.text.en })}
+                  />
                 </li>
               ))}
           </ul>
@@ -383,7 +432,15 @@ export function PracticePlayer({ onExit }: Props) {
           {/* The body carries the reveal on wrong answers; on right ones it would just
               repeat the label. */}
           {!verdict.correct && (verdict.feedback.en || verdict.feedback.bn) && (
-            <p>{label(verdict.feedback)}</p>
+            <p className="lesson__reveal-row">
+              <span>{label(verdict.feedback)}</span>
+              {verdict.feedback.en && (
+                <SpeakButton
+                  text={revealWord(verdict.feedback.en)}
+                  label={t('practice.pronounce', { word: revealWord(verdict.feedback.en) })}
+                />
+              )}
+            </p>
           )}
         </div>
       )}

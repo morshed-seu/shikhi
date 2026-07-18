@@ -769,12 +769,13 @@
   color: var(--fg);
 }
 
-.vocab__speak {
+.speak-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 1.75rem;
   height: 1.75rem;
+  flex: none;
   padding: 0;
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -783,7 +784,7 @@
   cursor: pointer;
 }
 
-.vocab__speak:hover {
+.speak-btn:hover {
   color: var(--fg);
   border-color: var(--fg-subtle);
 }
@@ -918,6 +919,17 @@
   color: var(--fg);
 }
 
+.lesson__prompt-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+
+.lesson__prompt-row .lesson__prompt {
+  margin: 0;
+}
+
 .lesson__options {
   list-style: none;
   margin: 0 0 var(--space-4);
@@ -925,6 +937,16 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+}
+
+.lesson__option-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.lesson__option-row .lesson__option {
+  flex: 1;
 }
 
 .lesson__option {
@@ -1008,6 +1030,25 @@
   gap: var(--space-2);
 }
 
+.lesson__token-row {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.lesson__listen-sentence {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--brand);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
 .lesson__token {
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border-strong);
@@ -1056,6 +1097,12 @@
   background: var(--danger-bg);
   color: var(--danger);
   border: 1px solid var(--danger-border);
+}
+
+.lesson__reveal-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
 }
 
 .lesson__feedback p {

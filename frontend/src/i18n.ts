@@ -133,6 +133,8 @@ const resources = {
         levelUpOffer: 'You’ve mastered most of your level — ready for {{level}}?',
         levelUpAccept: 'Move up to {{level}}',
         levelUpDone: 'Your level is now {{level}}. New sessions will use it.',
+        pronounce: 'Listen to "{{word}}"',
+        listenSentence: 'Listen to your sentence',
       },
       onboarding: {
         title: 'Welcome to Shikhi!',
@@ -306,6 +308,8 @@ const resources = {
         levelUpOffer: 'আপনি এই স্তরের বেশিরভাগ শব্দ আয়ত্ত করেছেন — {{level}} এ যেতে প্রস্তুত?',
         levelUpAccept: '{{level}} এ উন্নীত হোন',
         levelUpDone: 'আপনার স্তর এখন {{level}}। নতুন সেশনে এটি ব্যবহৃত হবে।',
+        pronounce: '"{{word}}" শুনুন',
+        listenSentence: 'আপনার বাক্যটি শুনুন',
       },
       onboarding: {
         title: 'শিখিতে স্বাগতম!',
