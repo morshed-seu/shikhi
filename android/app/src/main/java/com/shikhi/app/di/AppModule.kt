@@ -10,6 +10,8 @@ import com.shikhi.app.data.auth.DataStoreLoginPrefs
 import com.shikhi.app.data.auth.DataStoreTokenStore
 import com.shikhi.app.data.auth.LoginPrefs
 import com.shikhi.app.data.auth.TokenStore
+import com.shikhi.app.data.content.db.ContentDatabase
+import com.shikhi.app.data.content.db.ContentReadDao
 import com.shikhi.app.data.db.ContentCacheDao
 import com.shikhi.app.data.db.OutboxDao
 import com.shikhi.app.data.db.ShikhiDatabase
@@ -52,6 +54,18 @@ object AppModule {
 
 	@Provides
 	fun contentCacheDao(db: ShikhiDatabase): ContentCacheDao = db.contentCacheDao()
+
+	// Bundled, read-only content DB (OF1 §3.2): separate Room database, reseeded wholesale
+	// from ContentSeedImporter — never migrated row-by-row, so unlike `database()` above it
+	// deliberately has no `.fallbackToDestructiveMigration()`; a missing-migration crash on a
+	// future version bump is a later-gate concern (OF-later), not this one.
+	@Provides
+	@Singleton
+	fun contentDatabase(@ApplicationContext context: Context): ContentDatabase =
+		Room.databaseBuilder(context, ContentDatabase::class.java, "content.db").build()
+
+	@Provides
+	fun contentReadDao(db: ContentDatabase): ContentReadDao = db.contentReadDao()
 
 	@Provides
 	@Singleton

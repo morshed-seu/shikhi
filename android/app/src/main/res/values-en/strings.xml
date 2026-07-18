@@ -97,6 +97,7 @@
     <string name="vocab_prev">Previous</string>
     <string name="vocab_next">Next</string>
     <string name="vocab_page">Page %1$d of %2$d</string>
+    <string name="vocab_pronounce">Pronounce %1$s</string>
 
     <!-- Accounts -->
     <string name="auth_login">Log in</string>

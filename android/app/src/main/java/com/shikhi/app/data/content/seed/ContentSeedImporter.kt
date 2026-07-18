@@ -15,10 +15,13 @@ import com.shikhi.app.data.content.db.LocalLesson
 import com.shikhi.app.data.content.db.LocalLevel
 import com.shikhi.app.data.content.db.LocalUnit
 import com.shikhi.app.data.content.db.LocalVocabulary
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import java.io.InputStream
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Bump when `assets/content-seed/{vocabulary,curriculum}.json` is regenerated with content that
@@ -38,13 +41,15 @@ private const val CURRICULUM_ASSET_PATH = "content-seed/curriculum.json"
  * [ContentDatabase] inside a single transaction. Zero network calls (OF1 goal — this is pure
  * asset I/O + local DB writes).
  *
- * Not wired into the DI graph or called from any ViewModel yet — a later gate (OF2/OF6) invokes
- * this from a `WorkManager` one-time worker at app startup. Constructor-injectable so it's
+ * OF2 invokes this from `ContentSeedWorker`, a `WorkManager` one-time worker scheduled at app
+ * startup (mirrors `OutboxSyncWorker`'s registration). `@Inject constructor` + `@Singleton`
+ * makes it Hilt-providable without any `AppModule` boilerplate, while staying just as
  * unit-testable with fakes/an in-memory [ContentDatabase] and a `DataStore<Preferences>` test
- * double.
+ * double (see `ContentSeedImporterTest`, which constructs it directly, bypassing Hilt).
  */
-class ContentSeedImporter(
-	private val context: Context,
+@Singleton
+class ContentSeedImporter @Inject constructor(
+	@param:ApplicationContext private val context: Context,
 	private val database: ContentDatabase,
 	private val sessionDataStore: DataStore<Preferences>,
 ) {

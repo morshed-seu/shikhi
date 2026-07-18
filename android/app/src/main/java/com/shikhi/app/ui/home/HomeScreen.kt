@@ -47,6 +47,7 @@ fun HomeScreen(
 	val ui by viewModel.state.collectAsStateWithLifecycle()
 	val reviewItems by reviewViewModel.items.collectAsStateWithLifecycle()
 	val vocab by vocabViewModel.state.collectAsStateWithLifecycle()
+	val vocabSpeechAvailable by vocabViewModel.speechAvailable.collectAsStateWithLifecycle()
 
 	// Re-pull stats + progress + due reviews each time home comes (back) on screen — the
 	// web parent bumps a refreshKey after a lesson/practice finishes for the same reason.
@@ -117,6 +118,8 @@ fun HomeScreen(
 				onQuery = vocabViewModel::setQuery,
 				onPrev = vocabViewModel::prevPage,
 				onNext = vocabViewModel::nextPage,
+				speechAvailable = vocabSpeechAvailable,
+				onPronounce = vocabViewModel::pronounce,
 			)
 			Spacer(Modifier.height(24.dp))
 		}

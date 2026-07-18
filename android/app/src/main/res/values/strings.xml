@@ -98,6 +98,7 @@
     <string name="vocab_prev">পূর্ববর্তী</string>
     <string name="vocab_next">পরবর্তী</string>
     <string name="vocab_page">%2$dটির মধ্যে %1$d নম্বর পৃষ্ঠা</string>
+    <string name="vocab_pronounce">%1$s উচ্চারণ শুনুন</string>
 
     <!-- Accounts (web i18n auth.* / guest.*) -->
     <string name="auth_login">লগ ইন</string>
