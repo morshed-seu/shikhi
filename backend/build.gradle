@@ -67,3 +67,16 @@ tasks.named('bootRun') {
 	systemProperty 'spring.profiles.active',
 		System.getProperty('spring.profiles.active', 'dev')
 }
+
+// Dev-only, build-time content export (OF1, docs/93-offline-learning-design.md §6). Dumps the
+// published curriculum tree + Oxford-5000 vocabulary (including answer-key tables) to JSON for
+// bundling into the Android app's assets/content-seed/. Not part of the production app — see
+// ContentExportTool's javadoc. Usage: `./gradlew contentExport` (writes to the default
+// ../android/app/src/main/assets/content-seed) or `./gradlew contentExport --args="<dir>"`.
+tasks.register('contentExport', JavaExec) {
+	group = 'shikhi'
+	description = 'Exports published curriculum + vocabulary to JSON for the Android content seed.'
+	classpath = sourceSets.main.runtimeClasspath
+	mainClass = 'com.shikhi.content.tool.ContentExportTool'
+	systemProperty 'spring.profiles.active', 'dev'
+}

@@ -55,7 +55,7 @@ reconciling correctly once they reconnect.
 ### 3.1 Content bundling: JSON assets + first-run Room import
 
 Rejected alternative: Room's `createFromAsset` prebuilt-SQLite-file approach. Content volume
-(~5,011 vocabulary rows + ~13 pilot lesson exercises, estimated 1.5–2.5 MB as JSON) is small
+(~5,011 vocabulary rows + ~32 pilot lesson exercises across 13 lessons, estimated 1.5–2.5 MB as JSON) is small
 enough that the prebuilt-DB approach's zero-parse-cost advantage isn't worth its schema
 fragility (SQLite version/`room_master_table` mismatches) or the extra offline-tooling
 language it would require. JSON + a one-time importer reuses the existing

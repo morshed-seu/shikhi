@@ -40,6 +40,10 @@ public class Hint {
 		// for JPA
 	}
 
+	public UUID getId() {
+		return id;
+	}
+
 	public UUID getExerciseId() {
 		return exerciseId;
 	}
