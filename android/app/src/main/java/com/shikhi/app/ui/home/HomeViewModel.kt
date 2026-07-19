@@ -51,7 +51,10 @@ class HomeViewModel @Inject constructor(
 		checkHealth()
 		viewModelScope.launch {
 			authRepository.session.collect { session ->
-				_state.update { it.copy(isGuest = (session as? SessionState.Active)?.user?.isGuest == true) }
+				// OG1: a LocalGuest is definitely "a guest" — just not yet server-registered.
+				_state.update {
+					it.copy(isGuest = session is SessionState.LocalGuest || (session as? SessionState.Active)?.user?.isGuest == true)
+				}
 			}
 		}
 	}

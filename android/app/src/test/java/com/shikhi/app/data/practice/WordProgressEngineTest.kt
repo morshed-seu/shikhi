@@ -39,6 +39,9 @@ class WordProgressEngineTest {
 		override suspend fun upsertReview(progress: LocalReviewProgress) {
 			reviewProgress[progress.userId to progress.vocabularyId] = progress
 		}
+
+		override suspend fun rekey(oldUserId: String, newUserId: String) = Unit
+		override suspend fun rekeyReview(oldUserId: String, newUserId: String) = Unit
 	}
 
 	private val userId = "user-1"

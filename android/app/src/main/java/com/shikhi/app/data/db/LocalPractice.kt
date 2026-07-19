@@ -63,6 +63,16 @@ interface WordProgressDao {
 
 	@Insert(onConflict = OnConflictStrategy.REPLACE)
 	suspend fun upsertReview(progress: LocalReviewProgress)
+
+	// OG2 (docs/94-offline-guest-bootstrap-design.md §3.3): re-key a local guest's rows onto the
+	// server-issued userId once GuestRegistrationWorker registers it. Both queries run inside the
+	// same db.withTransaction as LocalPracticeSessionDao.rekey — see ADR-0014 (partial re-key
+	// would split one guest's history across two ids).
+	@Query("UPDATE local_word_progress SET userId = :newUserId WHERE userId = :oldUserId")
+	suspend fun rekey(oldUserId: String, newUserId: String)
+
+	@Query("UPDATE local_review_progress SET userId = :newUserId WHERE userId = :oldUserId")
+	suspend fun rekeyReview(oldUserId: String, newUserId: String)
 }
 
 /** One continuous local practice run (OF4 §4.2) — the offline mirror of `practice_sessions`. */
@@ -119,4 +129,9 @@ interface LocalPracticeSessionDao {
 
 	@Query("SELECT vocabularyId FROM local_practice_exercises WHERE sessionId = :sessionId")
 	suspend fun usedVocabularyIds(sessionId: String): List<String>
+
+	// OG2: see WordProgressDao.rekey — local_practice_exercises has no userId column (keyed by
+	// sessionId), so it needs no equivalent query.
+	@Query("UPDATE local_practice_sessions SET userId = :newUserId WHERE userId = :oldUserId")
+	suspend fun rekey(oldUserId: String, newUserId: String)
 }

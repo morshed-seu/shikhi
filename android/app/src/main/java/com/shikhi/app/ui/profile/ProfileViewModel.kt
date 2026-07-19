@@ -63,7 +63,8 @@ class ProfileViewModel @Inject constructor(
 		viewModelScope.launch {
 			authRepository.session.collect { session ->
 				val user = (session as? SessionState.Active)?.user
-				_state.update { it.copy(user = user, isGuest = user?.isGuest == true) }
+				// OG1: a LocalGuest has no User object yet, but is definitely "a guest."
+				_state.update { it.copy(user = user, isGuest = session is SessionState.LocalGuest || user?.isGuest == true) }
 			}
 		}
 		refresh()

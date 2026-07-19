@@ -5,6 +5,7 @@ import com.shikhi.app.data.api.ProgressApi
 import com.shikhi.app.data.api.dto.User
 import com.shikhi.app.data.auth.AuthRepository
 import com.shikhi.app.data.auth.SessionState
+import com.shikhi.app.data.auth.TokenStore
 import com.shikhi.app.data.content.db.ContentReadDao
 import com.shikhi.app.data.content.db.LocalExercise
 import com.shikhi.app.data.content.db.LocalLesson
@@ -26,6 +27,7 @@ import com.shikhi.app.data.outbox.OutboxRepository
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
@@ -71,6 +73,16 @@ class LocalPracticeSourceTest {
 		override suspend fun upsert(progress: LocalWordProgress) { wordProgress[progress.userId to progress.vocabularyId] = progress }
 		override suspend fun getReviewProgress(userId: String, vocabularyId: String) = reviewProgress[userId to vocabularyId]
 		override suspend fun upsertReview(progress: LocalReviewProgress) { reviewProgress[progress.userId to progress.vocabularyId] = progress }
+		override suspend fun rekey(oldUserId: String, newUserId: String) {
+			wordProgress.keys.filter { it.first == oldUserId }.toList().forEach { key ->
+				wordProgress.remove(key)?.let { wordProgress[newUserId to key.second] = it.copy(userId = newUserId) }
+			}
+		}
+		override suspend fun rekeyReview(oldUserId: String, newUserId: String) {
+			reviewProgress.keys.filter { it.first == oldUserId }.toList().forEach { key ->
+				reviewProgress.remove(key)?.let { reviewProgress[newUserId to key.second] = it.copy(userId = newUserId) }
+			}
+		}
 	}
 
 	private class FakeLocalPracticeSessionDao : LocalPracticeSessionDao {
@@ -87,6 +99,12 @@ class LocalPracticeSourceTest {
 		}
 		override suspend fun usedVocabularyIds(sessionId: String) =
 			exerciseRows.values.filter { it.sessionId == sessionId }.map { it.vocabularyId }
+		override suspend fun rekey(oldUserId: String, newUserId: String) {
+			sessions.keys.toList().forEach { id ->
+				val s = sessions.getValue(id)
+				if (s.userId == oldUserId) sessions[id] = s.copy(userId = newUserId)
+			}
+		}
 	}
 
 	private class FakeContentCacheDao : ContentCacheDao {
@@ -101,6 +119,17 @@ class LocalPracticeSourceTest {
 		override suspend fun insert(event: OutboxEventEntity) { rows += event.copy(id = nextId++) }
 		override suspend fun all(): List<OutboxEventEntity> = rows.sortedBy { it.id }
 		override suspend fun deleteByIds(ids: List<Long>) { rows.removeAll { it.id in ids } }
+	}
+
+	/** OG1: minimal fake so tests can control what [TokenStore.localGuestId] returns. */
+	private class FakeTokenStore(private var storedLocalGuestId: String? = null) : TokenStore {
+		override val accessToken: StateFlow<String?> = MutableStateFlow(null)
+		override suspend fun currentRefreshToken(): String? = null
+		override suspend fun setSession(accessToken: String, refreshToken: String) = Unit
+		override suspend fun clear() = Unit
+		override suspend fun localGuestId(): String? = storedLocalGuestId
+		override suspend fun setLocalGuestId(id: String) { storedLocalGuestId = id }
+		override suspend fun clearLocalGuestId() { storedLocalGuestId = null }
 	}
 
 	private fun vocab(id: String, level: String = "A1") = LocalVocabulary(
@@ -143,6 +172,7 @@ class LocalPracticeSourceTest {
 			outbox = outbox,
 			cacheDao = cacheDao,
 			authRepository = authRepository,
+			tokenStore = FakeTokenStore(),
 		)
 	}
 
@@ -158,6 +188,26 @@ class LocalPracticeSourceTest {
 	}
 
 	@Test
+	fun `OG1 start works under a LocalGuest session, using the stored localGuestId as the userId`() = runBlocking {
+		val localGuestId = "local-guest-abc"
+		val authRepository = mockk<AuthRepository>()
+		every { authRepository.session } returns MutableStateFlow(SessionState.LocalGuest)
+		source = LocalPracticeSource(
+			picker = PracticeWordPicker(contentDao, wordProgressDao),
+			sessionDao = sessionDao,
+			wordProgressEngine = WordProgressEngine(wordProgressDao),
+			outbox = outbox,
+			cacheDao = cacheDao,
+			authRepository = authRepository,
+			tokenStore = FakeTokenStore(localGuestId),
+		)
+
+		val round = source.start()
+
+		assertEquals(localGuestId, sessionDao.sessions.getValue(round.sessionId).userId)
+	}
+
+	@Test
 	fun `start uses the cached cefr level when one is present`() = runBlocking {
 		val statsJson = """{"hearts":5,"xp":0,"currentStreak":0,"longestStreak":0,"rank":0,"dailyGoal":0,"cefrLevel":"A1"}"""
 		cacheDao.store["stats"] = CachedPayload("stats", statsJson, 0)
@@ -165,6 +215,7 @@ class LocalPracticeSourceTest {
 		source = LocalPracticeSource(
 			PracticeWordPicker(contentDao, wordProgressDao), sessionDao, WordProgressEngine(wordProgressDao),
 			outbox, cacheDao, mockk<AuthRepository>().also { every { it.session } returns MutableStateFlow(SessionState.Active(User(id = userId))) },
+			FakeTokenStore(),
 		)
 
 		val round = source.start()
@@ -178,7 +229,7 @@ class LocalPracticeSourceTest {
 		every { authRepository.session } returns MutableStateFlow(SessionState.Active(User(id = userId)))
 		source = LocalPracticeSource(
 			PracticeWordPicker(contentDao, wordProgressDao), sessionDao, WordProgressEngine(wordProgressDao),
-			outbox, cacheDao, authRepository,
+			outbox, cacheDao, authRepository, FakeTokenStore(),
 		)
 
 		assertThrows(IllegalStateException::class.java) { runBlocking { source.start() } }

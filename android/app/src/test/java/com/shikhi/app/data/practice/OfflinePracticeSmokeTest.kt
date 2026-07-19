@@ -96,6 +96,7 @@ class OfflinePracticeSmokeTest {
 			outbox = outbox,
 			cacheDao = shikhiDb.contentCacheDao(),
 			authRepository = authRepository,
+			tokenStore = mockk(relaxed = true),
 		)
 	}
 

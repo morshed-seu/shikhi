@@ -48,7 +48,10 @@ class MainActivity : AppCompatActivity() {
 
 						// Offline/cold-start with a stored session: enter the app so cached
 						// content renders (NFR-AN4); APIs self-heal via the Authenticator.
+						// OG1: LocalGuest renders identically to Active — no learner-visible
+						// difference while GuestRegistrationWorker registers in the background.
 						is SessionState.Unavailable,
+						is SessionState.LocalGuest,
 						is SessionState.Active,
 						-> ShikhiNavHost()
 					}

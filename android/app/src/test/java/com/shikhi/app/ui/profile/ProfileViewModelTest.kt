@@ -1,5 +1,6 @@
 package com.shikhi.app.ui.profile
 
+import androidx.work.WorkManager
 import com.shikhi.app.data.api.AuthApi
 import com.shikhi.app.data.api.UserApi
 import com.shikhi.app.data.api.dto.DashboardResponse
@@ -50,6 +51,7 @@ class ProfileViewModelTest {
 		private val _accessToken = MutableStateFlow(access)
 		override val accessToken: StateFlow<String?> = _accessToken
 		var cleared = false
+		private var localGuestId: String? = null
 
 		override suspend fun currentRefreshToken(): String? = refresh
 
@@ -62,6 +64,16 @@ class ProfileViewModelTest {
 			cleared = true
 			refresh = null
 			_accessToken.value = null
+		}
+
+		override suspend fun localGuestId(): String? = localGuestId
+
+		override suspend fun setLocalGuestId(id: String) {
+			localGuestId = id
+		}
+
+		override suspend fun clearLocalGuestId() {
+			localGuestId = null
 		}
 	}
 
@@ -86,6 +98,7 @@ class ProfileViewModelTest {
 			userApi = { userApi },
 			tokenStore = tokenStore,
 			connectivity = mockk<ConnectivityChecker>(relaxed = true) { every { isOnline() } returns true },
+			workManager = dagger.Lazy { mockk<WorkManager>(relaxed = true) },
 			appScope = CoroutineScope(dispatcher),
 		)
 		runBlocking { repo.bootstrap() }

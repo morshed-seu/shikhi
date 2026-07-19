@@ -37,6 +37,7 @@ class TokenAuthenticatorTest {
 		private val _accessToken = MutableStateFlow(access)
 		override val accessToken: StateFlow<String?> = _accessToken
 		val persistLog = mutableListOf<Pair<String, String>>()
+		private var localGuestId: String? = null
 
 		override suspend fun currentRefreshToken(): String? = refresh
 
@@ -49,6 +50,16 @@ class TokenAuthenticatorTest {
 		override suspend fun clear() {
 			refresh = null
 			_accessToken.value = null
+		}
+
+		override suspend fun localGuestId(): String? = localGuestId
+
+		override suspend fun setLocalGuestId(id: String) {
+			localGuestId = id
+		}
+
+		override suspend fun clearLocalGuestId() {
+			localGuestId = null
 		}
 	}
 

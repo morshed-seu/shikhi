@@ -46,6 +46,8 @@ class PracticeWordPickerTest {
 		override suspend fun upsert(progress: LocalWordProgress) { rows.add(progress) }
 		override suspend fun getReviewProgress(userId: String, vocabularyId: String) = null
 		override suspend fun upsertReview(progress: com.shikhi.app.data.db.LocalReviewProgress) = Unit
+		override suspend fun rekey(oldUserId: String, newUserId: String) = Unit
+		override suspend fun rekeyReview(oldUserId: String, newUserId: String) = Unit
 	}
 
 	private fun vocab(id: String, level: String = "A1") = LocalVocabulary(

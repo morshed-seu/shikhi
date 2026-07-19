@@ -156,4 +156,7 @@ dependencies {
 	// without standing up an emulator/instrumentation run.
 	testImplementation(libs.robolectric)
 	testImplementation(libs.androidx.test.core)
+	// OG2: GuestRegistrationWorkerTest exercises the real doWork() logic through a Robolectric
+	// Context + a custom WorkerFactory (TestListenableWorkerBuilder) instead of Hilt.
+	testImplementation(libs.work.testing)
 }

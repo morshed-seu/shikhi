@@ -10,6 +10,7 @@ import com.shikhi.app.data.api.dto.PracticeRound
 import com.shikhi.app.data.api.dto.Stats
 import com.shikhi.app.data.auth.AuthRepository
 import com.shikhi.app.data.auth.SessionState
+import com.shikhi.app.data.auth.TokenStore
 import com.shikhi.app.data.content.db.LocalVocabulary
 import com.shikhi.app.data.db.ContentCacheDao
 import com.shikhi.app.data.db.LocalPracticeExercise
@@ -50,6 +51,7 @@ class LocalPracticeSource @Inject constructor(
 	private val outbox: OutboxRepository,
 	private val cacheDao: ContentCacheDao,
 	private val authRepository: AuthRepository,
+	private val tokenStore: TokenStore,
 ) : PracticePlaySource {
 
 	private val generator = PracticeGenerator()
@@ -186,10 +188,16 @@ class LocalPracticeSource @Inject constructor(
 
 	// ---- identity / level lookups (both zero-network) ---------------------------------------
 
-	private fun currentUserId(): String {
-		val state = authRepository.session.value
-		check(state is SessionState.Active) { "Local practice requires an already-authenticated session" }
-		return state.user.id
+	/**
+	 * OG1 (docs/94-offline-guest-bootstrap-design.md §3.2): a [SessionState.LocalGuest] has no
+	 * server user yet, so its [TokenStore.localGuestId] stands in as the userId for every local
+	 * table until [com.shikhi.app.data.auth.GuestRegistrationWorker] re-keys them.
+	 */
+	private suspend fun currentUserId(): String = when (val state = authRepository.session.value) {
+		is SessionState.Active -> state.user.id
+		is SessionState.LocalGuest -> tokenStore.localGuestId()
+			?: error("LocalGuest session with no stored localGuestId — invariant violated")
+		else -> error("Local practice requires an already-authenticated or local-guest session")
 	}
 
 	/**
