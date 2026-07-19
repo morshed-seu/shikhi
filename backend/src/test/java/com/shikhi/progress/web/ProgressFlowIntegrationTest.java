@@ -232,4 +232,109 @@ class ProgressFlowIntegrationTest extends AbstractIntegrationTest {
 				+ "\"payload\":{\"vocabularyId\":\"" + vocabularyId + "\",\"correct\":" + correct
 				+ ",\"answeredAt\":\"" + answeredAt + "\"}}";
 	}
+
+	/**
+	 * OF6 (doc 93 §5/§9): empirically proves the design's headline sync claim — the client never
+	 * uploads computed mastery/review state, only {@code (vocabularyId, correct, idempotencyKey)}
+	 * events, so two devices that diverged offline and buffer their own batches for the SAME word
+	 * can sync in either arrival order without state-merge and without losing or double-counting
+	 * either device's answers. Each device mints its own idempotency keys (as the real Android
+	 * outbox does, doc 93 §5) and its own {@code answeredAt} — device B's timestamps predate
+	 * device A's, simulating "device B had been offline with a stale view," even though its batch
+	 * physically arrives at the server second.
+	 *
+	 * <p>The two devices' combined events are one correct + one wrong each — chosen so the
+	 * mastery-score clamp (0..5) is never hit at an intermediate step in either arrival order,
+	 * making the final state byte-identical regardless of order (asserted by the companion test
+	 * below with the order reversed) rather than merely "coherent but order-dependent."
+	 */
+	@Test
+	void twoDevicesSyncingDivergedOfflineBatchesForTheSameWordDeviceAFirst() throws Exception {
+		String auth = token();
+		UUID userId = userIdFrom(auth);
+		UUID vocabularyId = vocabulary.findAll().get(2).getId();
+
+		Instant deviceATime1 = Instant.parse("2026-07-18T09:00:00Z");
+		Instant deviceATime2 = Instant.parse("2026-07-18T09:05:00Z");
+		Instant deviceBTime1 = Instant.parse("2026-07-16T14:00:00Z"); // stale — offline longer
+		Instant deviceBTime2 = Instant.parse("2026-07-16T14:05:00Z");
+
+		String deviceABatch = "{\"events\":[" + practiceAnswerEvent("devA-correct", vocabularyId, true, deviceATime1)
+				+ "," + practiceAnswerEvent("devA-wrong", vocabularyId, false, deviceATime2) + "]}";
+		String deviceBBatch = "{\"events\":[" + practiceAnswerEvent("devB-correct", vocabularyId, true, deviceBTime1)
+				+ "," + practiceAnswerEvent("devB-wrong", vocabularyId, false, deviceBTime2) + "]}";
+
+		// Device A syncs first.
+		mockMvc.perform(post("/v1/progress/sync").header(HttpHeaders.AUTHORIZATION, auth)
+						.contentType(MediaType.APPLICATION_JSON).content(deviceABatch))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.xp").value(10))
+				.andExpect(jsonPath("$.hearts").value(4));
+
+		// Device B syncs second, against the server's state as of that moment — not a merge.
+		mockMvc.perform(post("/v1/progress/sync").header(HttpHeaders.AUTHORIZATION, auth)
+						.contentType(MediaType.APPLICATION_JSON).content(deviceBBatch))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.xp").value(20))
+				.andExpect(jsonPath("$.hearts").value(3));
+
+		PracticeWordProgress mastery = wordProgress
+				.findById(new PracticeWordProgress.Key(userId, vocabularyId)).orElseThrow();
+		assertThat(mastery.getTimesSeen()).isEqualTo(4);
+		assertThat(mastery.getTimesCorrect()).isEqualTo(2);
+		assertThat(mastery.getTimesWrong()).isEqualTo(2);
+		assertThat(mastery.getMasteryScore()).isZero(); // 2 +1 -2 +1 -2
+
+		// Re-delivering device A's already-applied batch (e.g. a retried upload) is a no-op —
+		// neither device's answers are double-counted just because both batches touched the
+		// same word.
+		mockMvc.perform(post("/v1/progress/sync").header(HttpHeaders.AUTHORIZATION, auth)
+						.contentType(MediaType.APPLICATION_JSON).content(deviceABatch))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.xp").value(20));
+		assertThat(wordProgress.findById(new PracticeWordProgress.Key(userId, vocabularyId))
+				.orElseThrow().getTimesSeen()).isEqualTo(4);
+	}
+
+	/** Same scenario as above with the two devices' sync calls reversed, proving the final state
+	 * does not depend on which device happened to reconnect first. */
+	@Test
+	void twoDevicesSyncingDivergedOfflineBatchesForTheSameWordDeviceBFirst() throws Exception {
+		String auth = token();
+		UUID userId = userIdFrom(auth);
+		UUID vocabularyId = vocabulary.findAll().get(2).getId();
+
+		Instant deviceATime1 = Instant.parse("2026-07-18T09:00:00Z");
+		Instant deviceATime2 = Instant.parse("2026-07-18T09:05:00Z");
+		Instant deviceBTime1 = Instant.parse("2026-07-16T14:00:00Z");
+		Instant deviceBTime2 = Instant.parse("2026-07-16T14:05:00Z");
+
+		String deviceABatch = "{\"events\":[" + practiceAnswerEvent("devA-correct", vocabularyId, true, deviceATime1)
+				+ "," + practiceAnswerEvent("devA-wrong", vocabularyId, false, deviceATime2) + "]}";
+		String deviceBBatch = "{\"events\":[" + practiceAnswerEvent("devB-correct", vocabularyId, true, deviceBTime1)
+				+ "," + practiceAnswerEvent("devB-wrong", vocabularyId, false, deviceBTime2) + "]}";
+
+		// This time device B (the "stale" device) happens to reconnect first.
+		mockMvc.perform(post("/v1/progress/sync").header(HttpHeaders.AUTHORIZATION, auth)
+						.contentType(MediaType.APPLICATION_JSON).content(deviceBBatch))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.xp").value(10))
+				.andExpect(jsonPath("$.hearts").value(4));
+
+		mockMvc.perform(post("/v1/progress/sync").header(HttpHeaders.AUTHORIZATION, auth)
+						.contentType(MediaType.APPLICATION_JSON).content(deviceABatch))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.xp").value(20))
+				.andExpect(jsonPath("$.hearts").value(3));
+
+		// Identical final state to the device-A-first ordering above: no lost updates, no
+		// double-counting, and — since neither order pushes mastery outside [0,5] at any
+		// intermediate step — no order-dependent clamping artifact either.
+		PracticeWordProgress mastery = wordProgress
+				.findById(new PracticeWordProgress.Key(userId, vocabularyId)).orElseThrow();
+		assertThat(mastery.getTimesSeen()).isEqualTo(4);
+		assertThat(mastery.getTimesCorrect()).isEqualTo(2);
+		assertThat(mastery.getTimesWrong()).isEqualTo(2);
+		assertThat(mastery.getMasteryScore()).isZero();
+	}
 }
