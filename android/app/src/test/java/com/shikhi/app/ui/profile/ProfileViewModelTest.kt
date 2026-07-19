@@ -168,7 +168,10 @@ class ProfileViewModelTest {
 		dispatcher.scheduler.advanceUntilIdle()
 
 		coVerify(exactly = 1) { dashboardRepository.deleteAccount() }
-		assertTrue("delete must log out (same path the home header used)", authRepository.session.value is SessionState.LoggedOut)
+		assertTrue(
+			"delete logs out AND immediately re-provisions a guest session, landing back on Home rather than a login wall (GF1)",
+			authRepository.session.value is SessionState.Active,
+		)
 		assertTrue(tokenStore.cleared)
 		assertFalse(vm.state.value.deleting)
 	}
