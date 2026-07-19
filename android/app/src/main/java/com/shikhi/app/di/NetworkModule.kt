@@ -43,7 +43,13 @@ object NetworkModule {
 	@PlainClient
 	fun plainOkHttp(): OkHttpClient = OkHttpClient.Builder()
 		.connectTimeout(10, TimeUnit.SECONDS)
-		.readTimeout(20, TimeUnit.SECONDS)
+		// GF4: the free-tier backend cold-starts in ~50s (DEPLOY.md). The launch-time guest
+		// provisioning call already survives this via a bounded retry loop
+		// (AuthRepository.provisionGuestOrFail); this longer read timeout is what lets
+		// user-initiated calls that share this client (notably GuestBanner's claim/login,
+		// via @AuthedClient which inherits this timeout) succeed on the first attempt
+		// during a slow-but-succeeding cold start, instead of failing outright.
+		.readTimeout(35, TimeUnit.SECONDS)
 		.build()
 
 	@Provides

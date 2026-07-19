@@ -119,6 +119,7 @@
     <string name="guest_signin_submit">সাইন ইন করুন</string>
     <string name="auth_signin_discard_title">সাইন ইন করবেন?</string>
     <string name="auth_signin_discard_warning">সাইন ইন করলে এই ডিভাইসে আপনার অতিথি হিসেবে অর্জিত অগ্রগতি বাদ যাবে — এগিয়ে যেতে চান?</string>
+    <string name="error_server_warming">সার্ভার হয়তো চালু হচ্ছে — কিছুক্ষণ পর আবার চেষ্টা করুন।</string>
     <string name="auth_learner">শিক্ষার্থী</string>
     <string name="guest_badge">আপনি অতিথি হিসেবে দেখছেন।</string>
 

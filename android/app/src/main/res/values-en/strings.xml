@@ -118,6 +118,7 @@
     <string name="guest_signin_submit">Sign in</string>
     <string name="auth_signin_discard_title">Sign in?</string>
     <string name="auth_signin_discard_warning">Signing in will discard your guest progress on this device — continue?</string>
+    <string name="error_server_warming">The server may be waking up — please try again in a few seconds.</string>
     <string name="auth_learner">learner</string>
     <string name="guest_badge">You\'re exploring as a guest.</string>
 

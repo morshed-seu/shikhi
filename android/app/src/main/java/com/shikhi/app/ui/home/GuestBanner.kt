@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
+import java.io.IOException
 import javax.inject.Inject
 
 /** GF3: the banner offers two paths — CLAIM (upgrade this guest in place) or SIGN_IN
@@ -50,6 +51,10 @@ data class GuestBannerUiState(
 	/** Which error to show: the special email-taken copy, or the generic one. */
 	val emailTaken: Boolean = false,
 	val error: String? = null,
+	/** GF4: set when the failure was a client-side IOException (no HTTP response at all —
+	 * e.g. a cold-start timeout) rather than a real HTTP error, so the UI can show a
+	 * "server is waking up" hint instead of a bare/blank generic error. */
+	val serverWarming: Boolean = false,
 	/** GF3: sign-in is lossy (ADR-0011, no cross-account merge) — require explicit confirmation. */
 	val confirmingDiscard: Boolean = false,
 )
@@ -63,12 +68,12 @@ class GuestBannerViewModel @Inject constructor(
 	val state: StateFlow<GuestBannerUiState> = _state
 
 	fun open() = _state.update {
-		it.copy(open = true, mode = GuestBannerMode.CLAIM, error = null, emailTaken = false, confirmingDiscard = false)
+		it.copy(open = true, mode = GuestBannerMode.CLAIM, error = null, emailTaken = false, serverWarming = false, confirmingDiscard = false)
 	}
 
 	/** GF3: switch the (already-open, or not-yet-open) form to the sign-in path. */
 	fun selectSignIn() = _state.update {
-		it.copy(open = true, mode = GuestBannerMode.SIGN_IN, error = null, emailTaken = false, confirmingDiscard = false)
+		it.copy(open = true, mode = GuestBannerMode.SIGN_IN, error = null, emailTaken = false, serverWarming = false, confirmingDiscard = false)
 	}
 
 	fun setEmail(v: String) = _state.update { it.copy(email = v) }
@@ -85,16 +90,20 @@ class GuestBannerViewModel @Inject constructor(
 		if (s.submitting || s.email.isBlank() || s.password.length < 8) return
 		when (s.mode) {
 			GuestBannerMode.CLAIM -> {
-				_state.update { it.copy(submitting = true, emailTaken = false, error = null) }
+				_state.update { it.copy(submitting = true, emailTaken = false, serverWarming = false, error = null) }
 				viewModelScope.launch {
 					try {
 						authRepository.claim(s.email, s.password, s.displayName.ifBlank { null })
 						// Success flips the session user to non-guest; the banner unmounts.
 					} catch (e: Exception) {
 						val taken = e is HttpException && e.apiError()?.code == ApiErrorCodes.EMAIL_ALREADY_REGISTERED
-						val message = (e as? HttpException)?.apiError()?.message
 						_state.update {
-							it.copy(submitting = false, emailTaken = taken, error = if (taken) null else message)
+							it.copy(
+								submitting = false,
+								emailTaken = taken,
+								serverWarming = e.isColdStartTimeout(),
+								error = if (taken) null else apiMessageFor(e),
+							)
 						}
 					}
 				}
@@ -113,18 +122,31 @@ class GuestBannerViewModel @Inject constructor(
 	/** GF3: the user confirmed the discard warning — actually activate the other account. */
 	fun confirmDiscardAndSignIn() {
 		val s = _state.value
-		_state.update { it.copy(submitting = true, confirmingDiscard = false, error = null) }
+		_state.update { it.copy(submitting = true, confirmingDiscard = false, serverWarming = false, error = null) }
 		viewModelScope.launch {
 			try {
 				authRepository.login(s.email, s.password)
 				// Success flips the session to the other account; the banner unmounts.
 			} catch (e: Exception) {
-				val message = (e as? HttpException)?.apiError()?.message
-				_state.update { it.copy(submitting = false, error = message) }
+				_state.update {
+					it.copy(submitting = false, serverWarming = e.isColdStartTimeout(), error = apiMessageFor(e))
+				}
 			}
 		}
 	}
 }
+
+/** GF4: a client-side IOException (e.g. SocketTimeoutException) means no HTTP response
+ * ever arrived — most likely the free-tier backend cold-starting — rather than a real
+ * HTTP error. Distinguish it so the UI can hint "try again shortly" instead of a bare
+ * generic error. */
+private fun Exception.isColdStartTimeout(): Boolean = this is IOException
+
+/** The backend's parseable error message, or null if there isn't one (non-JSON/empty
+ * body, or the failure wasn't an HttpException at all — including cold-start timeouts,
+ * which are handled separately via [Exception.isColdStartTimeout]). */
+private fun apiMessageFor(e: Exception): String? =
+	if (e.isColdStartTimeout()) null else (e as? HttpException)?.apiError()?.message
 
 /**
  * Conversion prompt shown only to guests (web GuestBanner): expands into a claim form
@@ -175,6 +197,14 @@ fun GuestBanner(viewModel: GuestBannerViewModel = hiltViewModel()) {
 					Spacer(Modifier.height(8.dp))
 					Text(
 						stringResource(R.string.guest_email_taken),
+						color = MaterialTheme.colorScheme.error,
+						style = MaterialTheme.typography.bodySmall,
+					)
+				} else if (s.serverWarming) {
+					// GF4: cold-start timeout (no HTTP response at all) — friendlier than a bare error.
+					Spacer(Modifier.height(8.dp))
+					Text(
+						stringResource(R.string.error_server_warming),
 						color = MaterialTheme.colorScheme.error,
 						style = MaterialTheme.typography.bodySmall,
 					)
