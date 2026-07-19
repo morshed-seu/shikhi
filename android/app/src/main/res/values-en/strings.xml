@@ -2,10 +2,6 @@
 <resources>
     <string name="app_name">Shikhi</string>
 
-    <string name="onboarding_tagline">English for Bengali speakers — a little every day</string>
-    <string name="continue_as_guest">Start without signing up</string>
-    <string name="onboarding_guest_hint">Your progress is saved; you can create an account later and keep it.</string>
-
     <string name="home_greeting">Welcome, %1$s</string>
     <string name="guest_display_name">Guest learner</string>
     <string name="log_out">Log out</string>
