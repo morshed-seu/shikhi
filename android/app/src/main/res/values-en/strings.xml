@@ -15,6 +15,9 @@
     <string name="health_warming">Server is waking up — hang on…</string>
     <string name="health_offline">Can\'t reach the server</string>
 
+    <string name="connecting_message">Connecting…</string>
+    <string name="connecting_retry_message">Couldn\'t connect. Check your connection and try again.</string>
+
     <string name="error_generic">Something went wrong. Please try again.</string>
     <string name="retry">Try again</string>
     <string name="loading">Loading…</string>

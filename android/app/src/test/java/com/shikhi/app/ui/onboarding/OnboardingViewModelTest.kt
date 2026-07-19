@@ -7,6 +7,7 @@ import com.shikhi.app.data.auth.AuthRepository
 import com.shikhi.app.data.auth.LoginPrefs
 import com.shikhi.app.data.auth.RememberedLogin
 import com.shikhi.app.data.auth.TokenStore
+import com.shikhi.app.data.connectivity.ConnectivityChecker
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CoroutineScope
@@ -48,6 +49,7 @@ class OnboardingViewModelTest {
 			authApi = mockk<AuthApi>(relaxed = true),
 			userApi = { mockk<UserApi>(relaxed = true) },
 			tokenStore = tokenStore,
+			connectivity = mockk<ConnectivityChecker>(relaxed = true) { every { isOnline() } returns true },
 			appScope = CoroutineScope(dispatcher),
 		)
 	}

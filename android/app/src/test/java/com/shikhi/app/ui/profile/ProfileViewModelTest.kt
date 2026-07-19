@@ -12,10 +12,12 @@ import com.shikhi.app.data.api.dto.WordMasteryEntry
 import com.shikhi.app.data.auth.AuthRepository
 import com.shikhi.app.data.auth.SessionState
 import com.shikhi.app.data.auth.TokenStore
+import com.shikhi.app.data.connectivity.ConnectivityChecker
 import com.shikhi.app.data.content.Sourced
 import com.shikhi.app.data.dashboard.DashboardRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -83,6 +85,7 @@ class ProfileViewModelTest {
 			authApi = authApi,
 			userApi = { userApi },
 			tokenStore = tokenStore,
+			connectivity = mockk<ConnectivityChecker>(relaxed = true) { every { isOnline() } returns true },
 			appScope = CoroutineScope(dispatcher),
 		)
 		runBlocking { repo.bootstrap() }
