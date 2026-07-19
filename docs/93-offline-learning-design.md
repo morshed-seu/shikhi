@@ -250,21 +250,41 @@ gate-by-gate scope and exit criteria: `OF0` (this doc) → `OF1` (content export
 practice engine + practice pronunciation) → `OF5` (offline sync events) → `OF6`
 (reconciliation + DI wiring) → `OF7` (release verification, on-device check).
 
+**Status (2026-07-19): OF0–OF6 committed on `feat/offline-learning`** (`50ef43d`, `013a641`,
+`fefc934`, `e8e1505`, `dac56f8`, `a6ac4a1`, `7472223`). Full regression: 201 backend tests, 146
+Android tests, both green. Debug APK builds clean at 22 MB with the 1.7 MB bundled
+`content-seed` asset — within the §3.1 estimate, no app-size risk. `OF7` (on-device airplane-mode
+walkthrough) is the one gate that needs the user's physical device and could not be run from this
+environment (no adb/emulator available).
+
 ## 9. Open Risks
 
 1. **SRS timestamp fidelity**: without the optional `answeredAt` (§5), replaying a multi-day-old
    offline session stamps `dueAt`/`lastSeenAt` as sync-time "now," distorting review intervals.
-   Mitigated by adding `answeredAt` in `OF5` even though not strictly required for correctness.
+   **Closed in `OF5`**: `WordProgressService.recordAnswer` gained an explicit-`Instant` overload;
+   `ProgressEventApplier` parses `answeredAt` from the sync payload and passes it through.
 2. **`ShikhiDatabase` migration strategy**: this feature is the forcing function to stop using
-   `fallbackToDestructiveMigration(dropAllTables = true)`. A real `Migration` must land in
-   `OF1`/`OF4`, not as an afterthought — silently wiping a learner's local mastery/review state
-   on the next unrelated schema bump would be a real regression once shipped.
+   `fallbackToDestructiveMigration(dropAllTables = true)`. **Closed in `OF4`**: a real
+   `Migration(2, 3)` adds the four new local practice/mastery tables, proven by
+   `ShikhiDatabaseMigrationTest` (hand-built v2 SQLite file, migrated through Room, Room's own
+   post-migration schema validation catches any DDL mismatch). Destructive fallback remains only
+   for downgrades.
 3. **Guest-account offline play**: guests already work offline for auth (tokens cached);
    confirm `userId` scoping in the new local tables survives a guest → claimed-account
    transition (`POST /auth/claim`) without orphaning outbox events minted under the guest
-   identity. Exercise explicitly in `OF6`.
+   identity. **Closed in `OF6`**: traced end-to-end — `AuthenticationService.claim`/`User.claim`
+   upgrade the same `users.id` in place (no new row, ADR-0011), and outbox events carry no
+   `userId` field at all (the token at drain time determines the account), so a guest's buffered
+   `PRACTICE_ANSWER` events sync correctly to the same account after claiming. No orphaning is
+   possible given this design. `GuestFlowIntegrationTest` proves it concretely.
 4. **Content-version coupling**: `LessonView.contentVersion`/`COMPLETE_LESSON`'s
    `contentVersionId` assumes one live content version (true today). If a second version
    publishes before the next content-bundle refresh, an offline-completed lesson could sync
-   against a stale version. Low risk given the no-runtime-updates non-goal; worth a runbook
-   callout if content versioning ever becomes live.
+   against a stale version. **Reconfirmed low-risk in `OF6`**: no second content version or
+   runtime update path exists anywhere in `OF1`–`OF5`; worth a runbook callout only if content
+   versioning ever becomes live.
+
+Also proven in `OF6`, beyond the four risks above: the sync model's core "event-sourced, never
+state-merge" claim (§3.4) — two devices' diverged offline batches for the same word, synced in
+either order, converge on identical, correct `practice_word_progress`/`review_progress` state
+(`ProgressFlowIntegrationTest`'s two-device tests).
