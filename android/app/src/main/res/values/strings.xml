@@ -115,6 +115,10 @@
     <string name="guest_save">আমার অগ্রগতি সংরক্ষণ করুন</string>
     <string name="guest_create_account">অ্যাকাউন্ট তৈরি করুন</string>
     <string name="guest_email_taken">এই ইমেইলে ইতিমধ্যে একটি অ্যাকাউন্ট আছে। বরং লগ ইন করুন — এই সেশনের অতিথি অগ্রগতি সংরক্ষিত হবে না।</string>
+    <string name="guest_signin_cta">বিদ্যমান অ্যাকাউন্টে সাইন ইন করুন</string>
+    <string name="guest_signin_submit">সাইন ইন করুন</string>
+    <string name="auth_signin_discard_title">সাইন ইন করবেন?</string>
+    <string name="auth_signin_discard_warning">সাইন ইন করলে এই ডিভাইসে আপনার অতিথি হিসেবে অর্জিত অগ্রগতি বাদ যাবে — এগিয়ে যেতে চান?</string>
     <string name="auth_learner">শিক্ষার্থী</string>
     <string name="guest_badge">আপনি অতিথি হিসেবে দেখছেন।</string>
 

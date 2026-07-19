@@ -114,6 +114,10 @@
     <string name="guest_save">Save my progress</string>
     <string name="guest_create_account">Create account</string>
     <string name="guest_email_taken">That email already has an account. Log in instead — your guest progress from this session won\'t be saved.</string>
+    <string name="guest_signin_cta">Sign in to an existing account</string>
+    <string name="guest_signin_submit">Sign in</string>
+    <string name="auth_signin_discard_title">Sign in?</string>
+    <string name="auth_signin_discard_warning">Signing in will discard your guest progress on this device — continue?</string>
     <string name="auth_learner">learner</string>
     <string name="guest_badge">You\'re exploring as a guest.</string>
 
