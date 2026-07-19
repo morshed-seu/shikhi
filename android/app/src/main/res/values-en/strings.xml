@@ -78,6 +78,7 @@
     <string name="practice_level_up_offer">You’ve mastered most of your level — ready for %1$s?</string>
     <string name="practice_level_up_accept">Move up to %1$s</string>
     <string name="practice_level_up_done">Your level is now %1$s. New sessions will use it.</string>
+    <string name="practice_listen_sentence">Listen to your assembled sentence</string>
 
     <!-- Review -->
     <string name="review_title">Review</string>

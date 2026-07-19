@@ -79,6 +79,7 @@
     <string name="practice_level_up_offer">আপনি এই স্তরের বেশিরভাগ শব্দ আয়ত্ত করেছেন — %1$s এ যেতে প্রস্তুত?</string>
     <string name="practice_level_up_accept">%1$s এ উন্নীত হোন</string>
     <string name="practice_level_up_done">আপনার স্তর এখন %1$s। নতুন সেশনে এটি ব্যবহৃত হবে।</string>
+    <string name="practice_listen_sentence">আপনার সাজানো বাক্যটি শুনুন</string>
 
     <!-- Review (web i18n review.*) -->
     <string name="review_title">পুনরালোচনা</string>

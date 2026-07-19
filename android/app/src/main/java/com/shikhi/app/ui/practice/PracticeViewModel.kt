@@ -2,15 +2,17 @@ package com.shikhi.app.ui.practice
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.shikhi.app.data.api.PracticeApi
 import com.shikhi.app.data.api.ProgressApi
-import com.shikhi.app.data.api.dto.IdempotentRequest
 import com.shikhi.app.data.api.dto.PracticeResult
 import com.shikhi.app.data.api.dto.PracticeRound
 import com.shikhi.app.data.api.dto.SetLevelRequest
-import com.shikhi.app.data.api.dto.SubmitAnswerRequest
 import com.shikhi.app.data.api.dto.Verdict
 import com.shikhi.app.data.api.dto.nextLevel
+import com.shikhi.app.data.connectivity.ConnectivityChecker
+import com.shikhi.app.data.practice.LocalPracticeSource
+import com.shikhi.app.data.practice.PracticePlaySource
+import com.shikhi.app.data.practice.RemotePracticeSource
+import com.shikhi.app.ui.util.Pronouncer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,7 +23,6 @@ import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
-import java.util.UUID
 import javax.inject.Inject
 
 /** Practice exercise types answered by picking an option (web PracticePlayer isMcq). */
@@ -67,22 +68,49 @@ sealed interface PracticeUiState {
 	data class Finished(val result: PracticeResult) : PracticeUiState
 }
 
+/**
+ * OF4 (docs/93-offline-learning-design.md §3.3): round generation/grading/completion are backed
+ * by a [PracticePlaySource] resolved once per session start, exactly mirroring OF3's
+ * [com.shikhi.app.ui.lesson.LessonViewModel] — online users get [RemotePracticeSource] (today's
+ * server-graded behavior, now with outbox-buffered resilience on a failed `check()`, see that
+ * class's doc); offline devices get [LocalPracticeSource] (bundled vocabulary + the local
+ * practice engine). Pronunciation ([Pronouncer], OF2) is independent of the play source — it only
+ * ever speaks text already rendered to the learner, never touches [PracticePlaySource].
+ */
 @HiltViewModel
 class PracticeViewModel @Inject constructor(
-	private val practiceApi: PracticeApi,
+	private val remoteSource: RemotePracticeSource,
+	private val localSource: LocalPracticeSource,
+	private val connectivity: ConnectivityChecker,
 	private val progressApi: ProgressApi,
+	private val pronouncer: Pronouncer,
 	private val appScope: CoroutineScope,
 ) : ViewModel() {
 
 	private val _state = MutableStateFlow<PracticeUiState>(PracticeUiState.Loading)
 	val state: StateFlow<PracticeUiState> = _state
 
+	/** Web parity (`isSpeechSupported()`): the speaker controls hide themselves when this is false. */
+	val speechAvailable: StateFlow<Boolean> = pronouncer.isAvailable
+
+	fun pronounce(text: String) = pronouncer.speak(text)
+
 	private var sessionId: String? = null
+
+	/** Resolved once in [init] and reused for the whole session — never re-checked mid-play
+	 * (§3.3), so a session's generation/grading source can't switch mid-answer. */
+	private lateinit var source: PracticePlaySource
+
+	/** True when [source] is [localSource] — hearts/stats have no local model (§7 non-goals), so
+	 * the `stats()` network call for the hearts display is skipped entirely offline. */
+	private var usingLocalSource: Boolean = false
 
 	init {
 		viewModelScope.launch {
 			try {
-				val round = practiceApi.start()
+				usingLocalSource = !connectivity.isOnline()
+				source = if (usingLocalSource) localSource else remoteSource
+				val round = source.start()
 				sessionId = round.sessionId
 				_state.value = PracticeUiState.Playing(round, index = 0)
 			} catch (e: Exception) {
@@ -90,9 +118,11 @@ class PracticeViewModel @Inject constructor(
 				return@launch
 			}
 			// Hearts show from the first exercise on, not only after the first answer.
-			runCatching { progressApi.stats() }.onSuccess { stats ->
-				_state.update { s ->
-					if (s is PracticeUiState.Playing && s.hearts == null) s.copy(hearts = stats.hearts) else s
+			if (!usingLocalSource) {
+				runCatching { progressApi.stats() }.onSuccess { stats ->
+					_state.update { s ->
+						if (s is PracticeUiState.Playing && s.hearts == null) s.copy(hearts = stats.hearts) else s
+					}
 				}
 			}
 		}
@@ -155,16 +185,13 @@ class PracticeViewModel @Inject constructor(
 		_state.value = s.copy(busy = true)
 		viewModelScope.launch {
 			try {
-				val res = practiceApi.submitAnswer(
-					session,
-					SubmitAnswerRequest(UUID.randomUUID().toString(), s.exercise.id, answer),
-				)
+				val outcome = source.grade(session, s.exercise, answer)
 				_state.update { cur ->
 					(cur as? PracticeUiState.Playing)?.copy(
 						busy = false,
-						verdict = res.verdict,
-						hearts = res.stats.hearts,
-						strokes = cur.strokes + res.verdict.correct,
+						verdict = outcome.verdict,
+						hearts = outcome.hearts ?: cur.hearts,
+						strokes = cur.strokes + outcome.verdict.correct,
 					) ?: cur
 				}
 			} catch (e: Exception) {
@@ -202,11 +229,13 @@ class PracticeViewModel @Inject constructor(
 		_state.value = s.copy(busy = true)
 		viewModelScope.launch {
 			try {
-				val round = practiceApi.nextRound(session)
+				val round = source.nextRound(session)
 				_state.value = PracticeUiState.Playing(round, index = 0, hearts = null)
-				runCatching { progressApi.stats() }.onSuccess { stats ->
-					_state.update { cur ->
-						if (cur is PracticeUiState.Playing && cur.hearts == null) cur.copy(hearts = stats.hearts) else cur
+				if (!usingLocalSource) {
+					runCatching { progressApi.stats() }.onSuccess { stats ->
+						_state.update { cur ->
+							if (cur is PracticeUiState.Playing && cur.hearts == null) cur.copy(hearts = stats.hearts) else cur
+						}
 					}
 				}
 			} catch (e: Exception) {
@@ -234,7 +263,7 @@ class PracticeViewModel @Inject constructor(
 		if (s is PracticeUiState.RoundDone) _state.value = s.copy(busy = true)
 		viewModelScope.launch {
 			try {
-				val result = practiceApi.complete(session, IdempotentRequest(UUID.randomUUID().toString()))
+				val result = source.complete(session)
 				_state.value = PracticeUiState.Finished(result)
 			} catch (e: Exception) {
 				_state.value = PracticeUiState.LoadError
@@ -251,7 +280,7 @@ class PracticeViewModel @Inject constructor(
 		val session = sessionId ?: return
 		if (_state.value is PracticeUiState.Finished) return
 		appScope.launch {
-			runCatching { practiceApi.complete(session, IdempotentRequest(UUID.randomUUID().toString())) }
+			runCatching { source.complete(session) }
 		}
 	}
 }

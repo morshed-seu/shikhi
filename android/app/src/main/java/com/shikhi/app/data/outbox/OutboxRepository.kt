@@ -1,7 +1,9 @@
 package com.shikhi.app.data.outbox
 
 import androidx.work.WorkManager
+import com.shikhi.app.data.api.PracticeApi
 import com.shikhi.app.data.api.ProgressApi
+import com.shikhi.app.data.api.dto.SubmitAnswerRequest
 import com.shikhi.app.data.api.dto.SyncBatchRequest
 import com.shikhi.app.data.api.dto.SyncEvent
 import com.shikhi.app.data.db.OutboxDao
@@ -9,14 +11,35 @@ import com.shikhi.app.data.db.OutboxEventEntity
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Event types accepted by POST /progress/sync (web outbox.ts). */
+/** Event types accepted by POST /progress/sync (web outbox.ts), plus OF4 additions. */
 object OutboxEventType {
 	const val COMPLETE_LESSON = "COMPLETE_LESSON"
 	const val ANSWER = "ANSWER"
+
+	/** OF4 (docs/93-offline-learning-design.md §5): a fully-local-graded practice answer, keyed
+	 * by vocabulary id — replayed through the generic `/progress/sync` batch like [ANSWER]/
+	 * [COMPLETE_LESSON]. Emitted only by [com.shikhi.app.data.practice.LocalPracticeSource]. */
+	const val PRACTICE_ANSWER = "PRACTICE_ANSWER"
+
+	/**
+	 * OF4: a *remote* practice answer whose `submitAnswer` call failed for a recoverable reason
+	 * (network/5xx) — emitted only by [com.shikhi.app.data.practice.RemotePracticeSource].
+	 * Deliberately NOT shaped like [PRACTICE_ANSWER]: the client never learns the exercise's
+	 * `vocabularyId` for a remote session (the wire `PracticeExercise` DTO doesn't carry it —
+	 * grading is server-side by design), so it cannot synthesize a valid
+	 * `{vocabularyId, correct, answeredAt}` event on failure. What it *can* safely do is retry the
+	 * exact original request verbatim (idempotency key already minted) — [flush] special-cases
+	 * this type and replays it through [PracticeApi.submitAnswer] directly instead of the generic
+	 * `/progress/sync` batch, so grading (and the resulting mastery/review/XP/hearts update)
+	 * happens for real once connectivity returns, rather than being silently dropped as before
+	 * OF4.
+	 */
+	const val RETRY_PRACTICE_SUBMIT = "RETRY_PRACTICE_SUBMIT"
 }
 
 /**
@@ -29,6 +52,7 @@ object OutboxEventType {
 class OutboxRepository @Inject constructor(
 	private val dao: OutboxDao,
 	private val progressApi: dagger.Lazy<ProgressApi>,
+	private val practiceApi: dagger.Lazy<PracticeApi>,
 	private val workManager: dagger.Lazy<WorkManager>,
 ) {
 
@@ -46,26 +70,59 @@ class OutboxRepository @Inject constructor(
 		OutboxSyncWorker.schedule(workManager.get())
 	}
 
-	/** True when the outbox ends up empty (nothing to send, or the batch was accepted). */
+	/**
+	 * True when the outbox ends up empty (nothing to send, or everything was accepted).
+	 * [OutboxEventType.RETRY_PRACTICE_SUBMIT] events replay individually against
+	 * [PracticeApi.submitAnswer] (they aren't shaped for the generic sync batch — see that
+	 * constant's doc); everything else still goes through one `/progress/sync` call, same as
+	 * before OF4. A partial success (some retries land, the sync batch doesn't, or vice versa)
+	 * clears only what succeeded and reports `false` so the worker retries the rest.
+	 */
 	suspend fun flush(): Boolean {
 		val events = dao.all()
 		if (events.isEmpty()) return true
-		return try {
-			progressApi.get().sync(
-				SyncBatchRequest(
-					events.map {
-						SyncEvent(
-							idempotencyKey = it.idempotencyKey,
-							type = it.type,
-							payload = Json.parseToJsonElement(it.payloadJson).jsonObject,
-						)
-					},
-				),
-			)
-			dao.deleteByIds(events.map { it.id })
-			true
-		} catch (e: Exception) {
-			false
+		val (retries, syncable) = events.partition { it.type == OutboxEventType.RETRY_PRACTICE_SUBMIT }
+
+		val succeeded = mutableListOf<Long>()
+		var allOk = true
+
+		for (event in retries) {
+			try {
+				val payload = Json.parseToJsonElement(event.payloadJson).jsonObject
+				practiceApi.get().submitAnswer(
+					sessionId = payload.getValue("sessionId").jsonPrimitive.content,
+					body = SubmitAnswerRequest(
+						idempotencyKey = payload.getValue("idempotencyKey").jsonPrimitive.content,
+						exerciseId = payload.getValue("exerciseId").jsonPrimitive.content,
+						answer = payload.getValue("answer").jsonObject,
+					),
+				)
+				succeeded += event.id
+			} catch (e: Exception) {
+				allOk = false
+			}
 		}
+
+		if (syncable.isNotEmpty()) {
+			try {
+				progressApi.get().sync(
+					SyncBatchRequest(
+						syncable.map {
+							SyncEvent(
+								idempotencyKey = it.idempotencyKey,
+								type = it.type,
+								payload = Json.parseToJsonElement(it.payloadJson).jsonObject,
+							)
+						},
+					),
+				)
+				succeeded += syncable.map { it.id }
+			} catch (e: Exception) {
+				allOk = false
+			}
+		}
+
+		if (succeeded.isNotEmpty()) dao.deleteByIds(succeeded)
+		return allOk
 	}
 }

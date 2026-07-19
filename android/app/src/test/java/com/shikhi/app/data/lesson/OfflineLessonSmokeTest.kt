@@ -95,7 +95,12 @@ class OfflineLessonSmokeTest {
 
 		outboxDao = FakeOutboxDao()
 		val workManager = mockk<androidx.work.WorkManager>(relaxed = true)
-		val outbox = OutboxRepository(outboxDao, dagger.Lazy { mockk<ProgressApi>(relaxed = true) }, dagger.Lazy { workManager })
+		val outbox = OutboxRepository(
+			outboxDao,
+			dagger.Lazy { mockk<ProgressApi>(relaxed = true) },
+			dagger.Lazy { mockk<com.shikhi.app.data.api.PracticeApi>(relaxed = true) },
+			dagger.Lazy { workManager },
+		)
 		source = LocalLessonSource(database.contentReadDao(), database.contentAnswerKeyDao(), outbox)
 	}
 

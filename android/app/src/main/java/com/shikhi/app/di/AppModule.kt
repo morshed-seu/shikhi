@@ -14,8 +14,11 @@ import com.shikhi.app.data.content.db.ContentAnswerKeyDao
 import com.shikhi.app.data.content.db.ContentDatabase
 import com.shikhi.app.data.content.db.ContentReadDao
 import com.shikhi.app.data.db.ContentCacheDao
+import com.shikhi.app.data.db.LocalPracticeSessionDao
+import com.shikhi.app.data.db.MIGRATION_2_3
 import com.shikhi.app.data.db.OutboxDao
 import com.shikhi.app.data.db.ShikhiDatabase
+import com.shikhi.app.data.db.WordProgressDao
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -46,8 +49,14 @@ object AppModule {
 	@Singleton
 	fun database(@ApplicationContext context: Context): ShikhiDatabase =
 		Room.databaseBuilder(context, ShikhiDatabase::class.java, "shikhi.db")
-			// Pre-release schema changes drop local caches/outbox; fine before first ship.
-			.fallbackToDestructiveMigration(dropAllTables = true)
+			// OF4 (docs/93-offline-learning-design.md §9 risk 2): this database now holds durable
+			// per-user mastery/review state (LocalWordProgress/LocalReviewProgress), so the
+			// blanket destructive fallback is retired for upgrades — a real Migration (v2->v3)
+			// carries that state across the schema bump. Only a *downgrade* (an older APK
+			// installed over a newer DB, e.g. a manual rollback) still falls back destructively,
+			// since there is no meaningful way to migrate a schema backwards.
+			.addMigrations(MIGRATION_2_3)
+			.fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
 			.build()
 
 	@Provides
@@ -55,6 +64,14 @@ object AppModule {
 
 	@Provides
 	fun contentCacheDao(db: ShikhiDatabase): ContentCacheDao = db.contentCacheDao()
+
+	// OF4 §4.2: local practice/mastery state, injected only into the local practice path
+	// (PracticeWordPicker / WordProgressEngine / LocalPracticeSource).
+	@Provides
+	fun wordProgressDao(db: ShikhiDatabase): WordProgressDao = db.wordProgressDao()
+
+	@Provides
+	fun localPracticeSessionDao(db: ShikhiDatabase): LocalPracticeSessionDao = db.localPracticeSessionDao()
 
 	// Bundled, read-only content DB (OF1 §3.2): separate Room database, reseeded wholesale
 	// from ContentSeedImporter — never migrated row-by-row, so unlike `database()` above it

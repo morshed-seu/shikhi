@@ -1,5 +1,6 @@
 package com.shikhi.app.data.outbox
 
+import com.shikhi.app.data.api.PracticeApi
 import com.shikhi.app.data.api.ProgressApi
 import com.shikhi.app.data.db.OutboxDao
 import com.shikhi.app.data.db.OutboxEventEntity
@@ -27,6 +28,11 @@ import retrofit2.converter.kotlinx.serialization.asConverterFactory
  * Pins the web-outbox parity rules (frontend/src/api/outbox.ts): idempotency keys are
  * minted once at enqueue and reused verbatim on every flush attempt; events survive a
  * failed flush; a successful batch clears exactly what was sent.
+ *
+ * OF4 additions: [OutboxEventType.RETRY_PRACTICE_SUBMIT] events (buffered by
+ * [com.shikhi.app.data.practice.RemotePracticeSource] on a recoverable `submitAnswer` failure)
+ * replay individually against [PracticeApi.submitAnswer] instead of the generic `/progress/sync`
+ * batch — see that constant's doc for why.
  */
 class OutboxRepositoryTest {
 
@@ -50,6 +56,7 @@ class OutboxRepositoryTest {
 	private lateinit var outbox: OutboxRepository
 
 	private val statsJson = """{"hearts":5,"xp":10}"""
+	private val answerResultJson = """{"verdict":{"correct":true},"stats":{"hearts":5}}"""
 
 	@Before
 	fun setUp() {
@@ -57,14 +64,15 @@ class OutboxRepositoryTest {
 		server.start()
 		dao = FakeOutboxDao()
 		val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
-		val api = Retrofit.Builder()
+		val retrofit = Retrofit.Builder()
 			.baseUrl(server.url("/v1/"))
 			.client(OkHttpClient())
 			.addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
 			.build()
-			.create(ProgressApi::class.java)
+		val progressApi = retrofit.create(ProgressApi::class.java)
+		val practiceApi = retrofit.create(PracticeApi::class.java)
 		val workManager = io.mockk.mockk<androidx.work.WorkManager>(relaxed = true)
-		outbox = OutboxRepository(dao, dagger.Lazy { api }, dagger.Lazy { workManager })
+		outbox = OutboxRepository(dao, dagger.Lazy { progressApi }, dagger.Lazy { practiceApi }, dagger.Lazy { workManager })
 	}
 
 	@After
@@ -123,5 +131,73 @@ class OutboxRepositoryTest {
 		val retried = Json.parseToJsonElement(server.takeRequest().body.readUtf8()).jsonObject
 		val retriedKey = retried["events"]!!.jsonArray[0].jsonObject["idempotencyKey"]!!.jsonPrimitive.content
 		assertEquals("retry must replay the SAME key so the server dedupes", originalKey, retriedKey)
+	}
+
+	@Test
+	fun `PRACTICE_ANSWER events flow through the generic sync batch like COMPLETE_LESSON`() = runBlocking {
+		outbox.enqueue(
+			OutboxEventType.PRACTICE_ANSWER,
+			buildJsonObject {
+				put("vocabularyId", "vocab-1")
+				put("correct", true)
+				put("answeredAt", "2026-07-18T10:15:00Z")
+			},
+		)
+		server.enqueue(MockResponse().setBody(statsJson).addHeader("Content-Type", "application/json"))
+
+		assertTrue(outbox.flush())
+		assertTrue(dao.rows.isEmpty())
+
+		val body = Json.parseToJsonElement(server.takeRequest().body.readUtf8()).jsonObject
+		val event = body["events"]!!.jsonArray[0].jsonObject
+		assertEquals("PRACTICE_ANSWER", event["type"]!!.jsonPrimitive.content)
+		assertEquals("vocab-1", event["payload"]!!.jsonObject["vocabularyId"]!!.jsonPrimitive.content)
+		assertEquals(true, event["payload"]!!.jsonObject["correct"]!!.jsonPrimitive.content.toBoolean())
+	}
+
+	@Test
+	fun `RETRY_PRACTICE_SUBMIT events replay individually against PracticeApi submitAnswer, not the sync batch`() = runBlocking {
+		outbox.enqueue(
+			OutboxEventType.RETRY_PRACTICE_SUBMIT,
+			buildJsonObject {
+				put("sessionId", "session-1")
+				put("exerciseId", "exercise-1")
+				put("idempotencyKey", "idem-1")
+				put("answer", buildJsonObject { put("selectedOptionId", "opt-1") })
+			},
+		)
+		server.enqueue(MockResponse().setBody(answerResultJson).addHeader("Content-Type", "application/json"))
+
+		assertTrue(outbox.flush())
+		assertTrue(dao.rows.isEmpty())
+		assertEquals(1, server.requestCount)
+
+		val request = server.takeRequest()
+		assertTrue(request.path!!.endsWith("/practice/sessions/session-1/answers"))
+		val body = Json.parseToJsonElement(request.body.readUtf8()).jsonObject
+		assertEquals("idem-1", body["idempotencyKey"]!!.jsonPrimitive.content)
+		assertEquals("exercise-1", body["exerciseId"]!!.jsonPrimitive.content)
+		assertEquals("opt-1", body["answer"]!!.jsonObject["selectedOptionId"]!!.jsonPrimitive.content)
+	}
+
+	@Test
+	fun `a failed RETRY_PRACTICE_SUBMIT is kept while an unrelated successful sync batch still clears`() = runBlocking {
+		outbox.enqueue(
+			OutboxEventType.RETRY_PRACTICE_SUBMIT,
+			buildJsonObject {
+				put("sessionId", "session-1")
+				put("exerciseId", "exercise-1")
+				put("idempotencyKey", "idem-1")
+				put("answer", buildJsonObject { put("selectedOptionId", "opt-1") })
+			},
+		)
+		enqueueLesson(score = 2)
+
+		server.enqueue(MockResponse().setResponseCode(503)) // the retry fails
+		server.enqueue(MockResponse().setBody(statsJson).addHeader("Content-Type", "application/json")) // the sync batch succeeds
+
+		assertFalse(outbox.flush())
+		assertEquals(1, dao.rows.size)
+		assertEquals(OutboxEventType.RETRY_PRACTICE_SUBMIT, dao.rows.single().type)
 	}
 }

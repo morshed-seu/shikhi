@@ -35,12 +35,24 @@ interface OutboxDao {
 }
 
 @Database(
-	entities = [OutboxEventEntity::class, CachedPayload::class],
-	version = 2,
+	entities = [
+		OutboxEventEntity::class,
+		CachedPayload::class,
+		LocalWordProgress::class,
+		LocalReviewProgress::class,
+		LocalPracticeSession::class,
+		LocalPracticeExercise::class,
+	],
+	version = 3,
 	exportSchema = false,
 )
 abstract class ShikhiDatabase : RoomDatabase() {
 	abstract fun outboxDao(): OutboxDao
 
 	abstract fun contentCacheDao(): ContentCacheDao
+
+	/** OF4: local practice/mastery state — see [MIGRATION_2_3]. */
+	abstract fun wordProgressDao(): WordProgressDao
+
+	abstract fun localPracticeSessionDao(): LocalPracticeSessionDao
 }
