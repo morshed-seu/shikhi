@@ -1,8 +1,11 @@
 package com.shikhi.progress.service;
 
+import com.shikhi.practice.service.WordProgressService;
 import com.shikhi.progress.domain.ProcessedEvent;
 import com.shikhi.progress.repo.ProcessedEventRepository;
 import com.shikhi.progress.web.SyncEvent;
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
@@ -19,10 +22,13 @@ public class ProgressEventApplier {
 
 	private final ProcessedEventRepository processed;
 	private final ProgressService progress;
+	private final WordProgressService wordProgressService;
 
-	public ProgressEventApplier(ProcessedEventRepository processed, ProgressService progress) {
+	public ProgressEventApplier(ProcessedEventRepository processed, ProgressService progress,
+			WordProgressService wordProgressService) {
 		this.processed = processed;
 		this.progress = progress;
+		this.wordProgressService = wordProgressService;
 	}
 
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -40,10 +46,30 @@ public class ProgressEventApplier {
 		switch (event.type()) {
 			case "ANSWER" -> progress.recordAnswer(userId, boolOf(payload.get("correct")));
 			case "COMPLETE_LESSON" -> completeLesson(userId, payload);
+			case "PRACTICE_ANSWER" -> practiceAnswer(userId, payload);
 			default -> {
 				// Unknown event type: ignore its effect but still mark it processed.
 			}
 		}
+	}
+
+	/**
+	 * Offline vocabulary-practice answer (OF4/OF5, doc 93 §5). Unlike {@code "ANSWER"} (hearts
+	 * only), this awards XP/hearts via {@link ProgressService#recordPracticeAnswer} AND advances
+	 * mastery/review-ladder state via {@link WordProgressService#recordAnswer} — both, not just
+	 * one, matching the online {@code PracticeSessionService.submitAnswer} path. The optional
+	 * {@code answeredAt} avoids stamping a multi-day-old offline session's review-ladder
+	 * {@code dueAt} as sync-time "now" (doc 93 §9 risk 1).
+	 */
+	private void practiceAnswer(UUID userId, Map<String, Object> payload) {
+		UUID vocabularyId = uuidOf(payload.get("vocabularyId"));
+		if (vocabularyId == null) {
+			return;
+		}
+		boolean correct = boolOf(payload.get("correct"));
+		progress.recordPracticeAnswer(userId, correct);
+		wordProgressService.recordAnswer(userId, vocabularyId, correct,
+				instantOf(payload.get("answeredAt")));
 	}
 
 	private void completeLesson(UUID userId, Map<String, Object> payload) {
@@ -74,6 +100,22 @@ public class ProgressEventApplier {
 			return value == null ? null : UUID.fromString(value.toString());
 		}
 		catch (IllegalArgumentException ex) {
+			return null;
+		}
+	}
+
+	/**
+	 * Parses an optional ISO-8601 instant string. Returns {@code null} (not a thrown exception)
+	 * when absent or malformed, so a bad client timestamp can't crash sync — same defensive
+	 * spirit as {@link #uuidOf}/{@link #boolOf}/{@link #intOf}. {@code null} tells
+	 * {@link WordProgressService#recordAnswer(UUID, UUID, boolean, Instant)} to fall back to
+	 * {@code clock.instant()}.
+	 */
+	private Instant instantOf(Object value) {
+		try {
+			return value == null ? null : Instant.parse(value.toString());
+		}
+		catch (DateTimeParseException ex) {
 			return null;
 		}
 	}

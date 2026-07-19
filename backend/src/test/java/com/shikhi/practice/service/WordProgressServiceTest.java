@@ -205,6 +205,58 @@ class WordProgressServiceTest {
 		assertThat(mastery.getLastWrongAt()).isNotNull();
 	}
 
+	// ---- explicit-instant overload (OF5, offline sync) ---------------------------------------
+
+	@Test
+	void explicitInstantOverloadUsesTheGivenInstantNotTheClockForMasteryTimestamps() {
+		Instant answeredAt = NOW.minus(Duration.ofDays(3));
+
+		service.recordAnswer(userId, vocabularyId, true, answeredAt);
+
+		assertThat(mastery().orElseThrow().getLastSeenAt()).isEqualTo(answeredAt);
+
+		Instant wrongAnsweredAt = NOW.minus(Duration.ofDays(2));
+		service.recordAnswer(userId, vocabularyId, false, wrongAnsweredAt);
+		assertThat(mastery().orElseThrow().getLastWrongAt()).isEqualTo(wrongAnsweredAt);
+	}
+
+	@Test
+	void explicitInstantOverloadUsesTheGivenInstantForReviewLadderDueDates() {
+		Instant answeredAt = NOW.minus(Duration.ofDays(10));
+
+		// Three corrects at the same explicit instant to graduate (default thresholds).
+		service.recordAnswer(userId, vocabularyId, true, answeredAt);
+		service.recordAnswer(userId, vocabularyId, true, answeredAt);
+		service.recordAnswer(userId, vocabularyId, true, answeredAt);
+
+		ReviewProgress created = review().orElseThrow();
+		// dueAt is answeredAt-based, not clock-based — proves the explicit instant wasn't
+		// silently ignored in favor of clock.instant().
+		assertThat(created.getDueAt()).isEqualTo(answeredAt.plus(Duration.ofDays(1)));
+		assertThat(created.getDueAt()).isNotEqualTo(NOW.plus(Duration.ofDays(1)));
+	}
+
+	@Test
+	void nullExplicitInstantFallsBackToTheClockSameAsTheThreeArgOverload() {
+		service.recordAnswer(userId, vocabularyId, true, null);
+
+		assertThat(mastery().orElseThrow().getLastSeenAt()).isEqualTo(NOW);
+	}
+
+	@Test
+	void theOriginalThreeArgOverloadIsCompletelyUnaffectedByTheNewOverload() {
+		// Same assertions as graduatesExactlyWhenAllThreeThresholdsAreMet, exercised through the
+		// pre-existing three-arg call path (what PracticeSessionService's online answer path
+		// uses) — still always stamps with clock.instant(), unchanged.
+		service.recordAnswer(userId, vocabularyId, true);
+		service.recordAnswer(userId, vocabularyId, true);
+		service.recordAnswer(userId, vocabularyId, true);
+
+		ReviewProgress created = review().orElseThrow();
+		assertThat(created.getDueAt()).isEqualTo(NOW.plus(Duration.ofDays(1)));
+		assertThat(mastery().orElseThrow().getLastSeenAt()).isEqualTo(NOW);
+	}
+
 	// ---- fixtures ---------------------------------------------------------------------------
 
 	private void seedReview(int stage, Instant dueAt) {
