@@ -8,6 +8,8 @@ import com.shikhi.app.data.api.dto.PracticeRound
 import com.shikhi.app.data.api.dto.SetLevelRequest
 import com.shikhi.app.data.api.dto.Verdict
 import com.shikhi.app.data.api.dto.nextLevel
+import com.shikhi.app.data.auth.AuthRepository
+import com.shikhi.app.data.auth.SessionState
 import com.shikhi.app.data.connectivity.ConnectivityChecker
 import com.shikhi.app.data.practice.LocalPracticeSource
 import com.shikhi.app.data.practice.PracticePlaySource
@@ -82,6 +84,7 @@ class PracticeViewModel @Inject constructor(
 	private val remoteSource: RemotePracticeSource,
 	private val localSource: LocalPracticeSource,
 	private val connectivity: ConnectivityChecker,
+	private val authRepository: AuthRepository,
 	private val progressApi: ProgressApi,
 	private val pronouncer: Pronouncer,
 	private val appScope: CoroutineScope,
@@ -108,7 +111,10 @@ class PracticeViewModel @Inject constructor(
 	init {
 		viewModelScope.launch {
 			try {
-				usingLocalSource = !connectivity.isOnline()
+				// A LocalGuest has no access token yet (OG1/OG2) — RemotePracticeSource would 401
+				// regardless of device connectivity, so it must use the local engine until
+				// GuestRegistrationWorker completes, not just when the device itself is offline.
+				usingLocalSource = authRepository.session.value is SessionState.LocalGuest || !connectivity.isOnline()
 				source = if (usingLocalSource) localSource else remoteSource
 				val round = source.start()
 				sessionId = round.sessionId

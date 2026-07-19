@@ -8,6 +8,8 @@ import com.shikhi.app.data.api.dto.PracticeExerciseConfig
 import com.shikhi.app.data.api.dto.PracticeResult
 import com.shikhi.app.data.api.dto.PracticeRound
 import com.shikhi.app.data.api.dto.Verdict
+import com.shikhi.app.data.auth.AuthRepository
+import com.shikhi.app.data.auth.SessionState
 import com.shikhi.app.data.connectivity.ConnectivityChecker
 import com.shikhi.app.data.practice.LocalPracticeSource
 import com.shikhi.app.data.practice.PracticeGradeOutcome
@@ -60,6 +62,7 @@ class PracticeViewModelTest {
 	private lateinit var remoteSource: RemotePracticeSource
 	private lateinit var localSource: LocalPracticeSource
 	private lateinit var connectivity: ConnectivityChecker
+	private lateinit var authRepository: AuthRepository
 	private lateinit var progressApi: ProgressApi
 	private lateinit var pronouncer: Pronouncer
 
@@ -69,6 +72,11 @@ class PracticeViewModelTest {
 		remoteSource = mockk()
 		localSource = mockk()
 		connectivity = mockk()
+		authRepository = mockk {
+			// Default: a registered session, so the connectivity-only tests below are unaffected —
+			// LocalGuest routing is covered by its own dedicated test.
+			every { session } returns MutableStateFlow(SessionState.Active(mockk(relaxed = true)))
+		}
 		progressApi = mockk(relaxed = true)
 		// The hearts-refresh stats() call is a fire-and-forget side effect (runCatching { ... }
 		// .onSuccess { ... }) most of these tests aren't exercising — making it fail keeps state
@@ -84,7 +92,7 @@ class PracticeViewModelTest {
 	fun tearDown() = Dispatchers.resetMain()
 
 	private fun viewModel(appScope: kotlinx.coroutines.CoroutineScope = TestScope(dispatcher)) =
-		PracticeViewModel(remoteSource, localSource, connectivity, progressApi, pronouncer, appScope)
+		PracticeViewModel(remoteSource, localSource, connectivity, authRepository, progressApi, pronouncer, appScope)
 
 	@Test
 	fun `online device starts the remote source and never touches the local source`() = runTest(dispatcher) {
@@ -104,6 +112,26 @@ class PracticeViewModelTest {
 	@Test
 	fun `offline device starts the local source and never touches the remote source`() = runTest(dispatcher) {
 		every { connectivity.isOnline() } returns false
+		coEvery { localSource.start() } returns round
+
+		val vm = viewModel()
+
+		vm.state.test {
+			assertEquals(PracticeUiState.Loading, awaitItem())
+			val playing = awaitItem() as PracticeUiState.Playing
+			assertEquals("session-1", playing.round.sessionId)
+		}
+		coVerify(exactly = 0) { remoteSource.start() }
+	}
+
+	@Test
+	fun `an online but unregistered LocalGuest still starts the local source, never the remote one`() = runTest(dispatcher) {
+		// OG-fix regression: before this fix, source selection was based solely on
+		// ConnectivityChecker.isOnline() — a LocalGuest that gets connectivity before
+		// GuestRegistrationWorker finishes would route to RemotePracticeSource, which has no
+		// access token yet and would 401 ("Could not start the session").
+		every { connectivity.isOnline() } returns true
+		every { authRepository.session } returns MutableStateFlow(SessionState.LocalGuest)
 		coEvery { localSource.start() } returns round
 
 		val vm = viewModel()

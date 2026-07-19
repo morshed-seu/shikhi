@@ -22,6 +22,13 @@ data class ProfileUiState(
 	val loading: Boolean = true,
 	/** Hard error: the dashboard snapshot itself could not be loaded (network + no cache). */
 	val error: Boolean = false,
+	/**
+	 * OG-fix: a [SessionState.LocalGuest] has no access token yet, so a dashboard fetch is
+	 * guaranteed to fail — this is shown instead of [error] while there's no cached snapshot to
+	 * fall back to either, and clears itself automatically once [GuestRegistrationWorker]
+	 * finishes and the session flips to `Active`.
+	 */
+	val guestSyncPending: Boolean = false,
 	val dashboard: DashboardResponse? = null,
 	/** A failed `GET /me/identities` soft-fails to `emptyList()` — never blanks the profile. */
 	val identities: List<Identity> = emptyList(),
@@ -61,10 +68,16 @@ class ProfileViewModel @Inject constructor(
 
 	init {
 		viewModelScope.launch {
+			var wasLocalGuest = authRepository.session.value is SessionState.LocalGuest
 			authRepository.session.collect { session ->
 				val user = (session as? SessionState.Active)?.user
 				// OG1: a LocalGuest has no User object yet, but is definitely "a guest."
 				_state.update { it.copy(user = user, isGuest = session is SessionState.LocalGuest || user?.isGuest == true) }
+				val isLocalGuestNow = session is SessionState.LocalGuest
+				// OG-fix: GuestRegistrationWorker just finished (LocalGuest -> Active) — the
+				// dashboard fetch refresh() skipped while guestSyncPending is now safe to retry.
+				if (wasLocalGuest && !isLocalGuestNow) refresh()
+				wasLocalGuest = isLocalGuestNow
 			}
 		}
 		refresh()
@@ -74,6 +87,15 @@ class ProfileViewModel @Inject constructor(
 	fun refresh() {
 		_state.update { it.copy(loading = true, error = false) }
 		viewModelScope.launch {
+			if (authRepository.session.value is SessionState.LocalGuest) {
+				// OG-fix: no server account yet, so dashboardApi/identities would 401
+				// unconditionally regardless of connectivity — skip the doomed network round
+				// trip. A cached snapshot from a prior Active session (e.g. after logout ->
+				// re-guest) is still shown if present; otherwise show the pending-sync state
+				// rather than the generic hard error.
+				_state.update { it.copy(loading = false, guestSyncPending = it.dashboard == null) }
+				return@launch
+			}
 			val dash = async { dashboardRepository.dashboard() }
 			// Fetched independently: a failed identities call must not hard-error the whole
 			// profile — only the masked-email line is affected (same decision as the web
@@ -87,6 +109,7 @@ class ProfileViewModel @Inject constructor(
 				it.copy(
 					loading = false,
 					error = d == null && it.dashboard == null,
+					guestSyncPending = false,
 					dashboard = d?.value ?: it.dashboard,
 					fromCache = d?.fromCache == true,
 					identities = identityList,

@@ -128,6 +128,7 @@
     <string name="profile_title">Profile</string>
     <string name="profile_loading">Loading your profile…</string>
     <string name="profile_error">Could not load your profile.</string>
+    <string name="profile_guest_sync_pending">Setting up your account — your profile will be ready in a moment.</string>
     <string name="profile_save">Save</string>
     <string name="profile_cancel">Cancel</string>
     <string name="profile_edit_name">Edit name</string>

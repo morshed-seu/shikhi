@@ -105,6 +105,22 @@ class ProfileViewModelTest {
 		return repo
 	}
 
+	/** Boots a real AuthRepository to a [SessionState.LocalGuest] (no refresh token, offline cold start). */
+	private fun localGuestAuthRepository(): AuthRepository {
+		val authApi = mockk<AuthApi>(relaxed = true)
+		val userApi = mockk<UserApi>(relaxed = true)
+		val repo = AuthRepository(
+			authApi = authApi,
+			userApi = { userApi },
+			tokenStore = FakeTokenStore(null, null),
+			connectivity = mockk<ConnectivityChecker>(relaxed = true) { every { isOnline() } returns false },
+			workManager = dagger.Lazy { mockk<WorkManager>(relaxed = true) },
+			appScope = CoroutineScope(dispatcher),
+		)
+		runBlocking { repo.bootstrap() }
+		return repo
+	}
+
 	@Before
 	fun setUp() = Dispatchers.setMain(dispatcher)
 
@@ -233,5 +249,25 @@ class ProfileViewModelTest {
 		assertFalse(s.loading)
 		assertTrue(s.error)
 		assertNull(s.dashboard)
+	}
+
+	@Test
+	fun `an unregistered LocalGuest sees the pending-sync state, not the hard error, and never calls the network`() = runTest(dispatcher) {
+		// OG-fix regression: a LocalGuest has no access token yet, so dashboardApi/identities
+		// would always 401 — refresh() must skip the network call entirely rather than
+		// surfacing "Could not load your profile."
+		val dashboardRepository = mockk<DashboardRepository>(relaxed = true)
+
+		val vm = ProfileViewModel(localGuestAuthRepository(), dashboardRepository)
+		dispatcher.scheduler.advanceUntilIdle()
+
+		val s = vm.state.value
+		assertFalse(s.loading)
+		assertFalse(s.error)
+		assertTrue(s.guestSyncPending)
+		assertTrue(s.isGuest)
+		assertNull(s.dashboard)
+		coVerify(exactly = 0) { dashboardRepository.dashboard() }
+		coVerify(exactly = 0) { dashboardRepository.identities() }
 	}
 }
