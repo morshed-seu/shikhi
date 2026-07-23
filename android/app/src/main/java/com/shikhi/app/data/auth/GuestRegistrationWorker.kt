@@ -15,6 +15,7 @@ import com.shikhi.app.data.api.AuthApi
 import com.shikhi.app.data.api.UserApi
 import com.shikhi.app.data.api.dto.GuestRequest
 import com.shikhi.app.data.db.ShikhiDatabase
+import com.shikhi.app.data.progress.ProgressPullWorker
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import java.util.Locale
@@ -44,6 +45,7 @@ class GuestRegistrationWorker @AssistedInject constructor(
 	private val tokenStore: TokenStore,
 	private val db: ShikhiDatabase,
 	private val authRepository: AuthRepository,
+	private val workManager: dagger.Lazy<WorkManager>,
 ) : CoroutineWorker(context, params) {
 
 	override suspend fun doWork(): Result {
@@ -87,6 +89,9 @@ class GuestRegistrationWorker @AssistedInject constructor(
 			// both completed, so Room never has a window where the session is Active but progress
 			// is still under the old localGuestId.
 			authRepository.completeGuestRegistration(user)
+			// UO6: seed the projection under the new server userId with a pull, same trigger as
+			// AuthRepository.login() (reinstall / 2nd-device rebuild case).
+			ProgressPullWorker.schedule(workManager.get())
 			Result.success()
 		} catch (e: Exception) {
 			Result.retry()

@@ -13,6 +13,7 @@ import com.shikhi.app.data.api.dto.LessonView
 import com.shikhi.app.data.api.dto.LoginRequest
 import com.shikhi.app.data.api.dto.PracticeResult
 import com.shikhi.app.data.api.dto.PracticeRound
+import com.shikhi.app.data.api.dto.ProgressSnapshotResponse
 import com.shikhi.app.data.api.dto.RefreshRequest
 import com.shikhi.app.data.api.dto.RegisterRequest
 import com.shikhi.app.data.api.dto.ReviewItem
@@ -128,6 +129,14 @@ interface ProgressApi {
 	/** Self-placement or an accepted level-up (E12). */
 	@PUT("stats/level")
 	suspend fun setLevel(@Body body: SetLevelRequest): Stats
+
+	/**
+	 * UO6 (docs/95 §3.2/§5): the download direction of sync — a full, authoritative rebuild
+	 * source for a fresh install or a 2nd device. v1 always does a full pull (no `since` cursor);
+	 * the backend supports one, but the design doc defaults to full for correctness.
+	 */
+	@GET("progress/snapshot")
+	suspend fun snapshot(): ProgressSnapshotResponse
 }
 
 /** Adaptive vocabulary practice sessions (E12) — exercises generated server-side. */

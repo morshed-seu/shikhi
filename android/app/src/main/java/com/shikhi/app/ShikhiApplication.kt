@@ -6,6 +6,7 @@ import androidx.work.Configuration
 import androidx.work.WorkManager
 import com.shikhi.app.data.content.seed.ContentSeedWorker
 import com.shikhi.app.data.outbox.OutboxForegroundFlusher
+import com.shikhi.app.data.progress.ProgressPullWorker
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
@@ -33,5 +34,8 @@ class ShikhiApplication : Application(), Configuration.Provider {
 		// OF2: import the bundled vocabulary/curriculum seed off the main thread, once, at
 		// startup — mirrors OutboxSyncWorker's own WorkManager registration mechanism.
 		ContentSeedWorker.schedule(workManager.get())
+		// UO6: periodic safety-net pull, alongside the one-shot triggers on login/guest
+		// registration (AuthRepository.login, GuestRegistrationWorker.doWork).
+		ProgressPullWorker.schedulePeriodic(workManager.get())
 	}
 }

@@ -42,4 +42,12 @@ interface LocalLessonCompletionDao {
 	// survives LocalGuest -> Active alongside its stats projection/mastery/review/session rows.
 	@Query("UPDATE local_lesson_completion SET userId = :newUserId WHERE userId = :oldUserId")
 	suspend fun rekey(oldUserId: String, newUserId: String)
+
+	// UO6 (docs/95 §3.2): the pull-rebuild overwrite, same delete-then-insert-all pattern as
+	// WordProgressDao's new methods.
+	@Query("DELETE FROM local_lesson_completion WHERE userId = :userId")
+	suspend fun deleteAllForUser(userId: String)
+
+	@Insert(onConflict = OnConflictStrategy.REPLACE)
+	suspend fun upsertAll(rows: List<LocalLessonCompletion>)
 }

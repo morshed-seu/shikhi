@@ -3,6 +3,7 @@ package com.shikhi.app.data.auth
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,6 +32,12 @@ interface TokenStore {
 	suspend fun localGuestId(): String?
 	suspend fun setLocalGuestId(id: String)
 	suspend fun clearLocalGuestId()
+
+	// UO6 (docs/95-unified-offline-online-design.md §3.2 step 4): the pull cursor, advanced only
+	// by a successful ProgressPullRepository.pull(). A single global value, not per-userId —
+	// exactly one session is ever active on a device at a time, same as [localGuestId] above.
+	suspend fun lastSyncedAt(): Long?
+	suspend fun setLastSyncedAt(value: Long)
 }
 
 @Singleton
@@ -41,6 +48,7 @@ class DataStoreTokenStore @Inject constructor(
 
 	private val key = stringPreferencesKey("refresh_token")
 	private val localGuestIdKey = stringPreferencesKey("local_guest_id")
+	private val lastSyncedAtKey = longPreferencesKey("last_synced_at")
 
 	private val _accessToken = MutableStateFlow<String?>(null)
 	override val accessToken: StateFlow<String?> = _accessToken
@@ -69,5 +77,11 @@ class DataStoreTokenStore @Inject constructor(
 
 	override suspend fun clearLocalGuestId() {
 		dataStore.edit { it.remove(localGuestIdKey) }
+	}
+
+	override suspend fun lastSyncedAt(): Long? = dataStore.data.first()[lastSyncedAtKey]
+
+	override suspend fun setLastSyncedAt(value: Long) {
+		dataStore.edit { it[lastSyncedAtKey] = value }
 	}
 }

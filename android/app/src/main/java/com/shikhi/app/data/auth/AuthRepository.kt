@@ -11,6 +11,7 @@ import com.shikhi.app.data.api.dto.RegisterRequest
 import com.shikhi.app.data.api.dto.TokenPair
 import com.shikhi.app.data.api.dto.User
 import com.shikhi.app.data.connectivity.ConnectivityChecker
+import com.shikhi.app.data.progress.ProgressPullWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -219,6 +220,11 @@ class AuthRepository @Inject constructor(
 
 	suspend fun login(email: String, password: String) {
 		activate(authApi.login(LoginRequest(email, password)))
+		// UO6: a login into an existing account is the reinstall / 2nd-device rebuild case —
+		// kick a pull so local mastery/review/lesson-completion/stats reflect server truth.
+		// Deliberately NOT in register()/claim()/bootstrap()/activate() itself — see
+		// ProgressPullRepository's doc comment for why those don't need it.
+		ProgressPullWorker.schedule(workManager.get())
 	}
 
 	suspend fun register(email: String, password: String, displayName: String?, uiLocale: String) {

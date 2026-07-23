@@ -73,6 +73,21 @@ interface WordProgressDao {
 
 	@Query("UPDATE local_review_progress SET userId = :newUserId WHERE userId = :oldUserId")
 	suspend fun rekeyReview(oldUserId: String, newUserId: String)
+
+	// UO6 (docs/95 §3.2): the pull-rebuild overwrite — delete-then-insert-all inside
+	// ProgressPullRepository's single db.withTransaction, mirroring the flush-time
+	// delete-and-collapse pattern OutboxRepository.flush() already uses.
+	@Query("DELETE FROM local_word_progress WHERE userId = :userId")
+	suspend fun deleteAllForUser(userId: String)
+
+	@Insert(onConflict = OnConflictStrategy.REPLACE)
+	suspend fun upsertAll(rows: List<LocalWordProgress>)
+
+	@Query("DELETE FROM local_review_progress WHERE userId = :userId")
+	suspend fun deleteAllReviewForUser(userId: String)
+
+	@Insert(onConflict = OnConflictStrategy.REPLACE)
+	suspend fun upsertAllReview(rows: List<LocalReviewProgress>)
 }
 
 /** One continuous local practice run (OF4 §4.2) — the offline mirror of `practice_sessions`. */
