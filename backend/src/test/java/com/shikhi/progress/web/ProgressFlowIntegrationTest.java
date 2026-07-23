@@ -1,6 +1,7 @@
 package com.shikhi.progress.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -13,10 +14,13 @@ import com.shikhi.practice.domain.PracticeWordProgress;
 import com.shikhi.practice.repo.PracticeWordProgressRepository;
 import com.shikhi.practice.schedule.ReviewProgress;
 import com.shikhi.practice.schedule.ReviewProgressRepository;
+import com.shikhi.progress.domain.UserProgress;
+import com.shikhi.progress.repo.UserProgressRepository;
 import com.shikhi.support.AbstractIntegrationTest;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,6 +48,9 @@ class ProgressFlowIntegrationTest extends AbstractIntegrationTest {
 
 	@Autowired
 	ReviewProgressRepository reviewProgress;
+
+	@Autowired
+	UserProgressRepository userProgress;
 
 	private static final String U0 = "$.levels[0].units[0]";
 
@@ -371,5 +378,184 @@ class ProgressFlowIntegrationTest extends AbstractIntegrationTest {
 		assertThat(mastery.getTimesCorrect()).isEqualTo(2);
 		assertThat(mastery.getTimesWrong()).isEqualTo(2);
 		assertThat(mastery.getMasteryScore()).isZero();
+	}
+
+	// ---- UO5: GET /progress/snapshot -----------------------------------------------------------
+
+	private String completeLessonEvent(String idempotencyKey, String lessonId, int score) {
+		return "{\"idempotencyKey\":\"" + idempotencyKey + "\",\"type\":\"COMPLETE_LESSON\","
+				+ "\"payload\":{\"lessonId\":\"" + lessonId + "\",\"score\":" + score + "}}";
+	}
+
+	private void sync(String auth, String batch) throws Exception {
+		mockMvc.perform(post("/v1/progress/sync").header(HttpHeaders.AUTHORIZATION, auth)
+						.contentType(MediaType.APPLICATION_JSON).content(batch))
+				.andExpect(status().isOk());
+	}
+
+	@Test
+	void snapshotRequiresAuth() throws Exception {
+		mockMvc.perform(get("/v1/progress/snapshot")).andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void snapshotForABrandNewUserReturnsEmptyListsAndDefaultStats() throws Exception {
+		String auth = token();
+
+		mockMvc.perform(get("/v1/progress/snapshot").header(HttpHeaders.AUTHORIZATION, auth))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.stats.xp").value(0))
+				.andExpect(jsonPath("$.stats.hearts").value(5))
+				.andExpect(jsonPath("$.stats.currentStreak").value(0))
+				.andExpect(jsonPath("$.stats.longestStreak").value(0))
+				.andExpect(jsonPath("$.stats.cefrLevel").value("A1"))
+				.andExpect(jsonPath("$.wordProgress", hasSize(0)))
+				.andExpect(jsonPath("$.reviewProgress", hasSize(0)))
+				.andExpect(jsonPath("$.completedLessons", hasSize(0)))
+				.andExpect(jsonPath("$.serverTime").exists());
+	}
+
+	/**
+	 * A learner plays online — completes a lesson and answers a word correctly three times
+	 * (graduating it onto the review ladder) — and {@code GET /snapshot} must return exactly
+	 * that state: the same mastery/review rows and stats already persisted server-side, with no
+	 * side effects of its own (a repeat call returns byte-identical data).
+	 */
+	@Test
+	void snapshotReturnsRecordedMasteryReviewCompletionsAndStats() throws Exception {
+		String auth = token();
+		UUID userId = userIdFrom(auth);
+		String lesson0 = JsonPath.read(curriculum(auth), U0 + ".lessons[0].id");
+		UUID vocabularyId = vocabulary.findAll().get(3).getId();
+		Instant answeredAt = Instant.parse("2026-07-20T08:00:00Z");
+
+		sync(auth, "{\"events\":[" + completeLessonEvent("snap-complete", lesson0, 3) + "]}");
+		sync(auth, "{\"events\":[" + practiceAnswerEvent("snap-pa1", vocabularyId, true, answeredAt)
+				+ "," + practiceAnswerEvent("snap-pa2", vocabularyId, true, answeredAt) + ","
+				+ practiceAnswerEvent("snap-pa3", vocabularyId, true, answeredAt) + "]}");
+
+		UserProgress completedRow = userProgress.findByUserId(userId).get(0);
+		// lesson score (3) * 10 XP-per-correct + three correct practice answers * 10 XP each.
+		int expectedXp = 3 * 10 + 3 * 10;
+
+		String response = mockMvc.perform(get("/v1/progress/snapshot")
+						.header(HttpHeaders.AUTHORIZATION, auth))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.stats.xp").value(expectedXp))
+				.andExpect(jsonPath("$.stats.hearts").value(5))
+				.andExpect(jsonPath("$.stats.cefrLevel").value("A1"))
+				.andExpect(jsonPath("$.wordProgress", hasSize(1)))
+				.andExpect(jsonPath("$.wordProgress[0].vocabularyId").value(vocabularyId.toString()))
+				.andExpect(jsonPath("$.wordProgress[0].timesSeen").value(3))
+				.andExpect(jsonPath("$.wordProgress[0].timesCorrect").value(3))
+				.andExpect(jsonPath("$.wordProgress[0].timesWrong").value(0))
+				.andExpect(jsonPath("$.wordProgress[0].masteryScore").value(5))
+				.andExpect(jsonPath("$.wordProgress[0].lastSeenAt").value(answeredAt.toString()))
+				.andExpect(jsonPath("$.reviewProgress", hasSize(1)))
+				.andExpect(jsonPath("$.reviewProgress[0].vocabularyId").value(vocabularyId.toString()))
+				.andExpect(jsonPath("$.reviewProgress[0].reviewStage").value(1))
+				.andExpect(jsonPath("$.reviewProgress[0].dueAt")
+						.value(answeredAt.plus(Duration.ofDays(1)).toString()))
+				.andExpect(jsonPath("$.completedLessons", hasSize(1)))
+				.andExpect(jsonPath("$.completedLessons[0].lessonId").value(lesson0))
+				.andExpect(jsonPath("$.completedLessons[0].contentVersionId")
+						.value(completedRow.getContentVersionId().toString()))
+				.andExpect(jsonPath("$.completedLessons[0].score").value(3))
+				.andExpect(jsonPath("$.serverTime").exists())
+				.andReturn().getResponse().getContentAsString();
+
+		// Read-only: repeating the call changes nothing.
+		mockMvc.perform(get("/v1/progress/snapshot").header(HttpHeaders.AUTHORIZATION, auth))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.stats.xp").value(expectedXp))
+				.andExpect(jsonPath("$.wordProgress", hasSize(1)));
+		assertThat(response).isNotBlank();
+	}
+
+	/**
+	 * {@code ?since=} narrows every list to rows touched strictly after the cursor (the wire
+	 * contract, UO5 design point 5) — a row stamped at exactly the cursor is excluded, not
+	 * included, so a boundary row is exercised for both the word-mastery and review-ladder
+	 * lists. {@code PracticeWordProgress}/{@code ReviewProgress} timestamps are set directly via
+	 * their own domain methods, on their own fixed timeline, so the boundary can be asserted
+	 * exactly. {@code completedLessons} can't share that timeline: {@code UserProgress#complete}
+	 * always stamps {@code Instant.now()} with no way to inject a fixed clock, so that list is
+	 * exercised separately, cursored on the real, persisted timestamp of the first of two
+	 * sequential completions (JPA {@code Instant} columns carry microsecond precision, ample
+	 * margin for two real, sequential HTTP calls to differ).
+	 */
+	@Test
+	void sinceCursorExcludesRowsAtOrBeforeItAndIncludesOnlyStrictlyNewerRows() throws Exception {
+		String auth = token();
+		UUID userId = userIdFrom(auth);
+		UUID vocabOld = vocabulary.findAll().get(4).getId();
+		UUID vocabAtCursor = vocabulary.findAll().get(5).getId();
+		UUID vocabNew = vocabulary.findAll().get(6).getId();
+
+		Instant oldTime = Instant.parse("2026-07-01T00:00:00Z");
+		Instant cursor = Instant.parse("2026-07-15T00:00:00Z");
+		Instant newTime = Instant.parse("2026-07-20T00:00:00Z");
+
+		PracticeWordProgress wordBeforeCursor = new PracticeWordProgress(userId, vocabOld);
+		wordBeforeCursor.recordAnswer(true, oldTime);
+		wordProgress.save(wordBeforeCursor);
+
+		PracticeWordProgress wordAtCursor = new PracticeWordProgress(userId, vocabAtCursor);
+		wordAtCursor.recordAnswer(true, cursor);
+		wordProgress.save(wordAtCursor);
+
+		PracticeWordProgress wordAfterCursor = new PracticeWordProgress(userId, vocabNew);
+		wordAfterCursor.recordAnswer(true, newTime);
+		wordProgress.save(wordAfterCursor);
+
+		ReviewProgress reviewBeforeCursor = new ReviewProgress(userId, vocabOld, 0,
+				oldTime.plus(Duration.ofDays(1)));
+		reviewBeforeCursor.promote(oldTime, Duration.ofDays(1));
+		reviewProgress.save(reviewBeforeCursor);
+
+		ReviewProgress reviewAtCursor = new ReviewProgress(userId, vocabAtCursor, 0,
+				cursor.plus(Duration.ofDays(1)));
+		reviewAtCursor.promote(cursor, Duration.ofDays(1));
+		reviewProgress.save(reviewAtCursor);
+
+		ReviewProgress reviewAfterCursor = new ReviewProgress(userId, vocabNew, 0,
+				newTime.plus(Duration.ofDays(1)));
+		reviewAfterCursor.promote(newTime, Duration.ofDays(1));
+		reviewProgress.save(reviewAfterCursor);
+
+		// since = cursor (the word/review timeline set up above): strictly-after excludes the
+		// before- and at-cursor rows and includes only the after-cursor one.
+		mockMvc.perform(get("/v1/progress/snapshot").header(HttpHeaders.AUTHORIZATION, auth)
+						.param("since", cursor.toString()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.wordProgress", hasSize(1)))
+				.andExpect(jsonPath("$.wordProgress[0].vocabularyId").value(vocabNew.toString()))
+				.andExpect(jsonPath("$.reviewProgress", hasSize(1)))
+				.andExpect(jsonPath("$.reviewProgress[0].vocabularyId").value(vocabNew.toString()));
+
+		// completedLessons runs on the real wall clock (UserProgress#complete stamps
+		// Instant.now() with no way to inject a fixed clock), so it gets its own timeline: two
+		// real, sequential completions, cursored on the first one's own persisted timestamp.
+		String lesson0 = JsonPath.read(curriculum(auth), U0 + ".lessons[0].id");
+		String lesson1 = JsonPath.read(curriculum(auth), U0 + ".lessons[1].id");
+		sync(auth, "{\"events\":[" + completeLessonEvent("since-c0", lesson0, 1) + "]}");
+		List<UserProgress> afterFirst = userProgress.findByUserId(userId);
+		Instant firstCompletedAt = afterFirst.get(0).getCompletedAt();
+		sync(auth, "{\"events\":[" + completeLessonEvent("since-c1", lesson1, 1) + "]}");
+
+		// since = the first completion's own timestamp: strictly-after excludes it, and (since
+		// real wall-clock time elapsed between the two sequential sync calls) includes the second.
+		mockMvc.perform(get("/v1/progress/snapshot").header(HttpHeaders.AUTHORIZATION, auth)
+						.param("since", firstCompletedAt.toString()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.completedLessons", hasSize(1)))
+				.andExpect(jsonPath("$.completedLessons[0].lessonId").value(lesson1));
+
+		// Omitting since returns everything, proving the filter is opt-in.
+		mockMvc.perform(get("/v1/progress/snapshot").header(HttpHeaders.AUTHORIZATION, auth))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.wordProgress", hasSize(3)))
+				.andExpect(jsonPath("$.reviewProgress", hasSize(3)))
+				.andExpect(jsonPath("$.completedLessons", hasSize(2)));
 	}
 }

@@ -289,6 +289,17 @@ class ProgressEventApplierTest {
 		public long countMasteredInBand(UUID userId, String cefrLevel) {
 			throw new UnsupportedOperationException("not needed by this test");
 		}
+
+		@Override
+		public List<PracticeWordProgress> findByKey_UserId(UUID userId) {
+			throw new UnsupportedOperationException("not needed by this test");
+		}
+
+		@Override
+		public List<PracticeWordProgress> findByKey_UserIdAndLastSeenAtAfter(UUID userId,
+				Instant since) {
+			throw new UnsupportedOperationException("not needed by this test");
+		}
 	}
 
 	private static class InMemoryReviewProgressRepository
@@ -298,6 +309,16 @@ class ProgressEventApplierTest {
 		@Override
 		protected ReviewProgress.Key idOf(ReviewProgress entity) {
 			return entity.getKey();
+		}
+
+		@Override
+		public List<ReviewProgress> findByKey_UserId(UUID userId) {
+			throw new UnsupportedOperationException("not needed by this test");
+		}
+
+		@Override
+		public List<ReviewProgress> findByKey_UserIdAndUpdatedAtAfter(UUID userId, Instant since) {
+			throw new UnsupportedOperationException("not needed by this test");
 		}
 	}
 }

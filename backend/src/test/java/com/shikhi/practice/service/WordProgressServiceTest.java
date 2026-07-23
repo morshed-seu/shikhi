@@ -284,6 +284,17 @@ class WordProgressServiceTest {
 		public long countMasteredInBand(UUID userId, String cefrLevel) {
 			throw new UnsupportedOperationException("not needed by WordProgressService");
 		}
+
+		@Override
+		public java.util.List<PracticeWordProgress> findByKey_UserId(UUID userId) {
+			throw new UnsupportedOperationException("not needed by WordProgressService");
+		}
+
+		@Override
+		public java.util.List<PracticeWordProgress> findByKey_UserIdAndLastSeenAtAfter(
+				UUID userId, Instant since) {
+			throw new UnsupportedOperationException("not needed by WordProgressService");
+		}
 	}
 
 	private static class InMemoryReviewProgressRepository
@@ -293,6 +304,17 @@ class WordProgressServiceTest {
 		@Override
 		protected ReviewProgress.Key idOf(ReviewProgress entity) {
 			return entity.getKey();
+		}
+
+		@Override
+		public java.util.List<ReviewProgress> findByKey_UserId(UUID userId) {
+			throw new UnsupportedOperationException("not needed by WordProgressService");
+		}
+
+		@Override
+		public java.util.List<ReviewProgress> findByKey_UserIdAndUpdatedAtAfter(UUID userId,
+				Instant since) {
+			throw new UnsupportedOperationException("not needed by WordProgressService");
 		}
 	}
 }

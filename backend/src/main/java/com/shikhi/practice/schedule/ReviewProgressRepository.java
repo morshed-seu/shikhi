@@ -1,5 +1,8 @@
 package com.shikhi.practice.schedule;
 
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 /**
@@ -8,4 +11,11 @@ import org.springframework.data.jpa.repository.JpaRepository;
  */
 public interface ReviewProgressRepository
 		extends JpaRepository<ReviewProgress, ReviewProgress.Key> {
+
+	/** Every word this learner has graduated onto the review ladder (UO5 snapshot). */
+	List<ReviewProgress> findByKey_UserId(UUID userId);
+
+	/** Same as {@link #findByKey_UserId}, narrowed to rows touched strictly after {@code since}
+	 * (UO5 {@code ?since=} incremental pull). */
+	List<ReviewProgress> findByKey_UserIdAndUpdatedAtAfter(UUID userId, Instant since);
 }
