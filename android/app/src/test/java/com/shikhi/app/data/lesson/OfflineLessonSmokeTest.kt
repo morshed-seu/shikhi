@@ -100,6 +100,12 @@ class OfflineLessonSmokeTest {
 			dagger.Lazy { mockk<ProgressApi>(relaxed = true) },
 			dagger.Lazy { mockk<com.shikhi.app.data.api.PracticeApi>(relaxed = true) },
 			dagger.Lazy { workManager },
+			// UO2: this test only exercises enqueue() (via LocalLessonSource.complete()), never
+			// flush()'s reconcile — relaxed mocks are never actually invoked.
+			mockk(relaxed = true),
+			mockk(relaxed = true),
+			mockk(relaxed = true),
+			mockk(relaxed = true),
 		)
 		source = LocalLessonSource(database.contentReadDao(), database.contentAnswerKeyDao(), outbox)
 	}

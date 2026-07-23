@@ -13,6 +13,7 @@ import com.shikhi.app.data.api.dto.TokenPair
 import com.shikhi.app.data.api.dto.User
 import com.shikhi.app.data.db.LocalPracticeSession
 import com.shikhi.app.data.db.LocalReviewProgress
+import com.shikhi.app.data.db.LocalStatsProjection
 import com.shikhi.app.data.db.LocalWordProgress
 import com.shikhi.app.data.db.ShikhiDatabase
 import io.mockk.coEvery
@@ -153,6 +154,22 @@ class GuestRegistrationWorkerTest {
 		db.localPracticeSessionDao().upsertSession(
 			LocalPracticeSession(id = "s1", userId = oldId, cefrLevel = "A1", status = "IN_PROGRESS", startedAt = 0L),
 		)
+		// UO2: a guest's reconciled stats projection must survive the LocalGuest -> Active re-key
+		// exactly like the mastery/review/session rows above.
+		db.localStatsProjectionDao().upsert(
+			LocalStatsProjection(
+				userId = oldId,
+				baselineXp = 30,
+				hearts = 4,
+				currentStreak = 2,
+				longestStreak = 5,
+				cefrLevel = "A2",
+				lastActiveDate = null,
+				rank = 10,
+				dailyGoal = 20,
+				updatedAt = 0L,
+			),
+		)
 	}
 
 	@Test
@@ -187,6 +204,11 @@ class GuestRegistrationWorkerTest {
 		val session = db.localPracticeSessionDao().getSession("s1")
 		assertEquals(newId, session?.userId)
 
+		val statsProjection = db.localStatsProjectionDao().get(newId)
+		assertNotNull("stats projection must be re-keyed to the server userId", statsProjection)
+		assertEquals(30, statsProjection?.baselineXp)
+		assertNull("no projection row should remain under the old localGuestId", db.localStatsProjectionDao().get(oldId))
+
 		assertEquals(listOf("access-1" to "refresh-1"), tokenStore.persistedSessions)
 		assertTrue("localGuestId must be cleared once registration completes", tokenStore.localGuestIdCleared)
 		assertNull(tokenStore.localGuestId())
@@ -220,6 +242,10 @@ class GuestRegistrationWorkerTest {
 
 		// The THIRD query (practice session) never ran at all, and must also be untouched.
 		assertEquals(oldId, db.localPracticeSessionDao().getSession("s1")?.userId)
+
+		// The stats projection rekey (the LAST query in the transaction) never ran either.
+		assertNotNull("stats projection must remain at the OLD id — no partial re-key", db.localStatsProjectionDao().get(oldId))
+		assertNull(db.localStatsProjectionDao().get(newId))
 
 		assertTrue("localGuestId must NOT be cleared after a failed attempt", tokenStore.localGuestId() != null)
 		assertTrue("the failed registration's tokens are still on disk (see class doc)", tokenStore.persistedSessions.isNotEmpty())

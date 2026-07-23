@@ -15,7 +15,9 @@ import com.shikhi.app.data.content.db.ContentDatabase
 import com.shikhi.app.data.content.db.ContentReadDao
 import com.shikhi.app.data.db.ContentCacheDao
 import com.shikhi.app.data.db.LocalPracticeSessionDao
+import com.shikhi.app.data.db.LocalStatsProjectionDao
 import com.shikhi.app.data.db.MIGRATION_2_3
+import com.shikhi.app.data.db.MIGRATION_3_4
 import com.shikhi.app.data.db.OutboxDao
 import com.shikhi.app.data.db.ShikhiDatabase
 import com.shikhi.app.data.db.WordProgressDao
@@ -55,7 +57,7 @@ object AppModule {
 			// carries that state across the schema bump. Only a *downgrade* (an older APK
 			// installed over a newer DB, e.g. a manual rollback) still falls back destructively,
 			// since there is no meaningful way to migrate a schema backwards.
-			.addMigrations(MIGRATION_2_3)
+			.addMigrations(MIGRATION_2_3, MIGRATION_3_4)
 			.fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
 			.build()
 
@@ -72,6 +74,10 @@ object AppModule {
 
 	@Provides
 	fun localPracticeSessionDao(db: ShikhiDatabase): LocalPracticeSessionDao = db.localPracticeSessionDao()
+
+	// UO2: durable per-user stats projection, injected into StatsProjectionRepository.
+	@Provides
+	fun localStatsProjectionDao(db: ShikhiDatabase): LocalStatsProjectionDao = db.localStatsProjectionDao()
 
 	// Bundled, read-only content DB (OF1 §3.2): separate Room database, reseeded wholesale
 	// from ContentSeedImporter — never migrated row-by-row, so unlike `database()` above it

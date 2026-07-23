@@ -156,14 +156,20 @@ class LocalPracticeSourceTest {
 		cacheDao = FakeContentCacheDao()
 		outboxDao = FakeOutboxDao()
 		val workManager = mockk<androidx.work.WorkManager>(relaxed = true)
+		val authRepository = mockk<AuthRepository>()
+		every { authRepository.session } returns MutableStateFlow(SessionState.Active(User(id = userId)))
 		outbox = OutboxRepository(
 			outboxDao,
 			dagger.Lazy { mockk<ProgressApi>(relaxed = true) },
 			dagger.Lazy { mockk<PracticeApi>(relaxed = true) },
 			dagger.Lazy { workManager },
+			// UO2: this test only exercises enqueue() (PRACTICE_ANSWER emitted on grade()), never
+			// flush()'s reconcile — the db/projection mocks are never actually invoked.
+			mockk(relaxed = true),
+			mockk(relaxed = true),
+			authRepository,
+			FakeTokenStore(),
 		)
-		val authRepository = mockk<AuthRepository>()
-		every { authRepository.session } returns MutableStateFlow(SessionState.Active(User(id = userId)))
 
 		source = LocalPracticeSource(
 			picker = PracticeWordPicker(contentDao, wordProgressDao),

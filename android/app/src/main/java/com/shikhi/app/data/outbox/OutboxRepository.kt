@@ -1,13 +1,20 @@
 package com.shikhi.app.data.outbox
 
+import androidx.room.withTransaction
 import androidx.work.WorkManager
 import com.shikhi.app.data.api.PracticeApi
 import com.shikhi.app.data.api.ProgressApi
+import com.shikhi.app.data.api.dto.Stats
 import com.shikhi.app.data.api.dto.SubmitAnswerRequest
 import com.shikhi.app.data.api.dto.SyncBatchRequest
 import com.shikhi.app.data.api.dto.SyncEvent
+import com.shikhi.app.data.auth.AuthRepository
+import com.shikhi.app.data.auth.SessionState
+import com.shikhi.app.data.auth.TokenStore
 import com.shikhi.app.data.db.OutboxDao
 import com.shikhi.app.data.db.OutboxEventEntity
+import com.shikhi.app.data.db.ShikhiDatabase
+import com.shikhi.app.data.progress.StatsProjectionRepository
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
@@ -54,6 +61,10 @@ class OutboxRepository @Inject constructor(
 	private val progressApi: dagger.Lazy<ProgressApi>,
 	private val practiceApi: dagger.Lazy<PracticeApi>,
 	private val workManager: dagger.Lazy<WorkManager>,
+	private val db: ShikhiDatabase,
+	private val projection: StatsProjectionRepository,
+	private val authRepository: AuthRepository,
+	private val tokenStore: TokenStore,
 ) {
 
 	suspend fun enqueue(type: String, payload: JsonObject) {
@@ -85,6 +96,9 @@ class OutboxRepository @Inject constructor(
 
 		val succeeded = mutableListOf<Long>()
 		var allOk = true
+		// UO2: only a successful `/progress/sync` batch yields a fresh Stats to reconcile with —
+		// a retries-only flush (syncable empty) has nothing to collapse into the baseline.
+		var stats: Stats? = null
 
 		for (event in retries) {
 			try {
@@ -105,7 +119,7 @@ class OutboxRepository @Inject constructor(
 
 		if (syncable.isNotEmpty()) {
 			try {
-				progressApi.get().sync(
+				stats = progressApi.get().sync(
 					SyncBatchRequest(
 						syncable.map {
 							SyncEvent(
@@ -122,7 +136,28 @@ class OutboxRepository @Inject constructor(
 			}
 		}
 
-		if (succeeded.isNotEmpty()) dao.deleteByIds(succeeded)
+		// UO2 (docs/95-unified-offline-online-design.md §3.1): delete-the-synced-rows and
+		// collapse-them-into-the-baseline must happen in ONE Room transaction — that's what makes
+		// double-counting structurally impossible (a delta lives in *pending* XOR *baseline*,
+		// never both, even if the process dies between the two writes).
+		if (succeeded.isNotEmpty()) {
+			db.withTransaction {
+				dao.deleteByIds(succeeded)
+				stats?.let { projection.reconcile(currentUserId(), it) }
+			}
+		}
 		return allOk
+	}
+
+	/**
+	 * The outbox table has no userId column (flush runs under whatever bearer token/local-guest
+	 * id is currently active — see this class's doc), so reconcile needs its own read of the
+	 * active user, same logic as [com.shikhi.app.data.practice.LocalPracticeSource.currentUserId].
+	 */
+	private suspend fun currentUserId(): String = when (val state = authRepository.session.value) {
+		is SessionState.Active -> state.user.id
+		is SessionState.LocalGuest -> tokenStore.localGuestId()
+			?: error("LocalGuest session with no stored localGuestId — invariant violated")
+		else -> error("Outbox flush reconcile requires an already-authenticated or local-guest session")
 	}
 }

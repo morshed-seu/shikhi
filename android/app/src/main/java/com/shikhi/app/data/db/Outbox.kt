@@ -42,8 +42,9 @@ interface OutboxDao {
 		LocalReviewProgress::class,
 		LocalPracticeSession::class,
 		LocalPracticeExercise::class,
+		LocalStatsProjection::class,
 	],
-	version = 3,
+	version = 4,
 	exportSchema = false,
 )
 abstract class ShikhiDatabase : RoomDatabase() {
@@ -55,4 +56,7 @@ abstract class ShikhiDatabase : RoomDatabase() {
 	abstract fun wordProgressDao(): WordProgressDao
 
 	abstract fun localPracticeSessionDao(): LocalPracticeSessionDao
+
+	/** UO2: durable per-user stats projection — see [MIGRATION_3_4]. */
+	abstract fun localStatsProjectionDao(): LocalStatsProjectionDao
 }

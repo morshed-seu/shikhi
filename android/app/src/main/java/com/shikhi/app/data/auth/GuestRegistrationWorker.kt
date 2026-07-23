@@ -73,6 +73,11 @@ class GuestRegistrationWorker @AssistedInject constructor(
 				db.localPracticeSessionDao().rekey(localId, user.id)
 				// local_practice_exercises has no userId column (keyed by sessionId) — nothing
 				// to re-key there.
+				// UO2: the durable stats projection is per-user state exactly like the tables
+				// above — it must survive LocalGuest -> Active in the same atomic re-key, or a
+				// guest's reconciled baseline XP/hearts/streak would silently reset to defaults
+				// under the new server userId.
+				db.localStatsProjectionDao().rekey(localId, user.id)
 			}
 			tokenStore.clearLocalGuestId()
 			// ADR-0014 finding-1 fix: this worker is the sole authority for LocalGuest -> Active;

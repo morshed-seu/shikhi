@@ -70,6 +70,12 @@ class RemotePracticeSourceTest {
 			dagger.Lazy { io.mockk.mockk<ProgressApi>(relaxed = true) },
 			dagger.Lazy { practiceApi },
 			dagger.Lazy { workManager },
+			// UO2: this test only exercises enqueue()/the RETRY_PRACTICE_SUBMIT replay path, never
+			// flush()'s reconcile — relaxed mocks are never actually invoked.
+			io.mockk.mockk(relaxed = true),
+			io.mockk.mockk(relaxed = true),
+			io.mockk.mockk(relaxed = true),
+			io.mockk.mockk(relaxed = true),
 		)
 		source = RemotePracticeSource(practiceApi, outbox)
 	}

@@ -80,14 +80,18 @@ class OfflinePracticeSmokeTest {
 		shikhiDb = Room.inMemoryDatabaseBuilder(context, ShikhiDatabase::class.java).allowMainThreadQueries().build()
 
 		val workManager = mockk<androidx.work.WorkManager>(relaxed = true)
+		val authRepository = mockk<AuthRepository>()
+		every { authRepository.session } returns MutableStateFlow(SessionState.Active(User(id = userId)))
 		val outbox = OutboxRepository(
 			shikhiDb.outboxDao(),
 			dagger.Lazy { mockk<ProgressApi>(relaxed = true) },
 			dagger.Lazy { mockk<PracticeApi>(relaxed = true) },
 			dagger.Lazy { workManager },
+			shikhiDb,
+			com.shikhi.app.data.progress.StatsProjectionRepository(shikhiDb.localStatsProjectionDao(), shikhiDb.outboxDao()),
+			authRepository,
+			mockk(relaxed = true),
 		)
-		val authRepository = mockk<AuthRepository>()
-		every { authRepository.session } returns MutableStateFlow(SessionState.Active(User(id = userId)))
 
 		source = LocalPracticeSource(
 			picker = PracticeWordPicker(contentDb.contentReadDao(), shikhiDb.wordProgressDao()),

@@ -57,8 +57,11 @@ class ShikhiDatabaseMigrationTest {
 		v2.version = 2
 		v2.close()
 
+		// UO2: ShikhiDatabase's current version is now 4, so reaching it from this hand-built v2
+		// file needs the full migration chain registered, not just MIGRATION_2_3 — Room refuses to
+		// open with a gap in the path (see MIGRATION_3_4's own test below for the 3->4 leg alone).
 		val migrated = Room.databaseBuilder(context, ShikhiDatabase::class.java, dbName)
-			.addMigrations(MIGRATION_2_3)
+			.addMigrations(MIGRATION_2_3, MIGRATION_3_4)
 			.build()
 		try {
 			// Pre-existing data survived the migration untouched.
@@ -109,6 +112,94 @@ class ShikhiDatabaseMigrationTest {
 			assertEquals(1, rows.size)
 		} finally {
 			db.close()
+		}
+	}
+
+	/**
+	 * UO2 (docs/95-unified-offline-online-design.md §4/§8 risk 1): same technique as the v2->v3
+	 * test above, one schema bump later — hand-build a real v3 SQLite file (the DDL Room generates
+	 * for every table that existed at v3, i.e. the v2 tables plus the four [MIGRATION_2_3] added),
+	 * stamp `PRAGMA user_version = 3`, then open it through Room with both migrations registered.
+	 */
+	@Test
+	fun `migration 3 to 4 adds the local stats projection table and preserves existing v3 rows`() {
+		val context = ApplicationProvider.getApplicationContext<Context>()
+		val dbFile = context.getDatabasePath(dbName)
+		dbFile.parentFile?.mkdirs()
+		dbFile.delete()
+
+		val v3 = SQLiteDatabase.openOrCreateDatabase(dbFile, null)
+		v3.execSQL(
+			"CREATE TABLE IF NOT EXISTS `outbox_events` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+				"`idempotencyKey` TEXT NOT NULL, `type` TEXT NOT NULL, `payloadJson` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)",
+		)
+		v3.execSQL(
+			"CREATE TABLE IF NOT EXISTS `content_cache` (`key` TEXT NOT NULL, `json` TEXT NOT NULL, " +
+				"`updatedAt` INTEGER NOT NULL, PRIMARY KEY(`key`))",
+		)
+		v3.execSQL(
+			"CREATE TABLE IF NOT EXISTS `local_word_progress` (`userId` TEXT NOT NULL, `vocabularyId` TEXT NOT NULL, " +
+				"`timesSeen` INTEGER NOT NULL, `timesCorrect` INTEGER NOT NULL, `timesWrong` INTEGER NOT NULL, " +
+				"`masteryScore` INTEGER NOT NULL, `lastWrongAt` INTEGER, `lastSeenAt` INTEGER NOT NULL, " +
+				"PRIMARY KEY(`userId`, `vocabularyId`))",
+		)
+		v3.execSQL(
+			"CREATE TABLE IF NOT EXISTS `local_review_progress` (`userId` TEXT NOT NULL, `vocabularyId` TEXT NOT NULL, " +
+				"`reviewStage` INTEGER NOT NULL, `dueAt` INTEGER NOT NULL, `lastReviewedAt` INTEGER, " +
+				"`reviewCount` INTEGER NOT NULL, `successfulReviews` INTEGER NOT NULL, `failedReviews` INTEGER NOT NULL, " +
+				"`failureStreak` INTEGER NOT NULL, `lastFailureAt` INTEGER, PRIMARY KEY(`userId`, `vocabularyId`))",
+		)
+		v3.execSQL(
+			"CREATE TABLE IF NOT EXISTS `local_practice_sessions` (`id` TEXT NOT NULL, `userId` TEXT NOT NULL, " +
+				"`cefrLevel` TEXT NOT NULL, `status` TEXT NOT NULL, `roundsPlayed` INTEGER NOT NULL, " +
+				"`correctCount` INTEGER NOT NULL, `totalCount` INTEGER NOT NULL, `startedAt` INTEGER NOT NULL, " +
+				"`completedAt` INTEGER, PRIMARY KEY(`id`))",
+		)
+		v3.execSQL(
+			"CREATE TABLE IF NOT EXISTS `local_practice_exercises` (`id` TEXT NOT NULL, `sessionId` TEXT NOT NULL, " +
+				"`round` INTEGER NOT NULL, `ordinal` INTEGER NOT NULL, `vocabularyId` TEXT NOT NULL, `type` TEXT NOT NULL, " +
+				"`promptEn` TEXT NOT NULL, `promptBn` TEXT NOT NULL, `payloadJson` TEXT NOT NULL, `answerKeyJson` TEXT NOT NULL, " +
+				"`answeredCorrect` INTEGER, PRIMARY KEY(`id`))",
+		)
+		v3.execSQL(
+			"INSERT INTO local_word_progress (userId, vocabularyId, timesSeen, timesCorrect, timesWrong, masteryScore, lastSeenAt) " +
+				"VALUES ('u1', 'v1', 1, 1, 0, 4, 0)",
+		)
+		v3.version = 3
+		v3.close()
+
+		val migrated = Room.databaseBuilder(context, ShikhiDatabase::class.java, dbName)
+			.addMigrations(MIGRATION_2_3, MIGRATION_3_4)
+			.build()
+		try {
+			// Pre-existing v3 data survived the migration untouched.
+			val progress = runBlocking { migrated.wordProgressDao().getWordProgress("u1", "v1") }
+			assertEquals(4, progress?.masteryScore)
+
+			// The new table is a real, usable Room table (this also exercises Room's post-migration
+			// schema validation — a DDL mismatch here throws before this point).
+			runBlocking {
+				migrated.localStatsProjectionDao().upsert(
+					LocalStatsProjection(
+						userId = "u1",
+						baselineXp = 40,
+						hearts = 5,
+						currentStreak = 2,
+						longestStreak = 3,
+						cefrLevel = "A2",
+						lastActiveDate = null,
+						rank = 12,
+						dailyGoal = 20,
+						updatedAt = 0L,
+					),
+				)
+			}
+			val row = runBlocking { migrated.localStatsProjectionDao().get("u1") }
+			assertEquals(40, row?.baselineXp)
+			assertEquals("A2", row?.cefrLevel)
+		} finally {
+			migrated.close()
+			dbFile.delete()
 		}
 	}
 }

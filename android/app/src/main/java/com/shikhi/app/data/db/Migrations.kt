@@ -90,3 +90,41 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
 		)
 	}
 }
+
+/**
+ * v3 -> v4 (UO2, docs/95-unified-offline-online-design.md §4/§8 risk 1): adds
+ * [LocalStatsProjection], the durable on-device stats table that replaces the ad-hoc `"stats"`
+ * `content_cache` blob as offline display's source of truth (nothing reads it yet in this gate --
+ * see the doc's §7 gate sequence: `UO4`/`UO6` are the readers). Same reasoning as
+ * [MIGRATION_2_3]'s doc comment applies here: this table holds durable per-user state (a
+ * reconciled XP baseline + non-additive hearts/streak fields), so a real `Migration` is required
+ * rather than falling back to a destructive one that would silently reset a learner's projection
+ * on the next app update.
+ *
+ * Column types/nullability hand-derived from [LocalStatsProjection]'s Kotlin declaration, same
+ * convention as [MIGRATION_2_3]: `String` -> `TEXT NOT NULL`, nullable -> no `NOT NULL`,
+ * `Int`/`Long` -> `INTEGER NOT NULL`. [ShikhiDatabaseMigrationTest] is the executable proof this
+ * DDL matches what Room expects from the entity below (`exportSchema = false`, so there is no
+ * generated schema JSON to diff against instead).
+ */
+val MIGRATION_3_4 = object : Migration(3, 4) {
+	override fun migrate(db: SupportSQLiteDatabase) {
+		db.execSQL(
+			"""
+			CREATE TABLE IF NOT EXISTS `local_stats_projection` (
+				`userId` TEXT NOT NULL,
+				`baselineXp` INTEGER NOT NULL,
+				`hearts` INTEGER NOT NULL,
+				`currentStreak` INTEGER NOT NULL,
+				`longestStreak` INTEGER NOT NULL,
+				`cefrLevel` TEXT NOT NULL,
+				`lastActiveDate` TEXT,
+				`rank` INTEGER NOT NULL,
+				`dailyGoal` INTEGER NOT NULL,
+				`updatedAt` INTEGER NOT NULL,
+				PRIMARY KEY(`userId`)
+			)
+			""".trimIndent(),
+		)
+	}
+}
