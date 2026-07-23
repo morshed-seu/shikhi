@@ -1,6 +1,6 @@
 # ADR-0015 — Durable stats projection and bidirectional sync
 
-**Status:** Proposed (2026-07-23)
+**Status:** Accepted (2026-07-23) — implemented across gates `UO1`–`UO7`; see doc `95` §9.
 **Related:** ADR-0011 (guest learning, claim-in-place), ADR-0012 (native Android client),
 ADR-0014 (offline guest bootstrap), doc `93` (offline learning design — §3.4 event-sourced sync,
 §4.2 local tables, §9 risk 2 migration strategy), doc `94` (offline guest bootstrap — §3.2

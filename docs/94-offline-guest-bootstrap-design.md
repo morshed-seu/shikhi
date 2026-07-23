@@ -3,8 +3,8 @@
 **Project:** Shikhi (শিখি — "I learn")
 **Document type:** Subsystem Architecture & Implementation Specification
 **Author role:** Architect
-**Status:** DRAFT
-**Version:** 1.0
+**Status:** IMPLEMENTED (see §8 Delivery Record)
+**Version:** 1.1
 **Audience:** Android/backend engineers, AI coding agents, product owners
 **Builds on:** `adr/0011-guest-learning-and-account-claim.md`, `adr/0014-offline-guest-bootstrap.md`,
 `93-offline-learning-design.md` (§3.2 two Room databases, §3.4 sync model, §4.2 local tables),
@@ -183,3 +183,48 @@ before vs. after 3.3 completes.
 2. **Multiple `GuestRegistrationWorker` runs racing.** WorkManager's unique work name
    (`enqueueUniqueWork`, `ExistingWorkPolicy.KEEP`) avoids double-registration from overlapping
    process starts — must be specified in `OG2`, not left to default `enqueue`.
+
+---
+
+## 8. Delivery Record (`OG5` writeup)
+
+**Status: shipped.** Branches `feat/offline-guest-bootstrap` (`OG1`–`OG3`) and
+`feat/unified-offline-online` (the banner disabled-state, delivered as gate `UO7`).
+
+### What landed against §6
+
+| §6 gate | Delivered | Where |
+|---|---|---|
+| `OG0` — this doc + ADR-0014 | ☑ | docs `94`, `adr/0014` |
+| `OG1` — `localGuestId` bootstrap + `SessionState.LocalGuest` + `MainActivity` routing | ☑ | `ac994fc` |
+| `OG2` — `GuestRegistrationWorker` + atomic re-key | ☑ | `ac994fc` |
+| `OG3` — `GuestBanner` disabled state during `LocalGuest` (§3.4) | ☑ | `1224126` (as `UO7`) |
+| `OG4` — on-device airplane-mode-from-first-launch walkthrough | ☑ verified 2026-07-20 (`OG1`/`OG2` scope); re-run folded into doc `95` §9 for the full epic | — |
+
+Note on numbering: the epic tracker (`~/.claude/plans/unified-offline-online/`) and project
+memory call the banner disabled-state item `OG4` and the writeup `OG5`, one step ahead of this
+doc's §6 list, which calls the banner item `OG3` and the on-device walkthrough `OG4`. Same two
+pieces of work either way; the table above is authoritative.
+
+### Deviations from the design as written
+
+1. **`SessionState.LocalGuest → Active` has exactly one authority.** §3.3 left the transition
+   implicit. ADR-0014's finding-1 fix made `GuestRegistrationWorker` the *sole* caller of
+   `AuthRepository.completeGuestRegistration(user)`, so the re-key transaction and the state flip
+   can never be observed out of order. Nothing else may set `Active` from `LocalGuest`.
+2. **`OG3` closed a wider gap than §3.4 described.** Beyond the banner, `Practice` and `Profile`
+   had code paths that assumed a server session existed (`7f293f0`). The banner disabled-state
+   itself then slipped to `UO7`, which is why it is dated after the rest of `OG`.
+3. **The disabled state carries a note, not just a greyed button.** §3.4's "short inline note"
+   is `R.string.guest_local_pending`; both actions stay visible-but-disabled so the layout does
+   not shift when registration completes, and `submit()`/`confirmDiscardAndSignIn()` are guarded
+   in the ViewModel too — the disabled buttons are the affordance, not the enforcement.
+
+### Risks from §7, resolved
+
+- **Risk 1 (worker timing vs. live-server UI paths):** confirmed no path requires a live server
+  call while `LocalGuest` — the remaining offenders were fixed in `7f293f0` and this gate.
+- **Risk 2 (racing worker runs):** resolved as specified — `enqueueUniqueWork` with
+  `ExistingWorkPolicy.KEEP`, covered by `GuestRegistrationWorkerTest`.
+
+Neither risk is carried forward.

@@ -259,3 +259,58 @@ needs `UO2`+`UO4`+`UO5`) → `UO7` (OG4 banner disable + OG5 writeup + epic clos
    so it never sees other devices' or server-side changes. This is judged acceptable: the same
    device is also unable to push, so it is not silently diverging — it is visibly, entirely
    offline, which is the expected degraded mode, not a new failure this epic introduces.
+
+---
+
+## 9. Delivery Record (`UO7` closeout)
+
+All eight gates landed on `feat/unified-offline-online` (branched off
+`feat/offline-guest-bootstrap`; **not** rebased onto `main`, which lacks the `OF`/`GF`/`OG`
+foundation).
+
+| Gate | Title | Commit |
+|---|---|---|
+| `UO0` | This doc + ADR-0015 | `a88d90b` |
+| `UO1` | Backend `SET_LEVEL` event + last-write-wins | `62e12b6` |
+| `UO2` | Durable local stats projection + reconcile-on-flush | `9391a5e` |
+| `UO3` | Offline CEFR level change (Android) | `55e1a9b` |
+| `UO4` | Offline hearts/streak/lesson-XP into the projection | `3dc7829` |
+| `UO5` | Backend bulk `GET /v1/progress/snapshot` | `2e1096b` |
+| `UO6` | Android pull/download reconciliation | `fc5e069`, `3c18293` |
+| `UO7` | `OG4` banner disable + `OG5` writeup + closeout | `1224126`, this commit |
+
+### Regression totals at close (2026-07-23)
+
+| Suite | Command | Classes | Tests | Result |
+|---|---|---|---|---|
+| Backend | `cd backend && ./gradlew test` | 36 | 213 | green, 0 skipped |
+| Android unit | `cd android && ./gradlew :app:testDebugUnitTest` | 31 | 231 | green, 0 skipped |
+
+Release APK (`./gradlew :app:assembleRelease`): **3,262,765 bytes ≈ 3.11 MiB** — the epic added
+no assets, so the delta over the pre-`UO` build is code and string resources only.
+
+### What the four §1 gaps look like now
+
+1. **Offline CEFR level change** — `SET_LEVEL` outbox event, applied server-side with LWW on the
+   client `changedAt` (§3.3); the local level is authoritative for offline play immediately.
+2. **Durable stats** — `LocalStatsProjection` replaces the `"stats"` `content_cache` blob. XP is
+   derived (`baselineXp + Σ pendingXpDelta`), never a stored counter; hearts/streak are mutable
+   fields overwritten wholesale from server truth (§3.1). Offline XP, hearts and streak show real
+   live values instead of doc `93`'s provisional constants.
+3. **Pull sync** — `GET /v1/progress/snapshot` + a one-shot overwrite gated on an empty outbox
+   (§3.2), so a reinstall-then-sign-in rebuilds progress and a second device's work arrives.
+4. **`OG4`/`OG5`** — banner claim/sign-in disabled while `LocalGuest`; writeup in doc `94` §8.
+
+### Residual risks
+
+Risks 2–4 of §8 stand as accepted, unchanged. Risk 1 (`ShikhiDatabase` migration) is discharged:
+the version bump shipped with a real `Migration` proven by `ShikhiDatabaseMigrationTest`, no
+destructive fallback.
+
+### Not covered by the automated suites
+
+The **on-device airplane-mode walkthrough** is the one exit criterion that cannot run headless
+(guest first launch offline → practice + complete a lesson + change CEFR level → live XP/streak/
+hearts in Profile → go online → server reconciles and the projection matches → claim the account
+→ reinstall, sign in, pull rebuilds progress). It needs a physical device and is tracked as the
+epic's final manual gate.
