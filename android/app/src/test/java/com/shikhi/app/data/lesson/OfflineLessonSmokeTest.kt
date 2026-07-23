@@ -7,12 +7,17 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.shikhi.app.data.api.ProgressApi
+import com.shikhi.app.data.api.dto.User
+import com.shikhi.app.data.auth.AuthRepository
+import com.shikhi.app.data.auth.SessionState
 import com.shikhi.app.data.content.db.ContentDatabase
 import com.shikhi.app.data.content.seed.ContentSeedImporter
 import com.shikhi.app.data.db.OutboxDao
 import com.shikhi.app.data.db.OutboxEventEntity
 import com.shikhi.app.data.outbox.OutboxEventType
 import com.shikhi.app.data.outbox.OutboxRepository
+import com.shikhi.app.data.progress.StatsProjectionRepository
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -60,12 +65,39 @@ class OfflineLessonSmokeTest {
 	private class FakeOutboxDao : OutboxDao {
 		val rows = mutableListOf<OutboxEventEntity>()
 		private var nextId = 1L
-		override suspend fun insert(event: OutboxEventEntity) {
-			rows += event.copy(id = nextId++)
+		override suspend fun insert(event: OutboxEventEntity): Long {
+			val id = nextId++
+			rows += event.copy(id = id)
+			return id
 		}
 		override suspend fun all(): List<OutboxEventEntity> = rows.sortedBy { it.id }
 		override suspend fun deleteByIds(ids: List<Long>) {
 			rows.removeAll { it.id in ids }
+		}
+	}
+
+	/** UO4: map-backed fake so [StatsProjectionRepository] can be constructed without Room. */
+	private class FakeLocalStatsProjectionDao : com.shikhi.app.data.db.LocalStatsProjectionDao {
+		val rows = mutableMapOf<String, com.shikhi.app.data.db.LocalStatsProjection>()
+		override suspend fun get(userId: String) = rows[userId]
+		override suspend fun upsert(row: com.shikhi.app.data.db.LocalStatsProjection) { rows[row.userId] = row }
+		override suspend fun rekey(oldUserId: String, newUserId: String) {
+			rows.remove(oldUserId)?.let { rows[newUserId] = it.copy(userId = newUserId) }
+		}
+	}
+
+	/** UO4: map-backed fake, keyed by (userId, lessonId, contentVersionId). */
+	private class FakeLocalLessonCompletionDao : com.shikhi.app.data.db.LocalLessonCompletionDao {
+		val rows = mutableMapOf<Triple<String, String, String>, com.shikhi.app.data.db.LocalLessonCompletion>()
+		override suspend fun get(userId: String, lessonId: String, contentVersionId: String) =
+			rows[Triple(userId, lessonId, contentVersionId)]
+		override suspend fun upsert(row: com.shikhi.app.data.db.LocalLessonCompletion) {
+			rows[Triple(row.userId, row.lessonId, row.contentVersionId)] = row
+		}
+		override suspend fun rekey(oldUserId: String, newUserId: String) {
+			rows.keys.filter { it.first == oldUserId }.toList().forEach { key ->
+				rows.remove(key)?.let { rows[Triple(newUserId, key.second, key.third)] = it.copy(userId = newUserId) }
+			}
 		}
 	}
 
@@ -79,6 +111,8 @@ class OfflineLessonSmokeTest {
 	private val wordBankExerciseId = "50000000-0000-0000-0000-000000000011"
 	private val fillBlankLessonId = "40000000-0000-0000-0000-000000000021"
 	private val fillBlankExerciseId = "50000000-0000-0000-0000-000000000021"
+
+	private val userId = "user-1"
 
 	private lateinit var database: ContentDatabase
 	private lateinit var outboxDao: FakeOutboxDao
@@ -94,6 +128,12 @@ class OfflineLessonSmokeTest {
 		assertTrue("cold start: the seed hasn't imported yet, so this must run", imported)
 
 		outboxDao = FakeOutboxDao()
+		val lessonCompletionDao = FakeLocalLessonCompletionDao()
+		val statsProjectionRepository = StatsProjectionRepository(
+			FakeLocalStatsProjectionDao(),
+			outboxDao,
+			lessonCompletionDao,
+		)
 		val workManager = mockk<androidx.work.WorkManager>(relaxed = true)
 		val outbox = OutboxRepository(
 			outboxDao,
@@ -107,7 +147,17 @@ class OfflineLessonSmokeTest {
 			mockk(relaxed = true),
 			mockk(relaxed = true),
 		)
-		source = LocalLessonSource(database.contentReadDao(), database.contentAnswerKeyDao(), outbox)
+		val authRepository = mockk<AuthRepository>()
+		every { authRepository.session } returns MutableStateFlow(SessionState.Active(User(id = userId)))
+		source = LocalLessonSource(
+			database.contentReadDao(),
+			database.contentAnswerKeyDao(),
+			outbox,
+			statsProjectionRepository,
+			lessonCompletionDao,
+			authRepository,
+			mockk(relaxed = true),
+		)
 	}
 
 	@After

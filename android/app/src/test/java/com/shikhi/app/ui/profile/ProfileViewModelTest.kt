@@ -16,6 +16,7 @@ import com.shikhi.app.data.auth.TokenStore
 import com.shikhi.app.data.connectivity.ConnectivityChecker
 import com.shikhi.app.data.content.Sourced
 import com.shikhi.app.data.dashboard.DashboardRepository
+import com.shikhi.app.data.progress.StatsProjectionRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -77,6 +78,10 @@ class ProfileViewModelTest {
 		}
 	}
 
+	/** UO4: relaxed by default (returns `false` from `hasReconciled`, i.e. `neverSynced == true`)
+	 * — tests that specifically care about the value override with their own `coEvery` stub. */
+	private val statsProjectionRepository = mockk<StatsProjectionRepository>(relaxed = true)
+
 	private val dashboard = DashboardResponse(
 		stats = Stats(hearts = 4, xp = 120, currentStreak = 3, longestStreak = 9, dailyGoal = 20, cefrLevel = "A2"),
 		wordMastery = listOf(WordMasteryEntry("A1", mastered = 40, total = 100)),
@@ -134,7 +139,7 @@ class ProfileViewModelTest {
 		coEvery { dashboardRepository.dashboard() } returns Sourced(dashboard, fromCache = false)
 		coEvery { dashboardRepository.identities() } returns listOf(Identity("EMAIL", true, "n***@example.com"))
 
-		val vm = ProfileViewModel(activeAuthRepository(user), dashboardRepository)
+		val vm = ProfileViewModel(activeAuthRepository(user), dashboardRepository, statsProjectionRepository, mockk(relaxed = true))
 		dispatcher.scheduler.advanceUntilIdle()
 
 		val s = vm.state.value
@@ -155,7 +160,7 @@ class ProfileViewModelTest {
 		coEvery { dashboardRepository.dashboard() } returns Sourced(dashboard, fromCache = false)
 		coEvery { dashboardRepository.identities() } throws RuntimeException("network down")
 
-		val vm = ProfileViewModel(activeAuthRepository(user), dashboardRepository)
+		val vm = ProfileViewModel(activeAuthRepository(user), dashboardRepository, statsProjectionRepository, mockk(relaxed = true))
 		dispatcher.scheduler.advanceUntilIdle()
 
 		val s = vm.state.value
@@ -172,7 +177,7 @@ class ProfileViewModelTest {
 		coEvery { dashboardRepository.dashboard() } returns Sourced(dashboard, fromCache = false)
 		coEvery { dashboardRepository.identities() } returns emptyList()
 
-		val vm = ProfileViewModel(activeAuthRepository(guest), dashboardRepository)
+		val vm = ProfileViewModel(activeAuthRepository(guest), dashboardRepository, statsProjectionRepository, mockk(relaxed = true))
 		dispatcher.scheduler.advanceUntilIdle()
 
 		assertTrue(vm.state.value.isGuest)
@@ -188,7 +193,7 @@ class ProfileViewModelTest {
 
 		val tokenStore = FakeTokenStore(null, "rt")
 		val authRepository = activeAuthRepository(user, tokenStore)
-		val vm = ProfileViewModel(authRepository, dashboardRepository)
+		val vm = ProfileViewModel(authRepository, dashboardRepository, statsProjectionRepository, mockk(relaxed = true))
 		dispatcher.scheduler.advanceUntilIdle()
 		assertTrue(authRepository.session.value is SessionState.Active)
 
@@ -218,7 +223,7 @@ class ProfileViewModelTest {
 		coEvery { dashboardRepository.updateProfile(displayName = "New Name", uiLocale = null) } returns updated
 
 		val authRepository = activeAuthRepository(user)
-		val vm = ProfileViewModel(authRepository, dashboardRepository)
+		val vm = ProfileViewModel(authRepository, dashboardRepository, statsProjectionRepository, mockk(relaxed = true))
 		dispatcher.scheduler.advanceUntilIdle()
 
 		vm.startEditName()
@@ -230,7 +235,7 @@ class ProfileViewModelTest {
 		assertEquals("New Name", vm.state.value.user?.displayName)
 		assertFalse(vm.state.value.editingName)
 
-		val secondVisit = ProfileViewModel(authRepository, dashboardRepository)
+		val secondVisit = ProfileViewModel(authRepository, dashboardRepository, statsProjectionRepository, mockk(relaxed = true))
 		dispatcher.scheduler.advanceUntilIdle()
 		assertEquals("New Name", secondVisit.state.value.user?.displayName)
 	}
@@ -242,7 +247,7 @@ class ProfileViewModelTest {
 		coEvery { dashboardRepository.dashboard() } returns null
 		coEvery { dashboardRepository.identities() } returns emptyList()
 
-		val vm = ProfileViewModel(activeAuthRepository(user), dashboardRepository)
+		val vm = ProfileViewModel(activeAuthRepository(user), dashboardRepository, statsProjectionRepository, mockk(relaxed = true))
 		dispatcher.scheduler.advanceUntilIdle()
 
 		val s = vm.state.value
@@ -258,7 +263,7 @@ class ProfileViewModelTest {
 		// surfacing "Could not load your profile."
 		val dashboardRepository = mockk<DashboardRepository>(relaxed = true)
 
-		val vm = ProfileViewModel(localGuestAuthRepository(), dashboardRepository)
+		val vm = ProfileViewModel(localGuestAuthRepository(), dashboardRepository, statsProjectionRepository, mockk(relaxed = true))
 		dispatcher.scheduler.advanceUntilIdle()
 
 		val s = vm.state.value
@@ -269,5 +274,25 @@ class ProfileViewModelTest {
 		assertNull(s.dashboard)
 		coVerify(exactly = 0) { dashboardRepository.dashboard() }
 		coVerify(exactly = 0) { dashboardRepository.identities() }
+	}
+
+	@Test
+	fun `neverSynced reflects StatsProjectionRepository hasReconciled`() = runTest(dispatcher) {
+		val user = User(id = "u1", displayName = "Nadia", uiLocale = "bn", isGuest = false)
+		val dashboardRepository = mockk<DashboardRepository>(relaxed = true)
+		coEvery { dashboardRepository.dashboard() } returns Sourced(dashboard, fromCache = false)
+		coEvery { dashboardRepository.identities() } returns emptyList()
+
+		val neverReconciled = mockk<StatsProjectionRepository>()
+		coEvery { neverReconciled.hasReconciled("u1") } returns false
+		val vmNotSynced = ProfileViewModel(activeAuthRepository(user), dashboardRepository, neverReconciled, mockk(relaxed = true))
+		dispatcher.scheduler.advanceUntilIdle()
+		assertTrue(vmNotSynced.state.value.neverSynced)
+
+		val reconciled = mockk<StatsProjectionRepository>()
+		coEvery { reconciled.hasReconciled("u1") } returns true
+		val vmSynced = ProfileViewModel(activeAuthRepository(user), dashboardRepository, reconciled, mockk(relaxed = true))
+		dispatcher.scheduler.advanceUntilIdle()
+		assertFalse(vmSynced.state.value.neverSynced)
 	}
 }

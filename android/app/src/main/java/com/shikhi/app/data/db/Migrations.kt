@@ -128,3 +128,40 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
 		)
 	}
 }
+
+/**
+ * v4 -> v5 (UO4, `~/.claude/plans/unified-offline-online/UO4.md`): two schema changes landing
+ * together, same "bundle related changes into one Migration" precedent as [MIGRATION_2_3]'s four
+ * `CREATE TABLE`s in one bump. First, [LocalLessonCompletion] — the local mirror of the server's
+ * `UserProgress` first-completion gate, letting offline lesson completion award real XP exactly
+ * once per lesson instead of the flat 0 UO4 replaces. Second, a nullable `reconciledAt` column on
+ * `local_stats_projection` — the durable "has this row ever actually synced" marker
+ * [com.shikhi.app.data.progress.StatsProjectionRepository.hasReconciled] reads, which
+ * `OfflineCopyBanner` now keys off instead of the current fetch's `fromCache` flag. Both are
+ * durable per-user state (the completion ledger drives XP correctness; `reconciledAt` drives a
+ * user-visible banner), so — same reasoning as [MIGRATION_2_3]/[MIGRATION_3_4]'s doc comments —
+ * a real `Migration` is required, not a destructive fallback that would silently reset either on
+ * the next app update.
+ *
+ * Column types/nullability hand-derived from [LocalLessonCompletion]'s Kotlin declaration and
+ * [LocalStatsProjection]'s new field, same convention as the migrations above.
+ * [ShikhiDatabaseMigrationTest] is the executable proof this DDL matches what Room expects
+ * (`exportSchema = false`, so there is no generated schema JSON to diff against instead).
+ */
+val MIGRATION_4_5 = object : Migration(4, 5) {
+	override fun migrate(db: SupportSQLiteDatabase) {
+		db.execSQL(
+			"""
+			CREATE TABLE IF NOT EXISTS `local_lesson_completion` (
+				`userId` TEXT NOT NULL,
+				`lessonId` TEXT NOT NULL,
+				`contentVersionId` TEXT NOT NULL,
+				`firstCompletionEventId` INTEGER NOT NULL,
+				`completedAt` INTEGER NOT NULL,
+				PRIMARY KEY(`userId`, `lessonId`, `contentVersionId`)
+			)
+			""".trimIndent(),
+		)
+		db.execSQL("ALTER TABLE `local_stats_projection` ADD COLUMN `reconciledAt` INTEGER")
+	}
+}

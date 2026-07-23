@@ -14,10 +14,12 @@ import com.shikhi.app.data.content.db.ContentAnswerKeyDao
 import com.shikhi.app.data.content.db.ContentDatabase
 import com.shikhi.app.data.content.db.ContentReadDao
 import com.shikhi.app.data.db.ContentCacheDao
+import com.shikhi.app.data.db.LocalLessonCompletionDao
 import com.shikhi.app.data.db.LocalPracticeSessionDao
 import com.shikhi.app.data.db.LocalStatsProjectionDao
 import com.shikhi.app.data.db.MIGRATION_2_3
 import com.shikhi.app.data.db.MIGRATION_3_4
+import com.shikhi.app.data.db.MIGRATION_4_5
 import com.shikhi.app.data.db.OutboxDao
 import com.shikhi.app.data.db.ShikhiDatabase
 import com.shikhi.app.data.db.WordProgressDao
@@ -57,7 +59,7 @@ object AppModule {
 			// carries that state across the schema bump. Only a *downgrade* (an older APK
 			// installed over a newer DB, e.g. a manual rollback) still falls back destructively,
 			// since there is no meaningful way to migrate a schema backwards.
-			.addMigrations(MIGRATION_2_3, MIGRATION_3_4)
+			.addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
 			.fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
 			.build()
 
@@ -78,6 +80,10 @@ object AppModule {
 	// UO2: durable per-user stats projection, injected into StatsProjectionRepository.
 	@Provides
 	fun localStatsProjectionDao(db: ShikhiDatabase): LocalStatsProjectionDao = db.localStatsProjectionDao()
+
+	// UO4: local per-lesson first-completion ledger, injected into StatsProjectionRepository/LocalLessonSource.
+	@Provides
+	fun localLessonCompletionDao(db: ShikhiDatabase): LocalLessonCompletionDao = db.localLessonCompletionDao()
 
 	// Bundled, read-only content DB (OF1 §3.2): separate Room database, reseeded wholesale
 	// from ContentSeedImporter — never migrated row-by-row, so unlike `database()` above it

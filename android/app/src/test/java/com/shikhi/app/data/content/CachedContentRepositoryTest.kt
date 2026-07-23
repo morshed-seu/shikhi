@@ -2,6 +2,9 @@ package com.shikhi.app.data.content
 
 import com.shikhi.app.data.api.ProgressApi
 import com.shikhi.app.data.api.dto.Stats
+import com.shikhi.app.data.api.dto.User
+import com.shikhi.app.data.auth.AuthRepository
+import com.shikhi.app.data.auth.SessionState
 import com.shikhi.app.data.content.db.ContentReadDao
 import com.shikhi.app.data.content.db.LocalExercise
 import com.shikhi.app.data.content.db.LocalLesson
@@ -10,6 +13,12 @@ import com.shikhi.app.data.content.db.LocalUnit
 import com.shikhi.app.data.content.db.LocalVocabulary
 import com.shikhi.app.data.db.CachedPayload
 import com.shikhi.app.data.db.ContentCacheDao
+import com.shikhi.app.data.progress.StatsProjectionRepository
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.every
+import io.mockk.mockk
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -102,11 +111,22 @@ class CachedContentRepositoryTest {
 
 	private lateinit var contentDao: FakeContentReadDao
 	private lateinit var cache: FakeContentCacheDao
+	private lateinit var statsProjectionRepository: StatsProjectionRepository
+	private lateinit var authRepository: AuthRepository
+
+	private val userId = "user-1"
 
 	@Before
 	fun setUp() {
 		contentDao = FakeContentReadDao()
 		cache = FakeContentCacheDao()
+		statsProjectionRepository = mockk()
+		// Default: a no-op passthrough, so existing tests that don't care about the UO4 overlay
+		// keep seeing the raw cached Stats. Tests that DO care override this with their own
+		// coEvery stub returning a distinguishable value.
+		coEvery { statsProjectionRepository.overlay(any(), any()) } answers { secondArg() }
+		authRepository = mockk()
+		every { authRepository.session } returns MutableStateFlow(SessionState.Active(User(id = userId)))
 	}
 
 	private fun repository(server: MockWebServer? = null): CachedContentRepository {
@@ -127,7 +147,14 @@ class CachedContentRepositoryTest {
 					throw UnsupportedOperationException()
 			}
 		}
-		return CachedContentRepository(progressApi = progressApi, cache = cache, contentDao = contentDao)
+		return CachedContentRepository(
+			progressApi = progressApi,
+			cache = cache,
+			contentDao = contentDao,
+			statsProjectionRepository = statsProjectionRepository,
+			authRepository = authRepository,
+			tokenStore = mockk(relaxed = true),
+		)
 	}
 
 	@Test
@@ -199,6 +226,48 @@ class CachedContentRepositoryTest {
 			val stale = repository(server).stats()
 			assertTrue(stale != null && stale.fromCache)
 			assertEquals(10, stale!!.value.xp)
+		} finally {
+			server.shutdown()
+		}
+	}
+
+	// ---- UO4: overlaying the live local projection onto a cached stats() response -----------
+
+	@Test
+	fun `a cached stats result is overlaid with the live local projection`() = runBlocking {
+		val server = MockWebServer()
+		server.start()
+		try {
+			val statsJson = """{"hearts":5,"xp":10,"currentStreak":1,"longestStreak":2,"rank":0,"dailyGoal":20,"cefrLevel":"A1"}"""
+			server.enqueue(MockResponse().setBody(statsJson).addHeader("Content-Type", "application/json"))
+			val repo = repository(server)
+			repo.stats() // primes the cache
+
+			val overlaidValue = Stats(hearts = 3, xp = 999, currentStreak = 7, longestStreak = 7, cefrLevel = "B1")
+			coEvery { statsProjectionRepository.overlay(userId, any()) } returns overlaidValue
+
+			server.enqueue(MockResponse().setResponseCode(503))
+			val stale = repo.stats()
+
+			assertTrue(stale != null && stale.fromCache)
+			assertEquals(overlaidValue, stale!!.value)
+		} finally {
+			server.shutdown()
+		}
+	}
+
+	@Test
+	fun `a fresh (non-cached) stats result is not overlaid`() = runBlocking {
+		val server = MockWebServer()
+		server.start()
+		try {
+			val statsJson = """{"hearts":5,"xp":10,"currentStreak":1,"longestStreak":2,"rank":0,"dailyGoal":20,"cefrLevel":"A1"}"""
+			server.enqueue(MockResponse().setBody(statsJson).addHeader("Content-Type", "application/json"))
+
+			val fresh = repository(server).stats()
+
+			assertTrue(fresh != null && !fresh.fromCache)
+			coVerify(exactly = 0) { statsProjectionRepository.overlay(any(), any()) }
 		} finally {
 			server.shutdown()
 		}

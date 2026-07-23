@@ -18,6 +18,7 @@ import com.shikhi.app.data.db.LocalPracticeSession
 import com.shikhi.app.data.db.LocalPracticeSessionDao
 import com.shikhi.app.data.outbox.OutboxEventType
 import com.shikhi.app.data.outbox.OutboxRepository
+import com.shikhi.app.data.progress.StatsProjectionRepository
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -28,6 +29,8 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -52,6 +55,7 @@ class LocalPracticeSource @Inject constructor(
 	private val cacheDao: ContentCacheDao,
 	private val authRepository: AuthRepository,
 	private val tokenStore: TokenStore,
+	private val statsProjectionRepository: StatsProjectionRepository,
 ) : PracticePlaySource {
 
 	private val generator = PracticeGenerator()
@@ -115,7 +119,17 @@ class LocalPracticeSource @Inject constructor(
 			},
 		)
 
-		return PracticeGradeOutcome(verdict = PracticeGrading.verdict(correct, answerKey), hearts = FULL_HEARTS)
+		// UO4: mirrors the backend's ProgressService.recordPracticeAnswer — registerActiveDay
+		// always runs, loseHeart only on a wrong answer. XP is NOT added here since it's already
+		// derived via the PRACTICE_ANSWER pending-delta path above (StatsProjectionRepository);
+		// modeling it twice would double-count.
+		statsProjectionRepository.registerActiveDay(session.userId, LocalDate.now(ZoneOffset.UTC))
+		if (!correct) statsProjectionRepository.loseHeart(session.userId)
+
+		return PracticeGradeOutcome(
+			verdict = PracticeGrading.verdict(correct, answerKey),
+			hearts = statsProjectionRepository.currentHearts(session.userId),
+		)
 	}
 
 	override suspend fun complete(sessionId: String): PracticeResult {
@@ -139,7 +153,7 @@ class LocalPracticeSource @Inject constructor(
 			// count against the whole bundled vocabulary) — always false offline, same
 			// no-progress-gamification-model choice OF3 made for lesson hearts/XP.
 			levelUpEligible = false,
-			stats = Stats(hearts = FULL_HEARTS, cefrLevel = session.cefrLevel),
+			stats = Stats(hearts = statsProjectionRepository.currentHearts(session.userId), cefrLevel = session.cefrLevel),
 		)
 	}
 
@@ -270,9 +284,5 @@ class LocalPracticeSource @Inject constructor(
 		 * layers to avoid a data->ui dependency; value parity is enforced by
 		 * `LocalPracticeSourceTest`. */
 		const val XP_PER_CORRECT = 10
-
-		/** No local hearts model is ported (§7 non-goals) — mirrors LocalLessonSource.FULL_HEARTS
-		 * (the server's `UserStats.MAX_HEARTS`). */
-		const val FULL_HEARTS = 5
 	}
 }

@@ -111,7 +111,7 @@ fun ProfileScreen(onBack: () -> Unit, viewModel: ProfileViewModel = hiltViewMode
 			}
 			else -> ui.dashboard?.let { dashboard ->
 				Spacer(Modifier.height(12.dp))
-				if (ui.fromCache) OfflineCopyBanner()
+				if (ui.neverSynced) OfflineCopyBanner()
 
 				ProfileCard(ui = ui, viewModel = viewModel)
 				Spacer(Modifier.height(16.dp))

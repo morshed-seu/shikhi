@@ -18,6 +18,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.time.LocalDate
 
 /**
  * UO2 (docs/95-unified-offline-online-design.md §3.1, `~/.claude/plans/unified-offline-online/
@@ -39,7 +40,7 @@ class StatsProjectionRepositoryTest {
 	fun setUp() {
 		val context = ApplicationProvider.getApplicationContext<Context>()
 		db = Room.inMemoryDatabaseBuilder(context, ShikhiDatabase::class.java).allowMainThreadQueries().build()
-		repository = StatsProjectionRepository(db.localStatsProjectionDao(), db.outboxDao())
+		repository = StatsProjectionRepository(db.localStatsProjectionDao(), db.outboxDao(), db.localLessonCompletionDao())
 	}
 
 	@After
@@ -62,22 +63,39 @@ class StatsProjectionRepositoryTest {
 		)
 	}
 
-	private suspend fun enqueueCompleteLesson(score: Int) {
-		db.outboxDao().insert(
+	/**
+	 * UO4: `COMPLETE_LESSON` events only contribute XP when a matching [LocalLessonCompletion]
+	 * ledger row pins THIS event as the lesson's first completion (see
+	 * [StatsProjectionRepository]'s `pendingXpDelta` doc) — this helper enqueues the event AND
+	 * writes that ledger row, mirroring what [com.shikhi.app.data.lesson.LocalLessonSource.complete]
+	 * does for a genuine first-time completion, which is what every existing (pre-UO4) call site of
+	 * this helper actually intends to simulate.
+	 */
+	private suspend fun enqueueCompleteLesson(score: Int, lessonId: String = "lesson-1") {
+		val eventId = db.outboxDao().insert(
 			OutboxEventEntity(
 				idempotencyKey = "idem-${System.nanoTime()}",
 				type = OutboxEventType.COMPLETE_LESSON,
 				payloadJson = buildJsonObject {
-					put("lessonId", "lesson-1")
+					put("lessonId", lessonId)
 					put("score", score)
 				}.toString(),
 				createdAt = 0L,
 			),
 		)
+		db.localLessonCompletionDao().upsert(
+			com.shikhi.app.data.db.LocalLessonCompletion(
+				userId = userId,
+				lessonId = lessonId,
+				contentVersionId = "",
+				firstCompletionEventId = eventId,
+				completedAt = 0L,
+			),
+		)
 	}
 
 	@Test
-	fun `ensureRow is idempotent and seeds zeroed defaults`() = runBlocking {
+	fun `ensureRow is idempotent and seeds zeroed defaults with full hearts`() = runBlocking {
 		repository.ensureRow(userId)
 		repository.ensureRow(userId) // second call must be a no-op, not overwrite
 
@@ -85,6 +103,9 @@ class StatsProjectionRepositoryTest {
 		assertNotNull(row)
 		assertEquals(0, row?.baselineXp)
 		assertEquals("A1", row?.cefrLevel)
+		// UO4 fix: a fresh account's true starting hearts is MAX_HEARTS (5), not Stats()'s wire
+		// default of 0.
+		assertEquals(5, row?.hearts)
 	}
 
 	@Test
@@ -184,5 +205,146 @@ class StatsProjectionRepositoryTest {
 		assertEquals(50, row?.rank)
 		assertEquals(20, row?.dailyGoal)
 		assertEquals("B1", row?.cefrLevel)
+	}
+
+	// ---- UO4: registerActiveDay / loseHeart / currentHearts / hasReconciled / overlay ------
+
+	@Test
+	fun `registerActiveDay on a fresh row sets streak to 1, refills hearts, and sets lastActiveDate`() = runBlocking {
+		val today = LocalDate.parse("2026-07-23")
+		repository.registerActiveDay(userId, today)
+
+		val row = db.localStatsProjectionDao().get(userId)
+		assertEquals(1, row?.currentStreak)
+		assertEquals(1, row?.longestStreak)
+		assertEquals(5, row?.hearts)
+		assertEquals("2026-07-23", row?.lastActiveDate)
+	}
+
+	@Test
+	fun `registerActiveDay called twice on the same day is a no-op the second time`() = runBlocking {
+		val today = LocalDate.parse("2026-07-23")
+		repository.registerActiveDay(userId, today)
+		repository.loseHeart(userId) // so a second registerActiveDay refilling would be observable
+		repository.registerActiveDay(userId, today)
+
+		val row = db.localStatsProjectionDao().get(userId)
+		assertEquals("second call on the same day must not double-increment the streak", 1, row?.currentStreak)
+		assertEquals("second call on the same day must be a no-op, not a hearts refill", 4, row?.hearts)
+	}
+
+	@Test
+	fun `registerActiveDay on the day after lastActiveDate increments the streak`() = runBlocking {
+		repository.registerActiveDay(userId, LocalDate.parse("2026-07-22"))
+		repository.registerActiveDay(userId, LocalDate.parse("2026-07-23"))
+
+		val row = db.localStatsProjectionDao().get(userId)
+		assertEquals(2, row?.currentStreak)
+		assertEquals(2, row?.longestStreak)
+	}
+
+	@Test
+	fun `registerActiveDay after a gap of more than one day resets the streak to 1`() = runBlocking {
+		repository.registerActiveDay(userId, LocalDate.parse("2026-07-20"))
+		repository.registerActiveDay(userId, LocalDate.parse("2026-07-23")) // 3-day gap
+
+		val row = db.localStatsProjectionDao().get(userId)
+		assertEquals(1, row?.currentStreak)
+		assertEquals("longest streak from before the gap must survive", 1, row?.longestStreak)
+	}
+
+	@Test
+	fun `loseHeart decrements and floors at zero rather than going negative`() = runBlocking {
+		repository.ensureRow(userId)
+		repeat(7) { repository.loseHeart(userId) } // more than MAX_HEARTS (5) wrong answers
+
+		val row = db.localStatsProjectionDao().get(userId)
+		assertEquals(0, row?.hearts)
+	}
+
+	@Test
+	fun `currentHearts seeds a row if absent and returns full hearts`() = runBlocking {
+		assertEquals(5, repository.currentHearts(userId))
+		assertNotNull(db.localStatsProjectionDao().get(userId))
+	}
+
+	@Test
+	fun `hasReconciled is false before any reconcile call and true after`() = runBlocking {
+		repository.ensureRow(userId)
+		assertEquals(false, repository.hasReconciled(userId))
+
+		repository.reconcile(userId, Stats(xp = 10))
+		assertEquals(true, repository.hasReconciled(userId))
+	}
+
+	@Test
+	fun `overlay returns the input stats unchanged when no projection row exists`() = runBlocking {
+		val input = Stats(xp = 99, hearts = 2, currentStreak = 3, longestStreak = 4, cefrLevel = "B2")
+		val overlaid = repository.overlay(userId, input)
+		assertEquals(input, overlaid)
+	}
+
+	@Test
+	fun `overlay applies xp, hearts, streak, and cefrLevel from the local projection`() = runBlocking {
+		repository.reconcile(userId, Stats(xp = 50, hearts = 5, currentStreak = 1, longestStreak = 1, cefrLevel = "A1"))
+		repository.registerActiveDay(userId, LocalDate.parse("2026-07-23"))
+		enqueuePracticeAnswer(correct = true) // +10 pending
+
+		val stale = Stats(xp = 0, hearts = 0, currentStreak = 0, longestStreak = 0, cefrLevel = "Z9")
+		val overlaid = repository.overlay(userId, stale)
+
+		assertEquals("overlay must use displayXp, not the raw baseline", 60, overlaid.xp)
+		assertEquals(5, overlaid.hearts)
+		assertEquals(1, overlaid.currentStreak)
+		assertEquals("A1", overlaid.cefrLevel)
+	}
+
+	// ---- UO4: COMPLETE_LESSON ledger-gated pendingXpDelta -----------------------------------
+
+	@Test
+	fun `displayXp counts a COMPLETE_LESSON event whose id matches the ledger's firstCompletionEventId`() = runBlocking {
+		val eventId = db.outboxDao().insert(
+			OutboxEventEntity(
+				idempotencyKey = "idem-lesson-1",
+				type = OutboxEventType.COMPLETE_LESSON,
+				payloadJson = buildJsonObject { put("lessonId", "lesson-1"); put("score", 3) }.toString(),
+				createdAt = 0L,
+			),
+		)
+		db.localLessonCompletionDao().upsert(
+			com.shikhi.app.data.db.LocalLessonCompletion(
+				userId = userId,
+				lessonId = "lesson-1",
+				contentVersionId = "",
+				firstCompletionEventId = eventId,
+				completedAt = 0L,
+			),
+		)
+
+		assertEquals(30, repository.displayXp(userId))
+	}
+
+	@Test
+	fun `displayXp does not count a COMPLETE_LESSON event that is not the ledger's first-completion event`() = runBlocking {
+		val eventId = db.outboxDao().insert(
+			OutboxEventEntity(
+				idempotencyKey = "idem-lesson-repeat",
+				type = OutboxEventType.COMPLETE_LESSON,
+				payloadJson = buildJsonObject { put("lessonId", "lesson-1"); put("score", 3) }.toString(),
+				createdAt = 0L,
+			),
+		)
+		// Ledger says some EARLIER event (not this one) was the real first completion.
+		db.localLessonCompletionDao().upsert(
+			com.shikhi.app.data.db.LocalLessonCompletion(
+				userId = userId,
+				lessonId = "lesson-1",
+				contentVersionId = "",
+				firstCompletionEventId = eventId - 1,
+				completedAt = 0L,
+			),
+		)
+
+		assertEquals(0, repository.displayXp(userId))
 	}
 }

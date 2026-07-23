@@ -21,6 +21,13 @@ import androidx.room.Query
  * `lastActiveDate` has no source yet ([com.shikhi.app.data.api.dto.Stats] doesn't carry it) — the
  * column exists now so the eventual `UO4`/`UO6` writer doesn't need another migration, but nothing
  * populates it in this gate.
+ *
+ * [reconciledAt] (UO4): null until the first real
+ * [com.shikhi.app.data.progress.StatsProjectionRepository.reconcile] call for this user — the
+ * durable marker distinguishing "genuinely never synced" from "has a row because local activity
+ * happened." Local activity via `ensureRow` no longer implies a sync happened, now that UO4 adds
+ * local-only mutations ([com.shikhi.app.data.progress.StatsProjectionRepository.registerActiveDay]/
+ * `loseHeart`) that write this row without ever talking to the server.
  */
 @Entity(tableName = "local_stats_projection")
 data class LocalStatsProjection(
@@ -34,6 +41,7 @@ data class LocalStatsProjection(
 	val rank: Int,
 	val dailyGoal: Int,
 	val updatedAt: Long,
+	val reconciledAt: Long? = null,
 )
 
 @Dao

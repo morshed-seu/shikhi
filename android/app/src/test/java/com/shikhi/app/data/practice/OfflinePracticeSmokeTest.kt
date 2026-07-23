@@ -82,13 +82,18 @@ class OfflinePracticeSmokeTest {
 		val workManager = mockk<androidx.work.WorkManager>(relaxed = true)
 		val authRepository = mockk<AuthRepository>()
 		every { authRepository.session } returns MutableStateFlow(SessionState.Active(User(id = userId)))
+		val statsProjectionRepository = com.shikhi.app.data.progress.StatsProjectionRepository(
+			shikhiDb.localStatsProjectionDao(),
+			shikhiDb.outboxDao(),
+			shikhiDb.localLessonCompletionDao(),
+		)
 		val outbox = OutboxRepository(
 			shikhiDb.outboxDao(),
 			dagger.Lazy { mockk<ProgressApi>(relaxed = true) },
 			dagger.Lazy { mockk<PracticeApi>(relaxed = true) },
 			dagger.Lazy { workManager },
 			shikhiDb,
-			com.shikhi.app.data.progress.StatsProjectionRepository(shikhiDb.localStatsProjectionDao(), shikhiDb.outboxDao()),
+			statsProjectionRepository,
 			authRepository,
 			mockk(relaxed = true),
 		)
@@ -101,6 +106,7 @@ class OfflinePracticeSmokeTest {
 			cacheDao = shikhiDb.contentCacheDao(),
 			authRepository = authRepository,
 			tokenStore = mockk(relaxed = true),
+			statsProjectionRepository = statsProjectionRepository,
 		)
 	}
 

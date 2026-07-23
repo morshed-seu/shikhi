@@ -78,6 +78,8 @@ class GuestRegistrationWorker @AssistedInject constructor(
 				// guest's reconciled baseline XP/hearts/streak would silently reset to defaults
 				// under the new server userId.
 				db.localStatsProjectionDao().rekey(localId, user.id)
+				// UO4: the lesson-completion ledger is per-user state exactly like the stats projection above.
+				db.localLessonCompletionDao().rekey(localId, user.id)
 			}
 			tokenStore.clearLocalGuestId()
 			// ADR-0014 finding-1 fix: this worker is the sole authority for LocalGuest -> Active;

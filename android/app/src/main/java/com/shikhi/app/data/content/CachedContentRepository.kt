@@ -8,10 +8,14 @@ import com.shikhi.app.data.api.dto.LevelNode
 import com.shikhi.app.data.api.dto.Stats
 import com.shikhi.app.data.api.dto.UnitNode
 import com.shikhi.app.data.api.dto.VocabularyEntry
+import com.shikhi.app.data.auth.AuthRepository
+import com.shikhi.app.data.auth.SessionState
+import com.shikhi.app.data.auth.TokenStore
 import com.shikhi.app.data.content.db.ContentReadDao
 import com.shikhi.app.data.content.db.LocalVocabulary
 import com.shikhi.app.data.db.CachedPayload
 import com.shikhi.app.data.db.ContentCacheDao
+import com.shikhi.app.data.progress.StatsProjectionRepository
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
@@ -45,6 +49,9 @@ class CachedContentRepository @Inject constructor(
 	private val progressApi: ProgressApi,
 	private val cache: ContentCacheDao,
 	private val contentDao: ContentReadDao,
+	private val statsProjectionRepository: StatsProjectionRepository,
+	private val authRepository: AuthRepository,
+	private val tokenStore: TokenStore,
 ) {
 
 	private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
@@ -83,8 +90,20 @@ class CachedContentRepository @Inject constructor(
 		return Sourced(CurriculumTree(levels = levelNodes), fromCache = false)
 	}
 
-	suspend fun stats(): Sourced<Stats>? =
-		fetch("stats", Stats.serializer()) { progressApi.stats() }
+	/**
+	 * UO4: a cached/offline `stats()` response is stale for XP/hearts/streak — overlay the live
+	 * local projection so [com.shikhi.app.ui.home.HomeViewModel]'s hero reflects offline play
+	 * immediately instead of only after the next sync. [runCatching] is defensive because
+	 * [currentUserId] can throw outside an authenticated/local-guest session — never let that sink
+	 * an otherwise-good cached read.
+	 */
+	suspend fun stats(): Sourced<Stats>? {
+		val result = fetch("stats", Stats.serializer()) { progressApi.stats() }
+		if (result == null || !result.fromCache) return result
+		val overlaid = runCatching { statsProjectionRepository.overlay(currentUserId(), result.value) }
+			.getOrDefault(result.value)
+		return Sourced(overlaid, fromCache = true)
+	}
 
 	suspend fun vocabulary(level: String): Sourced<List<VocabularyEntry>>? {
 		val rows = contentDao.getVocabularyByLevel(level)
@@ -106,6 +125,18 @@ class CachedContentRepository @Inject constructor(
 			val value = runCatching { json.decodeFromString(serializer, cached.json) }.getOrNull() ?: return null
 			return Sourced(value, fromCache = true)
 		}
+	}
+
+	/**
+	 * Same shape as [com.shikhi.app.data.practice.LocalPracticeSource]'s / [com.shikhi.app.data.progress.LevelRepository]'s
+	 * identically-named private helpers — deliberately duplicated per-class in this codebase
+	 * rather than shared (see those methods' doc comments).
+	 */
+	private suspend fun currentUserId(): String = when (val state = authRepository.session.value) {
+		is SessionState.Active -> state.user.id
+		is SessionState.LocalGuest -> tokenStore.localGuestId()
+			?: error("LocalGuest session with no stored localGuestId — invariant violated")
+		else -> error("Stats overlay requires an already-authenticated or local-guest session")
 	}
 }
 

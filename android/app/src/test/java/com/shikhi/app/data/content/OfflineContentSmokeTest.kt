@@ -9,10 +9,16 @@ import androidx.test.core.app.ApplicationProvider
 import com.shikhi.app.data.api.ProgressApi
 import com.shikhi.app.data.api.dto.SetLevelRequest
 import com.shikhi.app.data.api.dto.SyncBatchRequest
+import com.shikhi.app.data.api.dto.User
+import com.shikhi.app.data.auth.AuthRepository
+import com.shikhi.app.data.auth.SessionState
 import com.shikhi.app.data.content.db.ContentDatabase
 import com.shikhi.app.data.content.seed.ContentSeedImporter
 import com.shikhi.app.data.db.CachedPayload
 import com.shikhi.app.data.db.ContentCacheDao
+import com.shikhi.app.data.progress.StatsProjectionRepository
+import io.mockk.every
+import io.mockk.mockk
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
@@ -85,10 +91,15 @@ class OfflineContentSmokeTest {
 			val imported = importer.importIfNeeded()
 			assertTrue("cold start: the seed hasn't imported yet, so this must run", imported)
 
+			val authRepository = mockk<AuthRepository>()
+			every { authRepository.session } returns MutableStateFlow(SessionState.Active(User(id = "user-1")))
 			val repository = CachedContentRepository(
 				progressApi = UnusedProgressApi(),
 				cache = NoopContentCacheDao(),
 				contentDao = database.contentReadDao(),
+				statsProjectionRepository = mockk(relaxed = true),
+				authRepository = authRepository,
+				tokenStore = mockk(relaxed = true),
 			)
 
 			val vocab = repository.vocabulary("A1")
@@ -104,10 +115,15 @@ class OfflineContentSmokeTest {
 	fun `before the importer runs, both bundled reads report the not-yet-seeded contract`() = runBlocking {
 		// No ContentSeedImporter call here — simulates the window before ContentSeedWorker
 		// completes on a fresh install.
+		val authRepository = mockk<AuthRepository>()
+		every { authRepository.session } returns MutableStateFlow(SessionState.Active(User(id = "user-1")))
 		val repository = CachedContentRepository(
 			progressApi = UnusedProgressApi(),
 			cache = NoopContentCacheDao(),
 			contentDao = database.contentReadDao(),
+			statsProjectionRepository = mockk(relaxed = true),
+			authRepository = authRepository,
+			tokenStore = mockk(relaxed = true),
 		)
 
 		assertEquals(null, repository.vocabulary("A1"))

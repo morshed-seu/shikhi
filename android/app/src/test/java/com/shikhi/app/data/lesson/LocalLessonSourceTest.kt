@@ -1,6 +1,10 @@
 package com.shikhi.app.data.lesson
 
 import com.shikhi.app.data.api.ProgressApi
+import com.shikhi.app.data.api.dto.User
+import com.shikhi.app.data.auth.AuthRepository
+import com.shikhi.app.data.auth.SessionState
+import com.shikhi.app.data.auth.TokenStore
 import com.shikhi.app.data.content.db.ContentAnswerKeyDao
 import com.shikhi.app.data.content.db.ContentReadDao
 import com.shikhi.app.data.content.db.LocalExercise
@@ -11,11 +15,19 @@ import com.shikhi.app.data.content.db.LocalLesson
 import com.shikhi.app.data.content.db.LocalLevel
 import com.shikhi.app.data.content.db.LocalUnit
 import com.shikhi.app.data.content.db.LocalVocabulary
+import com.shikhi.app.data.db.LocalLessonCompletion
+import com.shikhi.app.data.db.LocalLessonCompletionDao
+import com.shikhi.app.data.db.LocalStatsProjection
+import com.shikhi.app.data.db.LocalStatsProjectionDao
 import com.shikhi.app.data.db.OutboxDao
 import com.shikhi.app.data.db.OutboxEventEntity
 import com.shikhi.app.data.outbox.OutboxEventType
 import com.shikhi.app.data.outbox.OutboxRepository
+import com.shikhi.app.data.progress.StatsProjectionRepository
+import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -30,9 +42,10 @@ import org.junit.Test
 
 /**
  * [LocalLessonSource] end to end against fakes: bundled-content read, grading via
- * [com.shikhi.app.data.lesson.grading.LessonGradingEngine], and the outbox enqueue on
- * completion — no network calls anywhere, no Room/Robolectric needed since the DAOs are plain
- * Kotlin interfaces here.
+ * [com.shikhi.app.data.lesson.grading.LessonGradingEngine], the outbox enqueue on completion, and
+ * (UO4) live hearts + ledger-gated first-completion XP via a real [StatsProjectionRepository] —
+ * no network calls anywhere, no Room/Robolectric needed since the DAOs are plain Kotlin
+ * interfaces here.
  */
 class LocalLessonSourceTest {
 
@@ -77,8 +90,10 @@ class LocalLessonSourceTest {
 	private class FakeOutboxDao : OutboxDao {
 		val rows = mutableListOf<OutboxEventEntity>()
 		private var nextId = 1L
-		override suspend fun insert(event: OutboxEventEntity) {
-			rows += event.copy(id = nextId++)
+		override suspend fun insert(event: OutboxEventEntity): Long {
+			val id = nextId++
+			rows += event.copy(id = id)
+			return id
 		}
 		override suspend fun all(): List<OutboxEventEntity> = rows.sortedBy { it.id }
 		override suspend fun deleteByIds(ids: List<Long>) {
@@ -86,11 +101,52 @@ class LocalLessonSourceTest {
 		}
 	}
 
+	/** UO4: map-backed fake so [StatsProjectionRepository] can be constructed without Room —
+	 * mirrors [LocalPracticeSourceTest]'s copy (this codebase's per-file fake convention). */
+	private class FakeLocalStatsProjectionDao : LocalStatsProjectionDao {
+		val rows = mutableMapOf<String, LocalStatsProjection>()
+		override suspend fun get(userId: String): LocalStatsProjection? = rows[userId]
+		override suspend fun upsert(row: LocalStatsProjection) { rows[row.userId] = row }
+		override suspend fun rekey(oldUserId: String, newUserId: String) {
+			rows.remove(oldUserId)?.let { rows[newUserId] = it.copy(userId = newUserId) }
+		}
+	}
+
+	/** UO4: map-backed fake, keyed by (userId, lessonId, contentVersionId). */
+	private class FakeLocalLessonCompletionDao : LocalLessonCompletionDao {
+		val rows = mutableMapOf<Triple<String, String, String>, LocalLessonCompletion>()
+		override suspend fun get(userId: String, lessonId: String, contentVersionId: String): LocalLessonCompletion? =
+			rows[Triple(userId, lessonId, contentVersionId)]
+		override suspend fun upsert(row: LocalLessonCompletion) {
+			rows[Triple(row.userId, row.lessonId, row.contentVersionId)] = row
+		}
+		override suspend fun rekey(oldUserId: String, newUserId: String) {
+			rows.keys.filter { it.first == oldUserId }.toList().forEach { key ->
+				rows.remove(key)?.let { rows[Triple(newUserId, key.second, key.third)] = it.copy(userId = newUserId) }
+			}
+		}
+	}
+
+	/** OG1: minimal fake so tests can control what [TokenStore.localGuestId] returns — mirrors
+	 * `LocalPracticeSourceTest.FakeTokenStore`. */
+	private class FakeTokenStore(private var storedLocalGuestId: String? = null) : TokenStore {
+		override val accessToken: StateFlow<String?> = MutableStateFlow(null)
+		override suspend fun currentRefreshToken(): String? = null
+		override suspend fun setSession(accessToken: String, refreshToken: String) = Unit
+		override suspend fun clear() = Unit
+		override suspend fun localGuestId(): String? = storedLocalGuestId
+		override suspend fun setLocalGuestId(id: String) { storedLocalGuestId = id }
+		override suspend fun clearLocalGuestId() { storedLocalGuestId = null }
+	}
+
 	private lateinit var readDao: FakeContentReadDao
 	private lateinit var answerKeyDao: FakeContentAnswerKeyDao
 	private lateinit var outboxDao: FakeOutboxDao
+	private lateinit var statsProjectionRepository: StatsProjectionRepository
+	private lateinit var lessonCompletionDao: FakeLocalLessonCompletionDao
 	private lateinit var source: LocalLessonSource
 
+	private val userId = "user-1"
 	private val lessonId = "lesson-1"
 	private val mcqExerciseId = "ex-mcq"
 	private val wordBankExerciseId = "ex-wb"
@@ -100,6 +156,8 @@ class LocalLessonSourceTest {
 		readDao = FakeContentReadDao()
 		answerKeyDao = FakeContentAnswerKeyDao()
 		outboxDao = FakeOutboxDao()
+		lessonCompletionDao = FakeLocalLessonCompletionDao()
+		statsProjectionRepository = StatsProjectionRepository(FakeLocalStatsProjectionDao(), outboxDao, lessonCompletionDao)
 		val workManager = mockk<androidx.work.WorkManager>(relaxed = true)
 		val outbox = OutboxRepository(
 			outboxDao,
@@ -113,7 +171,17 @@ class LocalLessonSourceTest {
 			mockk(relaxed = true),
 			mockk(relaxed = true),
 		)
-		source = LocalLessonSource(readDao, answerKeyDao, outbox)
+		val authRepository = mockk<AuthRepository>()
+		every { authRepository.session } returns MutableStateFlow(SessionState.Active(User(id = userId)))
+		source = LocalLessonSource(
+			readDao,
+			answerKeyDao,
+			outbox,
+			statsProjectionRepository,
+			lessonCompletionDao,
+			authRepository,
+			FakeTokenStore(),
+		)
 
 		readDao.lessons[lessonId] = LocalLesson(
 			id = lessonId, unitId = "unit-1", code = "L1", titleEn = "Greetings", titleBn = "শুভেচ্ছা", ordinal = 1,
@@ -153,6 +221,12 @@ class LocalLessonSourceTest {
 	}
 
 	@Test
+	fun `start reports full hearts for a fresh user`() = runBlocking {
+		val playable = source.start(lessonId)
+		assertEquals(5, playable.heartsRemaining)
+	}
+
+	@Test
 	fun `start throws for a lesson id not present in the bundled content`() {
 		assertThrows(NoSuchElementException::class.java) {
 			runBlocking { source.start("no-such-lesson") }
@@ -172,6 +246,26 @@ class LocalLessonSourceTest {
 	}
 
 	@Test
+	fun `grade on a wrong answer decrements hearts from the full starting count`() = runBlocking {
+		val playable = source.start(lessonId)
+		val mcq = playable.lesson.exercises.first { it.type == "MCQ" }
+
+		val outcome = source.grade(playable.sessionId, mcq, buildJsonObject { put("selectedOptionId", "opt-wrong") })
+
+		assertEquals(4, outcome.heartsRemaining)
+	}
+
+	@Test
+	fun `start after a prior wrong answer reports the depleted hearts count, not a fresh full count`() = runBlocking {
+		val first = source.start(lessonId)
+		val mcq = first.lesson.exercises.first { it.type == "MCQ" }
+		source.grade(first.sessionId, mcq, buildJsonObject { put("selectedOptionId", "opt-wrong") })
+
+		val second = source.start(lessonId)
+		assertEquals(4, second.heartsRemaining)
+	}
+
+	@Test
 	fun `complete enqueues a COMPLETE_LESSON outbox event with the exact lessonId, score shape`() = runBlocking {
 		val playable = source.start(lessonId)
 
@@ -184,6 +278,32 @@ class LocalLessonSourceTest {
 		val payload = kotlinx.serialization.json.Json.parseToJsonElement(event.payloadJson).jsonObject
 		assertEquals(lessonId, payload["lessonId"]!!.jsonPrimitive.content)
 		assertEquals(2, payload["score"]!!.jsonPrimitive.content.toInt())
+	}
+
+	@Test
+	fun `complete on a lesson never completed before awards correctCount times ten xp`() = runBlocking {
+		val playable = source.start(lessonId)
+
+		val result = source.complete(playable.sessionId, correctCount = 3)
+
+		assertEquals(30, result.xpEarned)
+	}
+
+	@Test
+	fun `complete called again for the same lesson awards zero xp but still enqueues a second event`() = runBlocking {
+		val first = source.start(lessonId)
+		val firstResult = source.complete(first.sessionId, correctCount = 3)
+		assertEquals(30, firstResult.xpEarned)
+
+		val second = source.start(lessonId)
+		val secondResult = source.complete(second.sessionId, correctCount = 4)
+
+		assertEquals("a repeat completion is ledger-gated to zero xp", 0, secondResult.xpEarned)
+		assertEquals(
+			"a repeat completion still enqueues its own COMPLETE_LESSON event (bestScore-style parity with the server)",
+			2,
+			outboxDao.rows.size,
+		)
 	}
 
 	@Test

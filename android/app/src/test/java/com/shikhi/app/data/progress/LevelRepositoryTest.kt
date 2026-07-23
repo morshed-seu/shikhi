@@ -51,7 +51,7 @@ class LevelRepositoryTest {
 	fun setUp() {
 		val context = ApplicationProvider.getApplicationContext<Context>()
 		db = Room.inMemoryDatabaseBuilder(context, ShikhiDatabase::class.java).allowMainThreadQueries().build()
-		val statsProjectionRepository = StatsProjectionRepository(db.localStatsProjectionDao(), db.outboxDao())
+		val statsProjectionRepository = StatsProjectionRepository(db.localStatsProjectionDao(), db.outboxDao(), db.localLessonCompletionDao())
 
 		val authRepository = mockk<AuthRepository>()
 		every { authRepository.session } returns MutableStateFlow(SessionState.Active(User(id = userId)))
@@ -91,7 +91,7 @@ class LevelRepositoryTest {
 
 	@Test
 	fun `setLevel updates cefrLevel on an existing projection row without clobbering other fields`() = runBlocking {
-		val statsProjectionRepository = StatsProjectionRepository(db.localStatsProjectionDao(), db.outboxDao())
+		val statsProjectionRepository = StatsProjectionRepository(db.localStatsProjectionDao(), db.outboxDao(), db.localLessonCompletionDao())
 		statsProjectionRepository.reconcile(
 			userId,
 			Stats(xp = 120, hearts = 3, currentStreak = 5, longestStreak = 9, rank = 42, dailyGoal = 20, cefrLevel = "A2"),

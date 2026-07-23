@@ -2,8 +2,17 @@ package com.shikhi.app.data.dashboard
 
 import com.shikhi.app.data.api.DashboardApi
 import com.shikhi.app.data.api.UserApi
+import com.shikhi.app.data.api.dto.Stats
+import com.shikhi.app.data.api.dto.User
+import com.shikhi.app.data.auth.AuthRepository
+import com.shikhi.app.data.auth.SessionState
 import com.shikhi.app.data.db.CachedPayload
 import com.shikhi.app.data.db.ContentCacheDao
+import com.shikhi.app.data.progress.StatsProjectionRepository
+import io.mockk.coEvery
+import io.mockk.every
+import io.mockk.mockk
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -38,7 +47,9 @@ class DashboardRepositoryTest {
 	private lateinit var server: MockWebServer
 	private lateinit var cache: FakeContentCacheDao
 	private lateinit var repository: DashboardRepository
+	private lateinit var statsProjectionRepository: StatsProjectionRepository
 
+	private val userId = "user-1"
 	private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
 
 	private val dashboardJson = """
@@ -58,10 +69,19 @@ class DashboardRepositoryTest {
 			.client(OkHttpClient())
 			.addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
 			.build()
+		statsProjectionRepository = mockk()
+		// Default: a no-op passthrough, so existing tests that don't care about the UO4 overlay
+		// keep seeing the raw cached stats. The overlay-specific test below overrides this.
+		coEvery { statsProjectionRepository.overlay(any(), any()) } answers { secondArg() }
+		val authRepository = mockk<AuthRepository>()
+		every { authRepository.session } returns MutableStateFlow(SessionState.Active(User(id = userId)))
 		repository = DashboardRepository(
 			dashboardApi = retrofit.create(DashboardApi::class.java),
 			userApi = retrofit.create(UserApi::class.java),
 			cache = cache,
+			statsProjectionRepository = statsProjectionRepository,
+			authRepository = authRepository,
+			tokenStore = mockk(relaxed = true),
 		)
 	}
 
@@ -91,6 +111,21 @@ class DashboardRepositoryTest {
 
 		assertTrue(result != null && result.fromCache)
 		assertEquals(6, result!!.value.totalCorrect)
+	}
+
+	@Test
+	fun `a cached snapshot's stats are overlaid with the live local projection`() = runBlocking {
+		server.enqueue(MockResponse().setBody(dashboardJson).addHeader("Content-Type", "application/json"))
+		repository.dashboard() // primes the cache
+
+		val overlaidStats = Stats(hearts = 1, xp = 777, currentStreak = 9, longestStreak = 9, cefrLevel = "C1")
+		coEvery { statsProjectionRepository.overlay(userId, any()) } returns overlaidStats
+
+		server.enqueue(MockResponse().setResponseCode(503))
+		val result = repository.dashboard()
+
+		assertTrue(result != null && result.fromCache)
+		assertEquals("the returned dashboard.stats must be the overlaid value, not the raw cached one", overlaidStats, result!!.value.stats)
 	}
 
 	@Test

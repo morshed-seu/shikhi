@@ -71,7 +71,7 @@ class OutboxRepositoryTest {
 	fun setUp() {
 		val context = ApplicationProvider.getApplicationContext<Context>()
 		db = Room.inMemoryDatabaseBuilder(context, ShikhiDatabase::class.java).allowMainThreadQueries().build()
-		projection = StatsProjectionRepository(db.localStatsProjectionDao(), db.outboxDao())
+		projection = StatsProjectionRepository(db.localStatsProjectionDao(), db.outboxDao(), db.localLessonCompletionDao())
 
 		server = MockWebServer()
 		server.start()

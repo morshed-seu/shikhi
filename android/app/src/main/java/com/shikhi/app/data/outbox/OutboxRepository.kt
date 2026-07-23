@@ -77,8 +77,13 @@ class OutboxRepository @Inject constructor(
 	private val tokenStore: TokenStore,
 ) {
 
-	suspend fun enqueue(type: String, payload: JsonObject) {
-		dao.insert(
+	// UO4: returns the new row's id (Room's auto-generated rowid) so LocalLessonSource.complete()
+	// can pin LocalLessonCompletion.firstCompletionEventId to exactly the event it just enqueued.
+	// Existing callers that don't need it (LocalPracticeSource.grade, LevelRepository.setLevel,
+	// LessonViewModel.finishOffline) simply discard the return value — Kotlin allows that for a
+	// non-Unit result without any change on their part.
+	suspend fun enqueue(type: String, payload: JsonObject): Long {
+		val id = dao.insert(
 			OutboxEventEntity(
 				idempotencyKey = UUID.randomUUID().toString(),
 				type = type,
@@ -89,6 +94,7 @@ class OutboxRepository @Inject constructor(
 		// A buffered event means we're (probably) offline: let WorkManager deliver it
 		// with backoff as soon as connectivity returns.
 		OutboxSyncWorker.schedule(workManager.get())
+		return id
 	}
 
 	/**

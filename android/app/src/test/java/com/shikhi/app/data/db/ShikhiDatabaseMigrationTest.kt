@@ -57,11 +57,12 @@ class ShikhiDatabaseMigrationTest {
 		v2.version = 2
 		v2.close()
 
-		// UO2: ShikhiDatabase's current version is now 4, so reaching it from this hand-built v2
+		// UO4: ShikhiDatabase's current version is now 5, so reaching it from this hand-built v2
 		// file needs the full migration chain registered, not just MIGRATION_2_3 — Room refuses to
-		// open with a gap in the path (see MIGRATION_3_4's own test below for the 3->4 leg alone).
+		// open with a gap in the path (see MIGRATION_3_4/MIGRATION_4_5's own tests below for each
+		// later leg alone).
 		val migrated = Room.databaseBuilder(context, ShikhiDatabase::class.java, dbName)
-			.addMigrations(MIGRATION_2_3, MIGRATION_3_4)
+			.addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
 			.build()
 		try {
 			// Pre-existing data survived the migration untouched.
@@ -169,7 +170,7 @@ class ShikhiDatabaseMigrationTest {
 		v3.close()
 
 		val migrated = Room.databaseBuilder(context, ShikhiDatabase::class.java, dbName)
-			.addMigrations(MIGRATION_2_3, MIGRATION_3_4)
+			.addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
 			.build()
 		try {
 			// Pre-existing v3 data survived the migration untouched.
@@ -197,6 +198,97 @@ class ShikhiDatabaseMigrationTest {
 			val row = runBlocking { migrated.localStatsProjectionDao().get("u1") }
 			assertEquals(40, row?.baselineXp)
 			assertEquals("A2", row?.cefrLevel)
+		} finally {
+			migrated.close()
+			dbFile.delete()
+		}
+	}
+
+	/**
+	 * UO4 (`~/.claude/plans/unified-offline-online/UO4.md`): same technique as the migrations
+	 * above, one schema bump later — hand-build a real v4 SQLite file (the DDL Room generates for
+	 * every table that exists at v4: the six tables from v2->v3/v3->v4), insert a v4-shaped
+	 * `local_stats_projection` row WITHOUT a `reconciledAt` column (it didn't exist yet), stamp
+	 * `PRAGMA user_version = 4`, then open it through Room with all three migrations registered.
+	 */
+	@Test
+	fun `migration 4 to 5 adds the lesson-completion table and the projection's reconciledAt column, preserving existing v4 rows`() {
+		val context = ApplicationProvider.getApplicationContext<Context>()
+		val dbFile = context.getDatabasePath(dbName)
+		dbFile.parentFile?.mkdirs()
+		dbFile.delete()
+
+		val v4 = SQLiteDatabase.openOrCreateDatabase(dbFile, null)
+		v4.execSQL(
+			"CREATE TABLE IF NOT EXISTS `outbox_events` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+				"`idempotencyKey` TEXT NOT NULL, `type` TEXT NOT NULL, `payloadJson` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)",
+		)
+		v4.execSQL(
+			"CREATE TABLE IF NOT EXISTS `content_cache` (`key` TEXT NOT NULL, `json` TEXT NOT NULL, " +
+				"`updatedAt` INTEGER NOT NULL, PRIMARY KEY(`key`))",
+		)
+		v4.execSQL(
+			"CREATE TABLE IF NOT EXISTS `local_word_progress` (`userId` TEXT NOT NULL, `vocabularyId` TEXT NOT NULL, " +
+				"`timesSeen` INTEGER NOT NULL, `timesCorrect` INTEGER NOT NULL, `timesWrong` INTEGER NOT NULL, " +
+				"`masteryScore` INTEGER NOT NULL, `lastWrongAt` INTEGER, `lastSeenAt` INTEGER NOT NULL, " +
+				"PRIMARY KEY(`userId`, `vocabularyId`))",
+		)
+		v4.execSQL(
+			"CREATE TABLE IF NOT EXISTS `local_review_progress` (`userId` TEXT NOT NULL, `vocabularyId` TEXT NOT NULL, " +
+				"`reviewStage` INTEGER NOT NULL, `dueAt` INTEGER NOT NULL, `lastReviewedAt` INTEGER, " +
+				"`reviewCount` INTEGER NOT NULL, `successfulReviews` INTEGER NOT NULL, `failedReviews` INTEGER NOT NULL, " +
+				"`failureStreak` INTEGER NOT NULL, `lastFailureAt` INTEGER, PRIMARY KEY(`userId`, `vocabularyId`))",
+		)
+		v4.execSQL(
+			"CREATE TABLE IF NOT EXISTS `local_practice_sessions` (`id` TEXT NOT NULL, `userId` TEXT NOT NULL, " +
+				"`cefrLevel` TEXT NOT NULL, `status` TEXT NOT NULL, `roundsPlayed` INTEGER NOT NULL, " +
+				"`correctCount` INTEGER NOT NULL, `totalCount` INTEGER NOT NULL, `startedAt` INTEGER NOT NULL, " +
+				"`completedAt` INTEGER, PRIMARY KEY(`id`))",
+		)
+		v4.execSQL(
+			"CREATE TABLE IF NOT EXISTS `local_practice_exercises` (`id` TEXT NOT NULL, `sessionId` TEXT NOT NULL, " +
+				"`round` INTEGER NOT NULL, `ordinal` INTEGER NOT NULL, `vocabularyId` TEXT NOT NULL, `type` TEXT NOT NULL, " +
+				"`promptEn` TEXT NOT NULL, `promptBn` TEXT NOT NULL, `payloadJson` TEXT NOT NULL, `answerKeyJson` TEXT NOT NULL, " +
+				"`answeredCorrect` INTEGER, PRIMARY KEY(`id`))",
+		)
+		v4.execSQL(
+			"CREATE TABLE IF NOT EXISTS `local_stats_projection` (`userId` TEXT NOT NULL, `baselineXp` INTEGER NOT NULL, " +
+				"`hearts` INTEGER NOT NULL, `currentStreak` INTEGER NOT NULL, `longestStreak` INTEGER NOT NULL, " +
+				"`cefrLevel` TEXT NOT NULL, `lastActiveDate` TEXT, `rank` INTEGER NOT NULL, `dailyGoal` INTEGER NOT NULL, " +
+				"`updatedAt` INTEGER NOT NULL, PRIMARY KEY(`userId`))",
+		)
+		v4.execSQL(
+			"INSERT INTO local_stats_projection (userId, baselineXp, hearts, currentStreak, longestStreak, cefrLevel, " +
+				"lastActiveDate, rank, dailyGoal, updatedAt) VALUES ('u1', 40, 5, 2, 3, 'A2', NULL, 12, 20, 0)",
+		)
+		v4.version = 4
+		v4.close()
+
+		val migrated = Room.databaseBuilder(context, ShikhiDatabase::class.java, dbName)
+			.addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+			.build()
+		try {
+			// Pre-existing v4 data survived the migration untouched, with reconciledAt now null
+			// (the column didn't exist when this row was written).
+			val row = runBlocking { migrated.localStatsProjectionDao().get("u1") }
+			assertEquals(40, row?.baselineXp)
+			assertEquals(null, row?.reconciledAt)
+
+			// The new table is a real, usable Room table (this also exercises Room's post-migration
+			// schema validation — a DDL mismatch here throws before this point).
+			runBlocking {
+				migrated.localLessonCompletionDao().upsert(
+					LocalLessonCompletion(
+						userId = "u1",
+						lessonId = "lesson-1",
+						contentVersionId = "",
+						firstCompletionEventId = 1L,
+						completedAt = 0L,
+					),
+				)
+			}
+			val completion = runBlocking { migrated.localLessonCompletionDao().get("u1", "lesson-1", "") }
+			assertEquals(1L, completion?.firstCompletionEventId)
 		} finally {
 			migrated.close()
 			dbFile.delete()

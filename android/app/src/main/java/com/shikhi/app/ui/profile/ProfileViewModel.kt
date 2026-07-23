@@ -9,7 +9,9 @@ import com.shikhi.app.data.api.dto.Identity
 import com.shikhi.app.data.api.dto.User
 import com.shikhi.app.data.auth.AuthRepository
 import com.shikhi.app.data.auth.SessionState
+import com.shikhi.app.data.auth.TokenStore
 import com.shikhi.app.data.dashboard.DashboardRepository
+import com.shikhi.app.data.progress.StatsProjectionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,6 +38,12 @@ data class ProfileUiState(
 	val isGuest: Boolean = false,
 	/** True when [dashboard] came from the offline Room cache (NFR-AN4). */
 	val fromCache: Boolean = false,
+	/**
+	 * UO4: true when the local stats projection has never actually reconciled with the server —
+	 * distinct from [fromCache] (which just means this particular dashboard fetch came from the
+	 * Room cache). Drives [OfflineCopyBanner] instead of [fromCache].
+	 */
+	val neverSynced: Boolean = false,
 	val editingName: Boolean = false,
 	val nameDraft: String = "",
 	val savingName: Boolean = false,
@@ -61,6 +69,8 @@ data class ProfileUiState(
 class ProfileViewModel @Inject constructor(
 	private val authRepository: AuthRepository,
 	private val dashboardRepository: DashboardRepository,
+	private val statsProjectionRepository: StatsProjectionRepository,
+	private val tokenStore: TokenStore,
 ) : ViewModel() {
 
 	private val _state = MutableStateFlow(ProfileUiState())
@@ -103,8 +113,13 @@ class ProfileViewModel @Inject constructor(
 			// already soft-fails to emptyList(), but guard here too so a misbehaving
 			// implementation can never sink the dashboard load with it.
 			val ids = async { runCatching { dashboardRepository.identities() }.getOrDefault(emptyList()) }
+			// UO4: whether the local projection has ever genuinely synced — drives neverSynced
+			// below. Defaults to true (banner suppressed) if this throws, e.g. outside an
+			// authenticated/local-guest session.
+			val synced = async { runCatching { statsProjectionRepository.hasReconciled(currentUserId()) }.getOrDefault(true) }
 			val d = dash.await()
 			val identityList = ids.await()
+			val neverSynced = !synced.await()
 			_state.update {
 				it.copy(
 					loading = false,
@@ -113,9 +128,22 @@ class ProfileViewModel @Inject constructor(
 					dashboard = d?.value ?: it.dashboard,
 					fromCache = d?.fromCache == true,
 					identities = identityList,
+					neverSynced = neverSynced,
 				)
 			}
 		}
+	}
+
+	/**
+	 * Same shape as [com.shikhi.app.data.practice.LocalPracticeSource]'s / [com.shikhi.app.data.progress.LevelRepository]'s
+	 * identically-named private helpers — deliberately duplicated per-class in this codebase
+	 * rather than shared (see those methods' doc comments).
+	 */
+	private suspend fun currentUserId(): String = when (val state = authRepository.session.value) {
+		is SessionState.Active -> state.user.id
+		is SessionState.LocalGuest -> tokenStore.localGuestId()
+			?: error("LocalGuest session with no stored localGuestId — invariant violated")
+		else -> error("Profile requires an already-authenticated or local-guest session")
 	}
 
 	fun startEditName() = _state.update { it.copy(editingName = true, nameDraft = it.user?.displayName ?: "") }

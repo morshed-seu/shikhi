@@ -14,16 +14,20 @@ import com.shikhi.app.data.content.db.LocalUnit
 import com.shikhi.app.data.content.db.LocalVocabulary
 import com.shikhi.app.data.db.CachedPayload
 import com.shikhi.app.data.db.ContentCacheDao
+import com.shikhi.app.data.db.LocalLessonCompletionDao
 import com.shikhi.app.data.db.LocalPracticeExercise
 import com.shikhi.app.data.db.LocalPracticeSession
 import com.shikhi.app.data.db.LocalPracticeSessionDao
 import com.shikhi.app.data.db.LocalReviewProgress
+import com.shikhi.app.data.db.LocalStatsProjection
+import com.shikhi.app.data.db.LocalStatsProjectionDao
 import com.shikhi.app.data.db.LocalWordProgress
 import com.shikhi.app.data.db.OutboxDao
 import com.shikhi.app.data.db.OutboxEventEntity
 import com.shikhi.app.data.db.WordProgressDao
 import com.shikhi.app.data.outbox.OutboxEventType
 import com.shikhi.app.data.outbox.OutboxRepository
+import com.shikhi.app.data.progress.StatsProjectionRepository
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -116,9 +120,24 @@ class LocalPracticeSourceTest {
 	private class FakeOutboxDao : OutboxDao {
 		val rows = mutableListOf<OutboxEventEntity>()
 		private var nextId = 1L
-		override suspend fun insert(event: OutboxEventEntity) { rows += event.copy(id = nextId++) }
+		override suspend fun insert(event: OutboxEventEntity): Long {
+			val id = nextId++
+			rows += event.copy(id = id)
+			return id
+		}
 		override suspend fun all(): List<OutboxEventEntity> = rows.sortedBy { it.id }
 		override suspend fun deleteByIds(ids: List<Long>) { rows.removeAll { it.id in ids } }
+	}
+
+	/** UO4: map-backed fake so [StatsProjectionRepository] can be constructed without Room —
+	 * this test class has zero Room/Robolectric dependency, mirroring [FakeWordProgressDao]. */
+	private class FakeLocalStatsProjectionDao : LocalStatsProjectionDao {
+		val rows = mutableMapOf<String, LocalStatsProjection>()
+		override suspend fun get(userId: String): LocalStatsProjection? = rows[userId]
+		override suspend fun upsert(row: LocalStatsProjection) { rows[row.userId] = row }
+		override suspend fun rekey(oldUserId: String, newUserId: String) {
+			rows.remove(oldUserId)?.let { rows[newUserId] = it.copy(userId = newUserId) }
+		}
 	}
 
 	/** OG1: minimal fake so tests can control what [TokenStore.localGuestId] returns. */
@@ -143,6 +162,7 @@ class LocalPracticeSourceTest {
 	private lateinit var cacheDao: FakeContentCacheDao
 	private lateinit var outboxDao: FakeOutboxDao
 	private lateinit var outbox: OutboxRepository
+	private lateinit var statsProjectionRepository: StatsProjectionRepository
 	private lateinit var source: LocalPracticeSource
 
 	private val userId = "user-1"
@@ -170,6 +190,9 @@ class LocalPracticeSourceTest {
 			authRepository,
 			FakeTokenStore(),
 		)
+		// UO4: StatsProjectionRepository now also needs a LocalLessonCompletionDao — practice
+		// never touches lesson completions, so a relaxed mock is sufficient here.
+		statsProjectionRepository = StatsProjectionRepository(FakeLocalStatsProjectionDao(), outboxDao, mockk(relaxed = true))
 
 		source = LocalPracticeSource(
 			picker = PracticeWordPicker(contentDao, wordProgressDao),
@@ -179,6 +202,7 @@ class LocalPracticeSourceTest {
 			cacheDao = cacheDao,
 			authRepository = authRepository,
 			tokenStore = FakeTokenStore(),
+			statsProjectionRepository = statsProjectionRepository,
 		)
 	}
 
@@ -206,6 +230,7 @@ class LocalPracticeSourceTest {
 			cacheDao = cacheDao,
 			authRepository = authRepository,
 			tokenStore = FakeTokenStore(localGuestId),
+			statsProjectionRepository = statsProjectionRepository,
 		)
 
 		val round = source.start()
@@ -221,7 +246,7 @@ class LocalPracticeSourceTest {
 		source = LocalPracticeSource(
 			PracticeWordPicker(contentDao, wordProgressDao), sessionDao, WordProgressEngine(wordProgressDao),
 			outbox, cacheDao, mockk<AuthRepository>().also { every { it.session } returns MutableStateFlow(SessionState.Active(User(id = userId))) },
-			FakeTokenStore(),
+			FakeTokenStore(), statsProjectionRepository,
 		)
 
 		val round = source.start()
@@ -235,7 +260,7 @@ class LocalPracticeSourceTest {
 		every { authRepository.session } returns MutableStateFlow(SessionState.Active(User(id = userId)))
 		source = LocalPracticeSource(
 			PracticeWordPicker(contentDao, wordProgressDao), sessionDao, WordProgressEngine(wordProgressDao),
-			outbox, cacheDao, authRepository, FakeTokenStore(),
+			outbox, cacheDao, authRepository, FakeTokenStore(), statsProjectionRepository,
 		)
 
 		assertThrows(IllegalStateException::class.java) { runBlocking { source.start() } }
@@ -276,6 +301,28 @@ class LocalPracticeSourceTest {
 		assertTrue(!outcome.verdict.correct)
 		val payload = Json.parseToJsonElement(outboxDao.rows.single().payloadJson).jsonObject
 		assertEquals(false, payload["correct"]!!.jsonPrimitive.content.toBoolean())
+	}
+
+	@Test
+	fun `grading a wrong answer decrements hearts from the full starting count`() = runBlocking {
+		val round = source.start()
+		val wordMeaning = round.exercises.first { it.type == "WORD_MEANING" }
+
+		val outcome = source.grade(round.sessionId, wordMeaning, buildJsonObject { put("selectedOptionId", "not-a-real-option") })
+
+		assertEquals(4, outcome.hearts)
+	}
+
+	@Test
+	fun `grading five or more wrong answers floors hearts at zero, not negative`() = runBlocking {
+		val round = source.start()
+		var outcome: PracticeGradeOutcome? = null
+		repeat(6) {
+			val exercise = round.exercises[it % round.exercises.size]
+			outcome = source.grade(round.sessionId, exercise, buildJsonObject { put("selectedOptionId", "not-a-real-option") })
+		}
+
+		assertEquals(0, outcome!!.hearts)
 	}
 
 	@Test

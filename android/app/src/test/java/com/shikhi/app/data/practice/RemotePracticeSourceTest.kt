@@ -39,7 +39,11 @@ class RemotePracticeSourceTest {
 	private class FakeOutboxDao : OutboxDao {
 		val rows = mutableListOf<OutboxEventEntity>()
 		private var nextId = 1L
-		override suspend fun insert(event: OutboxEventEntity) { rows += event.copy(id = nextId++) }
+		override suspend fun insert(event: OutboxEventEntity): Long {
+			val id = nextId++
+			rows += event.copy(id = id)
+			return id
+		}
 		override suspend fun all(): List<OutboxEventEntity> = rows.sortedBy { it.id }
 		override suspend fun deleteByIds(ids: List<Long>) { rows.removeAll { it.id in ids } }
 	}
