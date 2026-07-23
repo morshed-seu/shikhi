@@ -76,6 +76,10 @@ class ProfileViewModelTest {
 		override suspend fun clearLocalGuestId() {
 			localGuestId = null
 		}
+
+		private var storedLastSyncedAt: Long? = null
+		override suspend fun lastSyncedAt(): Long? = storedLastSyncedAt
+		override suspend fun setLastSyncedAt(value: Long) { storedLastSyncedAt = value }
 	}
 
 	/** UO4: relaxed by default (returns `false` from `hasReconciled`, i.e. `neverSynced == true`)

@@ -99,6 +99,13 @@ class OfflineLessonSmokeTest {
 				rows.remove(key)?.let { rows[Triple(newUserId, key.second, key.third)] = it.copy(userId = newUserId) }
 			}
 		}
+		// UO6: pull-rebuild overwrite methods — not exercised by this smoke test.
+		override suspend fun deleteAllForUser(userId: String) {
+			rows.keys.filter { it.first == userId }.toList().forEach { rows.remove(it) }
+		}
+		override suspend fun upsertAll(rows: List<com.shikhi.app.data.db.LocalLessonCompletion>) {
+			rows.forEach { upsert(it) }
+		}
 	}
 
 	// Real ids from assets/content-seed/curriculum.json, confirmed by direct inspection of the

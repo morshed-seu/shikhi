@@ -145,6 +145,7 @@ class CachedContentRepositoryTest {
 					throw UnsupportedOperationException()
 				override suspend fun setLevel(body: com.shikhi.app.data.api.dto.SetLevelRequest) =
 					throw UnsupportedOperationException()
+				override suspend fun snapshot() = throw UnsupportedOperationException()
 			}
 		}
 		return CachedContentRepository(

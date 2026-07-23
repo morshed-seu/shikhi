@@ -87,6 +87,19 @@ class LocalPracticeSourceTest {
 				reviewProgress.remove(key)?.let { reviewProgress[newUserId to key.second] = it.copy(userId = newUserId) }
 			}
 		}
+		// UO6: pull-rebuild overwrite methods — not exercised by this file's tests.
+		override suspend fun deleteAllForUser(userId: String) {
+			wordProgress.keys.filter { it.first == userId }.toList().forEach { wordProgress.remove(it) }
+		}
+		override suspend fun upsertAll(rows: List<LocalWordProgress>) {
+			rows.forEach { upsert(it) }
+		}
+		override suspend fun deleteAllReviewForUser(userId: String) {
+			reviewProgress.keys.filter { it.first == userId }.toList().forEach { reviewProgress.remove(it) }
+		}
+		override suspend fun upsertAllReview(rows: List<LocalReviewProgress>) {
+			rows.forEach { upsertReview(it) }
+		}
 	}
 
 	private class FakeLocalPracticeSessionDao : LocalPracticeSessionDao {
@@ -149,6 +162,9 @@ class LocalPracticeSourceTest {
 		override suspend fun localGuestId(): String? = storedLocalGuestId
 		override suspend fun setLocalGuestId(id: String) { storedLocalGuestId = id }
 		override suspend fun clearLocalGuestId() { storedLocalGuestId = null }
+		private var storedLastSyncedAt: Long? = null
+		override suspend fun lastSyncedAt(): Long? = storedLastSyncedAt
+		override suspend fun setLastSyncedAt(value: Long) { storedLastSyncedAt = value }
 	}
 
 	private fun vocab(id: String, level: String = "A1") = LocalVocabulary(

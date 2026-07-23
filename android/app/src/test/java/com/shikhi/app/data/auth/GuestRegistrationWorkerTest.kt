@@ -3,7 +3,10 @@ package com.shikhi.app.data.auth
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import androidx.work.ExistingWorkPolicy
 import androidx.work.ListenableWorker
+import androidx.work.OneTimeWorkRequest
+import androidx.work.WorkManager
 import androidx.work.WorkerFactory
 import androidx.work.WorkerParameters
 import androidx.work.testing.TestListenableWorkerBuilder
@@ -16,9 +19,11 @@ import com.shikhi.app.data.db.LocalReviewProgress
 import com.shikhi.app.data.db.LocalStatsProjection
 import com.shikhi.app.data.db.LocalWordProgress
 import com.shikhi.app.data.db.ShikhiDatabase
+import com.shikhi.app.data.progress.ProgressPullWorker
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
@@ -98,6 +103,10 @@ class GuestRegistrationWorkerTest {
 			storedLocalGuestId = null
 			localGuestIdCleared = true
 		}
+
+		private var storedLastSyncedAt: Long? = null
+		override suspend fun lastSyncedAt(): Long? = storedLastSyncedAt
+		override suspend fun setLastSyncedAt(value: Long) { storedLastSyncedAt = value }
 	}
 
 	private lateinit var db: ShikhiDatabase
@@ -105,6 +114,7 @@ class GuestRegistrationWorkerTest {
 	private lateinit var authApi: AuthApi
 	private lateinit var userApi: UserApi
 	private lateinit var authRepository: AuthRepository
+	private lateinit var workManager: WorkManager
 
 	private val oldId = "local-guest-1"
 	private val newId = "server-user-1"
@@ -117,6 +127,7 @@ class GuestRegistrationWorkerTest {
 		authApi = mockk()
 		userApi = mockk()
 		authRepository = mockk(relaxed = true)
+		workManager = mockk(relaxed = true)
 	}
 
 	@After
@@ -139,6 +150,7 @@ class GuestRegistrationWorkerTest {
 				tokenStore,
 				db,
 				authRepository,
+				dagger.Lazy { workManager },
 			)
 		}
 		return TestListenableWorkerBuilder<GuestRegistrationWorker>(context)
@@ -216,6 +228,12 @@ class GuestRegistrationWorkerTest {
 		// ADR-0014 finding-1 fix: the worker itself is the sole caller of the LocalGuest -> Active
 		// transition, and only after the re-key + clearLocalGuestId() have both completed.
 		coVerify(exactly = 1) { authRepository.completeGuestRegistration(serverUser) }
+
+		// UO6: a successful registration seeds the durable projection under the new server
+		// userId with a pull.
+		verify(exactly = 1) {
+			workManager.enqueueUniqueWork(ProgressPullWorker.UNIQUE_NAME, ExistingWorkPolicy.KEEP, any<OneTimeWorkRequest>())
+		}
 	}
 
 	@Test

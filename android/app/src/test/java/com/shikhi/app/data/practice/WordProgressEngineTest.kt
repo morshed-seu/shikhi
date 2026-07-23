@@ -42,6 +42,20 @@ class WordProgressEngineTest {
 
 		override suspend fun rekey(oldUserId: String, newUserId: String) = Unit
 		override suspend fun rekeyReview(oldUserId: String, newUserId: String) = Unit
+
+		// UO6: pull-rebuild overwrite methods — not exercised by this file's tests.
+		override suspend fun deleteAllForUser(userId: String) {
+			wordProgress.keys.filter { it.first == userId }.toList().forEach { wordProgress.remove(it) }
+		}
+		override suspend fun upsertAll(rows: List<LocalWordProgress>) {
+			rows.forEach { upsert(it) }
+		}
+		override suspend fun deleteAllReviewForUser(userId: String) {
+			reviewProgress.keys.filter { it.first == userId }.toList().forEach { reviewProgress.remove(it) }
+		}
+		override suspend fun upsertAllReview(rows: List<LocalReviewProgress>) {
+			rows.forEach { upsertReview(it) }
+		}
 	}
 
 	private val userId = "user-1"

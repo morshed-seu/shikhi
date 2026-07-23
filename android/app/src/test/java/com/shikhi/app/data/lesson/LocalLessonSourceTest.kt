@@ -125,6 +125,13 @@ class LocalLessonSourceTest {
 				rows.remove(key)?.let { rows[Triple(newUserId, key.second, key.third)] = it.copy(userId = newUserId) }
 			}
 		}
+		// UO6: pull-rebuild overwrite methods — not exercised by this file's tests.
+		override suspend fun deleteAllForUser(userId: String) {
+			rows.keys.filter { it.first == userId }.toList().forEach { rows.remove(it) }
+		}
+		override suspend fun upsertAll(rows: List<LocalLessonCompletion>) {
+			rows.forEach { upsert(it) }
+		}
 	}
 
 	/** OG1: minimal fake so tests can control what [TokenStore.localGuestId] returns — mirrors
@@ -137,6 +144,9 @@ class LocalLessonSourceTest {
 		override suspend fun localGuestId(): String? = storedLocalGuestId
 		override suspend fun setLocalGuestId(id: String) { storedLocalGuestId = id }
 		override suspend fun clearLocalGuestId() { storedLocalGuestId = null }
+		private var storedLastSyncedAt: Long? = null
+		override suspend fun lastSyncedAt(): Long? = storedLastSyncedAt
+		override suspend fun setLastSyncedAt(value: Long) { storedLastSyncedAt = value }
 	}
 
 	private lateinit var readDao: FakeContentReadDao

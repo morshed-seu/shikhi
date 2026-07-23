@@ -61,6 +61,10 @@ class TokenAuthenticatorTest {
 		override suspend fun clearLocalGuestId() {
 			localGuestId = null
 		}
+
+		private var storedLastSyncedAt: Long? = null
+		override suspend fun lastSyncedAt(): Long? = storedLastSyncedAt
+		override suspend fun setLastSyncedAt(value: Long) { storedLastSyncedAt = value }
 	}
 
 	private lateinit var server: MockWebServer

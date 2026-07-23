@@ -76,6 +76,10 @@ class AuthRepositoryTest {
 		override suspend fun clearLocalGuestId() {
 			localGuestId = null
 		}
+
+		private var storedLastSyncedAt: Long? = null
+		override suspend fun lastSyncedAt(): Long? = storedLastSyncedAt
+		override suspend fun setLastSyncedAt(value: Long) { storedLastSyncedAt = value }
 	}
 
 	private fun repository(
@@ -411,4 +415,29 @@ class AuthRepositoryTest {
 			assertTrue(session is SessionState.Active)
 			assertEquals(accountB, (session as SessionState.Active).user)
 		}
+
+	@Test
+	fun `UO6 - login into an existing account schedules a progress pull`() = runTest(dispatcher) {
+		val authApi = mockk<AuthApi>(relaxed = true)
+		val userApi = mockk<UserApi>(relaxed = true)
+		val user = User(id = "u1", displayName = null, uiLocale = "bn", isGuest = false)
+		coEvery { authApi.login(any()) } returns TokenPair("at", "rt", 3600)
+		coEvery { userApi.me() } returns user
+
+		val tokenStore = FakeTokenStore(null, null)
+		val workManager = mockk<WorkManager>(relaxed = true)
+		val repo = repository(authApi, userApi, tokenStore, workManager = workManager)
+
+		repo.login("a@example.com", "password")
+		dispatcher.scheduler.advanceUntilIdle()
+
+		assertTrue(repo.session.value is SessionState.Active)
+		verify(exactly = 1) {
+			workManager.enqueueUniqueWork(
+				com.shikhi.app.data.progress.ProgressPullWorker.UNIQUE_NAME,
+				ExistingWorkPolicy.KEEP,
+				any<OneTimeWorkRequest>(),
+			)
+		}
+	}
 }

@@ -48,6 +48,15 @@ class PracticeWordPickerTest {
 		override suspend fun upsertReview(progress: com.shikhi.app.data.db.LocalReviewProgress) = Unit
 		override suspend fun rekey(oldUserId: String, newUserId: String) = Unit
 		override suspend fun rekeyReview(oldUserId: String, newUserId: String) = Unit
+		// UO6: pull-rebuild overwrite methods — not exercised by this file's tests.
+		override suspend fun deleteAllForUser(userId: String) {
+			rows.removeAll { it.userId == userId }
+		}
+		override suspend fun upsertAll(rows: List<LocalWordProgress>) {
+			rows.forEach { upsert(it) }
+		}
+		override suspend fun deleteAllReviewForUser(userId: String) = Unit
+		override suspend fun upsertAllReview(rows: List<com.shikhi.app.data.db.LocalReviewProgress>) = Unit
 	}
 
 	private fun vocab(id: String, level: String = "A1") = LocalVocabulary(

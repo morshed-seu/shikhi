@@ -60,6 +60,7 @@ class OfflineContentSmokeTest {
 		override suspend fun stats() = throw UnsupportedOperationException("not exercised by this smoke test")
 		override suspend fun sync(body: SyncBatchRequest) = throw UnsupportedOperationException()
 		override suspend fun setLevel(body: SetLevelRequest) = throw UnsupportedOperationException()
+		override suspend fun snapshot() = throw UnsupportedOperationException("not exercised by this smoke test")
 	}
 
 	private class NoopContentCacheDao : ContentCacheDao {
