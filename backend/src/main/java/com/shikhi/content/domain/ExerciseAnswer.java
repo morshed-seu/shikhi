@@ -33,6 +33,10 @@ public class ExerciseAnswer {
 		this.primary = primary;
 	}
 
+	public UUID getId() {
+		return id;
+	}
+
 	public UUID getExerciseId() {
 		return exerciseId;
 	}

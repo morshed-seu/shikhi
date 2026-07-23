@@ -13,12 +13,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -37,9 +42,25 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.shikhi.app.R
 import com.shikhi.app.ui.util.localized
 
+/** Pulls the curly-quoted headword out of a WORD_MEANING prompt (e.g. `What does “X” mean?`) —
+ * mirrors the web's `quotedWord()` (frontend/src/components/PracticePlayer.tsx). The Kotlin
+ * [com.shikhi.app.data.api.dto.PracticeExercise] DTO carries no structured headword field (the
+ * generator only ever puts the word into the rendered prompt/options text, matching the
+ * backend's `PracticeExerciseView`), so extracting it from the already-visible prompt text is the
+ * only option here too — it reveals nothing the learner hasn't already been shown. */
+private val QUOTED_WORD = Regex("“([^”]+)”")
+
+private fun quotedWord(text: String): String? = QUOTED_WORD.find(text)?.groupValues?.get(1)
+
+/** A wrong-answer reveal reads `Correct answer: word — বাংলা gloss` or a plain English sentence;
+ * either way the part before the first em dash is clean, speakable English (web `revealWord()`). */
+private fun revealWord(feedbackEn: String): String =
+	feedbackEn.removePrefix("Correct answer: ").split(" — ").first().trim()
+
 @Composable
 fun PracticeScreen(onExit: () -> Unit, viewModel: PracticeViewModel = hiltViewModel()) {
 	val state by viewModel.state.collectAsStateWithLifecycle()
+	val speechAvailable by viewModel.speechAvailable.collectAsStateWithLifecycle()
 
 	// Mid-session finalization happens in the ViewModel's onCleared, covering the ✕
 	// button, system back, and app close alike.
@@ -87,6 +108,8 @@ fun PracticeScreen(onExit: () -> Unit, viewModel: PracticeViewModel = hiltViewMo
 			onTextChange = viewModel::setTextAnswer,
 			onCheck = viewModel::check,
 			onNext = viewModel::next,
+			speechAvailable = speechAvailable,
+			onPronounce = viewModel::pronounce,
 		)
 	}
 }
@@ -142,6 +165,19 @@ private fun RoundDoneContent(
 	}
 }
 
+/** Small speaker icon (mirrors `VocabularySection`'s pronounce control) — only ever rendered when
+ * the caller has already checked [PracticeViewModel.speechAvailable]. */
+@Composable
+private fun SpeakIcon(word: String, onPronounce: (String) -> Unit, modifier: Modifier = Modifier) {
+	IconButton(onClick = { onPronounce(word) }, modifier = modifier.size(28.dp)) {
+		Icon(
+			Icons.AutoMirrored.Filled.VolumeUp,
+			contentDescription = stringResource(R.string.vocab_pronounce, word),
+			modifier = Modifier.size(16.dp),
+		)
+	}
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PracticeContent(
@@ -153,12 +189,18 @@ private fun PracticeContent(
 	onTextChange: (String) -> Unit,
 	onCheck: () -> Unit,
 	onNext: () -> Unit,
+	speechAvailable: Boolean = false,
+	onPronounce: (String) -> Unit = {},
 ) {
 	val exercise = state.exercise
 	val answered = state.verdict != null
 	val isChoice = exercise.type in setOf("WORD_MEANING", "MEANING_WORD", "SENTENCE_GAP")
 	val isBuild = exercise.type == "SENTENCE_BUILD"
 	val isType = exercise.type == "TYPE_WORD"
+	// Options are only real English words (safe to pronounce as-is) for these two types —
+	// WORD_MEANING's MCQ options are Bengali meanings, which an en-US voice would mangle.
+	val optionsAreEnglish = exercise.type == "MEANING_WORD" || exercise.type == "SENTENCE_GAP"
+	val promptWord = if (exercise.type == "WORD_MEANING") quotedWord(exercise.prompt.en) else null
 	val tokens = exercise.config.tokens.orEmpty()
 	val canCheck = !state.busy && !answered && when {
 		isChoice -> state.selectedOptionId != null
@@ -193,11 +235,17 @@ private fun PracticeContent(
 		}
 		Spacer(Modifier.height(16.dp))
 
-		Text(
-			exercise.prompt.localized(),
-			style = MaterialTheme.typography.titleLarge,
-			modifier = Modifier.testTag("practice-prompt"),
-		)
+		Row(verticalAlignment = Alignment.CenterVertically) {
+			Text(
+				exercise.prompt.localized(),
+				style = MaterialTheme.typography.titleLarge,
+				modifier = Modifier.testTag("practice-prompt"),
+			)
+			if (speechAvailable && promptWord != null) {
+				Spacer(Modifier.width(4.dp))
+				SpeakIcon(promptWord, onPronounce)
+			}
+		}
 		if (exercise.type == "SENTENCE_GAP" && exercise.config.contextBn != null) {
 			Spacer(Modifier.height(8.dp))
 			Text(exercise.config.contextBn!!, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
@@ -216,13 +264,19 @@ private fun PracticeContent(
 				} else {
 					ButtonDefaults.outlinedButtonColors()
 				}
-				OutlinedButton(
-					onClick = { onSelectOption(opt.id) },
-					enabled = !answered,
-					colors = colors,
-					modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-				) {
-					Text(opt.text.localized())
+				Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+					OutlinedButton(
+						onClick = { onSelectOption(opt.id) },
+						enabled = !answered,
+						colors = colors,
+						modifier = Modifier.weight(1f),
+					) {
+						Text(opt.text.localized())
+					}
+					if (speechAvailable && optionsAreEnglish) {
+						Spacer(Modifier.width(4.dp))
+						SpeakIcon(opt.text.en, onPronounce)
+					}
 				}
 			}
 
@@ -249,14 +303,31 @@ private fun PracticeContent(
 					} else {
 						state.placedTokenIds.forEach { id ->
 							val tk = tokens.find { it.id == id } ?: return@forEach
-							Button(onClick = { onRemoveToken(id) }, enabled = !answered) { Text(tk.text.en) }
+							Row(verticalAlignment = Alignment.CenterVertically) {
+								Button(onClick = { onRemoveToken(id) }, enabled = !answered) { Text(tk.text.en) }
+								if (speechAvailable) SpeakIcon(tk.text.en, onPronounce)
+							}
 						}
+					}
+				}
+				if (speechAvailable && state.placedTokenIds.size == tokens.size && tokens.isNotEmpty()) {
+					Spacer(Modifier.height(8.dp))
+					Row(verticalAlignment = Alignment.CenterVertically) {
+						SpeakIcon(
+							state.placedTokenIds.mapNotNull { id -> tokens.find { it.id == id }?.text?.en }.joinToString(" "),
+							onPronounce,
+						)
+						Spacer(Modifier.width(4.dp))
+						Text(stringResource(R.string.practice_listen_sentence), style = MaterialTheme.typography.bodySmall)
 					}
 				}
 				Spacer(Modifier.height(16.dp))
 				FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
 					tokens.filter { it.id !in state.placedTokenIds }.forEach { tk ->
-						OutlinedButton(onClick = { onPlaceToken(tk.id) }, enabled = !answered) { Text(tk.text.en) }
+						Row(verticalAlignment = Alignment.CenterVertically) {
+							OutlinedButton(onClick = { onPlaceToken(tk.id) }, enabled = !answered) { Text(tk.text.en) }
+							if (speechAvailable) SpeakIcon(tk.text.en, onPronounce)
+						}
 					}
 				}
 			}
@@ -279,7 +350,15 @@ private fun PracticeContent(
 					if (!ok) {
 						verdict.feedback?.let { fb ->
 							val text = fb.localized()
-							if (text.isNotBlank()) Text(text, style = MaterialTheme.typography.bodyMedium)
+							if (text.isNotBlank()) {
+								Row(verticalAlignment = Alignment.CenterVertically) {
+									Text(text, style = MaterialTheme.typography.bodyMedium)
+									if (speechAvailable && fb.en.isNotBlank()) {
+										Spacer(Modifier.width(4.dp))
+										SpeakIcon(revealWord(fb.en), onPronounce)
+									}
+								}
+							}
 						}
 					}
 				}

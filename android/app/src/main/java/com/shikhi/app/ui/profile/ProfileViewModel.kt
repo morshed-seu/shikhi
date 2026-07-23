@@ -9,7 +9,9 @@ import com.shikhi.app.data.api.dto.Identity
 import com.shikhi.app.data.api.dto.User
 import com.shikhi.app.data.auth.AuthRepository
 import com.shikhi.app.data.auth.SessionState
+import com.shikhi.app.data.auth.TokenStore
 import com.shikhi.app.data.dashboard.DashboardRepository
+import com.shikhi.app.data.progress.StatsProjectionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,6 +24,13 @@ data class ProfileUiState(
 	val loading: Boolean = true,
 	/** Hard error: the dashboard snapshot itself could not be loaded (network + no cache). */
 	val error: Boolean = false,
+	/**
+	 * OG-fix: a [SessionState.LocalGuest] has no access token yet, so a dashboard fetch is
+	 * guaranteed to fail — this is shown instead of [error] while there's no cached snapshot to
+	 * fall back to either, and clears itself automatically once [GuestRegistrationWorker]
+	 * finishes and the session flips to `Active`.
+	 */
+	val guestSyncPending: Boolean = false,
 	val dashboard: DashboardResponse? = null,
 	/** A failed `GET /me/identities` soft-fails to `emptyList()` — never blanks the profile. */
 	val identities: List<Identity> = emptyList(),
@@ -29,6 +38,12 @@ data class ProfileUiState(
 	val isGuest: Boolean = false,
 	/** True when [dashboard] came from the offline Room cache (NFR-AN4). */
 	val fromCache: Boolean = false,
+	/**
+	 * UO4: true when the local stats projection has never actually reconciled with the server —
+	 * distinct from [fromCache] (which just means this particular dashboard fetch came from the
+	 * Room cache). Drives [OfflineCopyBanner] instead of [fromCache].
+	 */
+	val neverSynced: Boolean = false,
 	val editingName: Boolean = false,
 	val nameDraft: String = "",
 	val savingName: Boolean = false,
@@ -54,6 +69,8 @@ data class ProfileUiState(
 class ProfileViewModel @Inject constructor(
 	private val authRepository: AuthRepository,
 	private val dashboardRepository: DashboardRepository,
+	private val statsProjectionRepository: StatsProjectionRepository,
+	private val tokenStore: TokenStore,
 ) : ViewModel() {
 
 	private val _state = MutableStateFlow(ProfileUiState())
@@ -61,9 +78,16 @@ class ProfileViewModel @Inject constructor(
 
 	init {
 		viewModelScope.launch {
+			var wasLocalGuest = authRepository.session.value is SessionState.LocalGuest
 			authRepository.session.collect { session ->
 				val user = (session as? SessionState.Active)?.user
-				_state.update { it.copy(user = user, isGuest = user?.isGuest == true) }
+				// OG1: a LocalGuest has no User object yet, but is definitely "a guest."
+				_state.update { it.copy(user = user, isGuest = session is SessionState.LocalGuest || user?.isGuest == true) }
+				val isLocalGuestNow = session is SessionState.LocalGuest
+				// OG-fix: GuestRegistrationWorker just finished (LocalGuest -> Active) — the
+				// dashboard fetch refresh() skipped while guestSyncPending is now safe to retry.
+				if (wasLocalGuest && !isLocalGuestNow) refresh()
+				wasLocalGuest = isLocalGuestNow
 			}
 		}
 		refresh()
@@ -73,6 +97,15 @@ class ProfileViewModel @Inject constructor(
 	fun refresh() {
 		_state.update { it.copy(loading = true, error = false) }
 		viewModelScope.launch {
+			if (authRepository.session.value is SessionState.LocalGuest) {
+				// OG-fix: no server account yet, so dashboardApi/identities would 401
+				// unconditionally regardless of connectivity — skip the doomed network round
+				// trip. A cached snapshot from a prior Active session (e.g. after logout ->
+				// re-guest) is still shown if present; otherwise show the pending-sync state
+				// rather than the generic hard error.
+				_state.update { it.copy(loading = false, guestSyncPending = it.dashboard == null) }
+				return@launch
+			}
 			val dash = async { dashboardRepository.dashboard() }
 			// Fetched independently: a failed identities call must not hard-error the whole
 			// profile — only the masked-email line is affected (same decision as the web
@@ -80,18 +113,37 @@ class ProfileViewModel @Inject constructor(
 			// already soft-fails to emptyList(), but guard here too so a misbehaving
 			// implementation can never sink the dashboard load with it.
 			val ids = async { runCatching { dashboardRepository.identities() }.getOrDefault(emptyList()) }
+			// UO4: whether the local projection has ever genuinely synced — drives neverSynced
+			// below. Defaults to true (banner suppressed) if this throws, e.g. outside an
+			// authenticated/local-guest session.
+			val synced = async { runCatching { statsProjectionRepository.hasReconciled(currentUserId()) }.getOrDefault(true) }
 			val d = dash.await()
 			val identityList = ids.await()
+			val neverSynced = !synced.await()
 			_state.update {
 				it.copy(
 					loading = false,
 					error = d == null && it.dashboard == null,
+					guestSyncPending = false,
 					dashboard = d?.value ?: it.dashboard,
 					fromCache = d?.fromCache == true,
 					identities = identityList,
+					neverSynced = neverSynced,
 				)
 			}
 		}
+	}
+
+	/**
+	 * Same shape as [com.shikhi.app.data.practice.LocalPracticeSource]'s / [com.shikhi.app.data.progress.LevelRepository]'s
+	 * identically-named private helpers — deliberately duplicated per-class in this codebase
+	 * rather than shared (see those methods' doc comments).
+	 */
+	private suspend fun currentUserId(): String = when (val state = authRepository.session.value) {
+		is SessionState.Active -> state.user.id
+		is SessionState.LocalGuest -> tokenStore.localGuestId()
+			?: error("LocalGuest session with no stored localGuestId — invariant violated")
+		else -> error("Profile requires an already-authenticated or local-guest session")
 	}
 
 	fun startEditName() = _state.update { it.copy(editingName = true, nameDraft = it.user?.displayName ?: "") }

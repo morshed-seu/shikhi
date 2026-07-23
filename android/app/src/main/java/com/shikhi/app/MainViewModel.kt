@@ -19,4 +19,6 @@ class MainViewModel @Inject constructor(
 	init {
 		viewModelScope.launch { authRepository.bootstrap() }
 	}
+
+	fun retryGuestProvisioning() = viewModelScope.launch { authRepository.retryGuestProvisioning() }
 }

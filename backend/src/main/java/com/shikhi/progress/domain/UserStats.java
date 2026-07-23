@@ -53,6 +53,9 @@ public class UserStats {
 	@Column(name = "cefr_level", nullable = false)
 	private String cefrLevel = "A1";
 
+	@Column(name = "cefr_level_changed_at")
+	private Instant cefrLevelChangedAt;
+
 	protected UserStats() {
 		// for JPA
 	}
@@ -129,7 +132,16 @@ public class UserStats {
 		return cefrLevel;
 	}
 
-	public void setCefrLevel(String cefrLevel) {
+	public Instant getCefrLevelChangedAt() {
+		return cefrLevelChangedAt;
+	}
+
+	/** Last-write-wins: apply only if {@code changedAt} is not older than the stored timestamp. */
+	public void setCefrLevel(String cefrLevel, Instant changedAt) {
+		if (cefrLevelChangedAt != null && changedAt != null && changedAt.isBefore(cefrLevelChangedAt)) {
+			return;
+		}
 		this.cefrLevel = cefrLevel;
+		this.cefrLevelChangedAt = changedAt;
 	}
 }

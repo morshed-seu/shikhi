@@ -57,8 +57,16 @@ public class UserProgress {
 		this.completedAt = Instant.now();
 	}
 
+	public UUID getUserId() {
+		return userId;
+	}
+
 	public UUID getLessonId() {
 		return lessonId;
+	}
+
+	public UUID getContentVersionId() {
+		return contentVersionId;
 	}
 
 	public ProgressStatus getStatus() {
@@ -67,5 +75,9 @@ public class UserProgress {
 
 	public int getBestScore() {
 		return bestScore;
+	}
+
+	public Instant getCompletedAt() {
+		return completedAt;
 	}
 }

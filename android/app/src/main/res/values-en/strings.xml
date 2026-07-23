@@ -2,10 +2,6 @@
 <resources>
     <string name="app_name">Shikhi</string>
 
-    <string name="onboarding_tagline">English for Bengali speakers — a little every day</string>
-    <string name="continue_as_guest">Start without signing up</string>
-    <string name="onboarding_guest_hint">Your progress is saved; you can create an account later and keep it.</string>
-
     <string name="home_greeting">Welcome, %1$s</string>
     <string name="guest_display_name">Guest learner</string>
     <string name="log_out">Log out</string>
@@ -14,6 +10,9 @@
     <string name="health_online">Server ready</string>
     <string name="health_warming">Server is waking up — hang on…</string>
     <string name="health_offline">Can\'t reach the server</string>
+
+    <string name="connecting_message">Connecting…</string>
+    <string name="connecting_retry_message">Couldn\'t connect. Check your connection and try again.</string>
 
     <string name="error_generic">Something went wrong. Please try again.</string>
     <string name="retry">Try again</string>
@@ -78,6 +77,7 @@
     <string name="practice_level_up_offer">You’ve mastered most of your level — ready for %1$s?</string>
     <string name="practice_level_up_accept">Move up to %1$s</string>
     <string name="practice_level_up_done">Your level is now %1$s. New sessions will use it.</string>
+    <string name="practice_listen_sentence">Listen to your assembled sentence</string>
 
     <!-- Review -->
     <string name="review_title">Review</string>
@@ -97,6 +97,7 @@
     <string name="vocab_prev">Previous</string>
     <string name="vocab_next">Next</string>
     <string name="vocab_page">Page %1$d of %2$d</string>
+    <string name="vocab_pronounce">Pronounce %1$s</string>
 
     <!-- Accounts -->
     <string name="auth_login">Log in</string>
@@ -113,6 +114,12 @@
     <string name="guest_save">Save my progress</string>
     <string name="guest_create_account">Create account</string>
     <string name="guest_email_taken">That email already has an account. Log in instead — your guest progress from this session won\'t be saved.</string>
+    <string name="guest_signin_cta">Sign in to an existing account</string>
+    <string name="guest_signin_submit">Sign in</string>
+    <string name="guest_local_pending">We\'re still setting up your account — you can save your progress once you\'re online.</string>
+    <string name="auth_signin_discard_title">Sign in?</string>
+    <string name="auth_signin_discard_warning">Signing in will discard your guest progress on this device — continue?</string>
+    <string name="error_server_warming">The server may be waking up — please try again in a few seconds.</string>
     <string name="auth_learner">learner</string>
     <string name="guest_badge">You\'re exploring as a guest.</string>
 
@@ -122,6 +129,7 @@
     <string name="profile_title">Profile</string>
     <string name="profile_loading">Loading your profile…</string>
     <string name="profile_error">Could not load your profile.</string>
+    <string name="profile_guest_sync_pending">Setting up your account — your profile will be ready in a moment.</string>
     <string name="profile_save">Save</string>
     <string name="profile_cancel">Cancel</string>
     <string name="profile_edit_name">Edit name</string>

@@ -105,9 +105,13 @@ fun ProfileScreen(onBack: () -> Unit, viewModel: ProfileViewModel = hiltViewMode
 				Spacer(Modifier.height(24.dp))
 				Text(stringResource(R.string.profile_error), color = MaterialTheme.colorScheme.error)
 			}
+			ui.guestSyncPending -> {
+				Spacer(Modifier.height(24.dp))
+				Text(stringResource(R.string.profile_guest_sync_pending), color = MaterialTheme.colorScheme.secondary)
+			}
 			else -> ui.dashboard?.let { dashboard ->
 				Spacer(Modifier.height(12.dp))
-				if (ui.fromCache) OfflineCopyBanner()
+				if (ui.neverSynced) OfflineCopyBanner()
 
 				ProfileCard(ui = ui, viewModel = viewModel)
 				Spacer(Modifier.height(16.dp))

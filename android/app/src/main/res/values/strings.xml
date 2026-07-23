@@ -3,10 +3,6 @@
 <resources>
     <string name="app_name">শিখি</string>
 
-    <string name="onboarding_tagline">বাংলাভাষীদের জন্য ইংরেজি শেখা — সহজে, প্রতিদিন</string>
-    <string name="continue_as_guest">সাইন-আপ ছাড়াই শুরু করুন</string>
-    <string name="onboarding_guest_hint">আপনার অগ্রগতি সংরক্ষিত থাকবে; পরে যেকোনো সময় অ্যাকাউন্ট খুলে তা রাখতে পারবেন।</string>
-
     <string name="home_greeting">স্বাগতম, %1$s</string>
     <string name="guest_display_name">অতিথি শিক্ষার্থী</string>
     <string name="log_out">লগ আউট</string>
@@ -15,6 +11,9 @@
     <string name="health_online">সার্ভার প্রস্তুত</string>
     <string name="health_warming">সার্ভার চালু হচ্ছে — একটু অপেক্ষা করুন…</string>
     <string name="health_offline">সংযোগ পাওয়া যাচ্ছে না</string>
+
+    <string name="connecting_message">সংযোগ হচ্ছে…</string>
+    <string name="connecting_retry_message">সংযোগ করা যায়নি। আপনার ইন্টারনেট সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।</string>
 
     <string name="error_generic">কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।</string>
     <string name="retry">আবার চেষ্টা করুন</string>
@@ -79,6 +78,7 @@
     <string name="practice_level_up_offer">আপনি এই স্তরের বেশিরভাগ শব্দ আয়ত্ত করেছেন — %1$s এ যেতে প্রস্তুত?</string>
     <string name="practice_level_up_accept">%1$s এ উন্নীত হোন</string>
     <string name="practice_level_up_done">আপনার স্তর এখন %1$s। নতুন সেশনে এটি ব্যবহৃত হবে।</string>
+    <string name="practice_listen_sentence">আপনার সাজানো বাক্যটি শুনুন</string>
 
     <!-- Review (web i18n review.*) -->
     <string name="review_title">পুনরালোচনা</string>
@@ -98,6 +98,7 @@
     <string name="vocab_prev">পূর্ববর্তী</string>
     <string name="vocab_next">পরবর্তী</string>
     <string name="vocab_page">%2$dটির মধ্যে %1$d নম্বর পৃষ্ঠা</string>
+    <string name="vocab_pronounce">%1$s উচ্চারণ শুনুন</string>
 
     <!-- Accounts (web i18n auth.* / guest.*) -->
     <string name="auth_login">লগ ইন</string>
@@ -114,6 +115,12 @@
     <string name="guest_save">আমার অগ্রগতি সংরক্ষণ করুন</string>
     <string name="guest_create_account">অ্যাকাউন্ট তৈরি করুন</string>
     <string name="guest_email_taken">এই ইমেইলে ইতিমধ্যে একটি অ্যাকাউন্ট আছে। বরং লগ ইন করুন — এই সেশনের অতিথি অগ্রগতি সংরক্ষিত হবে না।</string>
+    <string name="guest_signin_cta">বিদ্যমান অ্যাকাউন্টে সাইন ইন করুন</string>
+    <string name="guest_signin_submit">সাইন ইন করুন</string>
+    <string name="guest_local_pending">আপনার অ্যাকাউন্ট এখনও তৈরি হচ্ছে — অনলাইনে এলেই অগ্রগতি সংরক্ষণ করতে পারবেন।</string>
+    <string name="auth_signin_discard_title">সাইন ইন করবেন?</string>
+    <string name="auth_signin_discard_warning">সাইন ইন করলে এই ডিভাইসে আপনার অতিথি হিসেবে অর্জিত অগ্রগতি বাদ যাবে — এগিয়ে যেতে চান?</string>
+    <string name="error_server_warming">সার্ভার হয়তো চালু হচ্ছে — কিছুক্ষণ পর আবার চেষ্টা করুন।</string>
     <string name="auth_learner">শিক্ষার্থী</string>
     <string name="guest_badge">আপনি অতিথি হিসেবে দেখছেন।</string>
 
@@ -123,6 +130,7 @@
     <string name="profile_title">প্রোফাইল</string>
     <string name="profile_loading">আপনার প্রোফাইল লোড হচ্ছে…</string>
     <string name="profile_error">আপনার প্রোফাইল লোড করা যায়নি।</string>
+    <string name="profile_guest_sync_pending">আপনার অ্যাকাউন্ট প্রস্তুত হচ্ছে — প্রোফাইলটি একটু পরেই দেখা যাবে।</string>
     <string name="profile_save">সংরক্ষণ করুন</string>
     <string name="profile_cancel">বাতিল করুন</string>
     <string name="profile_edit_name">নাম সম্পাদনা করুন</string>

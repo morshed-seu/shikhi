@@ -46,9 +46,25 @@ public class WordProgressService {
 
 	@Transactional
 	public void recordAnswer(UUID userId, UUID vocabularyId, boolean correct) {
+		recordAnswer(userId, vocabularyId, correct, null);
+	}
+
+	/**
+	 * Same as {@link #recordAnswer(UUID, UUID, boolean)} but lets a caller supply the instant an
+	 * answer was actually given, instead of always using "now" — needed when replaying a
+	 * buffered offline {@code PRACTICE_ANSWER} sync event (doc 93 §5/§9 risk 1), where "now" is
+	 * sync time, not answer time, and would distort review-ladder due-dates for a multi-day-old
+	 * offline session. Pass {@code null} (or use the three-arg overload) for the existing
+	 * online path, which has no client timestamp and is unaffected by this change.
+	 *
+	 * @param explicitNow the instant the answer was given, or {@code null} to use
+	 *     {@code clock.instant()} (the original behavior)
+	 */
+	@Transactional
+	public void recordAnswer(UUID userId, UUID vocabularyId, boolean correct, Instant explicitNow) {
 		// Computed once and reused for both mastery and ladder updates (doc 43 §4 Fix 5) — a
 		// single instant for the whole method, not two independent reads of the clock.
-		Instant now = clock.instant();
+		Instant now = explicitNow != null ? explicitNow : clock.instant();
 
 		PracticeWordProgress mastery = wordProgressRepository
 				.findById(new PracticeWordProgress.Key(userId, vocabularyId))

@@ -7,9 +7,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -25,6 +30,7 @@ import androidx.lifecycle.viewModelScope
 import com.shikhi.app.R
 import com.shikhi.app.data.api.dto.VocabularyEntry
 import com.shikhi.app.data.content.CachedContentRepository
+import com.shikhi.app.ui.util.Pronouncer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -65,10 +71,16 @@ data class VocabUiState(
 @HiltViewModel
 class VocabViewModel @Inject constructor(
 	private val content: CachedContentRepository,
+	private val pronouncer: Pronouncer,
 ) : ViewModel() {
 
 	private val _state = MutableStateFlow(VocabUiState())
 	val state: StateFlow<VocabUiState> = _state
+
+	/** Web parity (`isSpeechSupported()`): the speaker button hides itself when this is false. */
+	val speechAvailable: StateFlow<Boolean> = pronouncer.isAvailable
+
+	fun pronounce(headword: String) = pronouncer.speak(headword)
 
 	fun toggleOpen() {
 		val opening = !_state.value.open
@@ -109,6 +121,8 @@ fun VocabularySection(
 	onQuery: (String) -> Unit,
 	onPrev: () -> Unit,
 	onNext: () -> Unit,
+	speechAvailable: Boolean = false,
+	onPronounce: (String) -> Unit = {},
 ) {
 	Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
 		Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
@@ -167,8 +181,20 @@ fun VocabularySection(
 						modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
 					) {
 						Column(Modifier.padding(10.dp)) {
-							Row(verticalAlignment = androidx.compose.ui.Alignment.Bottom) {
+							Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
 								Text(e.headword, style = MaterialTheme.typography.titleMedium)
+								if (speechAvailable) {
+									IconButton(
+										onClick = { onPronounce(e.headword) },
+										modifier = Modifier.size(28.dp),
+									) {
+										Icon(
+											Icons.AutoMirrored.Filled.VolumeUp,
+											contentDescription = stringResource(R.string.vocab_pronounce, e.headword),
+											modifier = Modifier.size(16.dp),
+										)
+									}
+								}
 								Spacer(Modifier.width(8.dp))
 								Text(e.partOfSpeech, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
 								e.senseLabel?.let {

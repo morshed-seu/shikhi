@@ -86,6 +86,14 @@ android {
 		buildConfig = true
 	}
 
+	testOptions {
+		unitTests {
+			// Robolectric-based tests (OF1's ContentSeedImporterTest) read real files from
+			// src/main/assets — this makes them visible on the unit-test classpath.
+			isIncludeAndroidResources = true
+		}
+	}
+
 	compileOptions {
 		sourceCompatibility = JavaVersion.VERSION_17
 		targetCompatibility = JavaVersion.VERSION_17
@@ -102,6 +110,7 @@ dependencies {
 	implementation(platform(libs.compose.bom))
 	implementation(libs.compose.ui)
 	implementation(libs.compose.material3)
+	implementation(libs.compose.material.icons.extended)
 	implementation(libs.compose.ui.tooling.preview)
 	debugImplementation(libs.compose.ui.tooling)
 
@@ -141,4 +150,13 @@ dependencies {
 	testImplementation(libs.coroutines.test)
 	testImplementation(libs.turbine)
 	testImplementation(libs.mockwebserver)
+	// OF1: ContentSeedImporterTest needs a real Context (AssetManager) + real in-memory Room DB
+	// to exercise the bundled assets/content-seed/*.json end to end; this project has no
+	// androidTest source set yet, so Robolectric is the pragmatic JVM-only way to get that
+	// without standing up an emulator/instrumentation run.
+	testImplementation(libs.robolectric)
+	testImplementation(libs.androidx.test.core)
+	// OG2: GuestRegistrationWorkerTest exercises the real doWork() logic through a Robolectric
+	// Context + a custom WorkerFactory (TestListenableWorkerBuilder) instead of Hilt.
+	testImplementation(libs.work.testing)
 }

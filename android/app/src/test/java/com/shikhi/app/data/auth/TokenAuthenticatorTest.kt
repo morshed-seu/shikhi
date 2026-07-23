@@ -37,6 +37,7 @@ class TokenAuthenticatorTest {
 		private val _accessToken = MutableStateFlow(access)
 		override val accessToken: StateFlow<String?> = _accessToken
 		val persistLog = mutableListOf<Pair<String, String>>()
+		private var localGuestId: String? = null
 
 		override suspend fun currentRefreshToken(): String? = refresh
 
@@ -50,6 +51,20 @@ class TokenAuthenticatorTest {
 			refresh = null
 			_accessToken.value = null
 		}
+
+		override suspend fun localGuestId(): String? = localGuestId
+
+		override suspend fun setLocalGuestId(id: String) {
+			localGuestId = id
+		}
+
+		override suspend fun clearLocalGuestId() {
+			localGuestId = null
+		}
+
+		private var storedLastSyncedAt: Long? = null
+		override suspend fun lastSyncedAt(): Long? = storedLastSyncedAt
+		override suspend fun setLastSyncedAt(value: Long) { storedLastSyncedAt = value }
 	}
 
 	private lateinit var server: MockWebServer

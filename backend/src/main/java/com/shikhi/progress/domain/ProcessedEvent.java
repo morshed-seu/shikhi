@@ -32,4 +32,12 @@ public class ProcessedEvent {
 		this.userId = userId;
 		this.idempotencyKey = idempotencyKey;
 	}
+
+	public UUID getUserId() {
+		return userId;
+	}
+
+	public String getIdempotencyKey() {
+		return idempotencyKey;
+	}
 }

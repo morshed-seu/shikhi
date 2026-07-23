@@ -1,12 +1,26 @@
 package com.shikhi.progress.web;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import com.shikhi.content.repo.VocabularyRepository;
+import com.shikhi.practice.domain.PracticeWordProgress;
+import com.shikhi.practice.repo.PracticeWordProgressRepository;
+import com.shikhi.practice.schedule.ReviewProgress;
+import com.shikhi.practice.schedule.ReviewProgressRepository;
+import com.shikhi.progress.domain.UserProgress;
+import com.shikhi.progress.repo.UserProgressRepository;
 import com.shikhi.support.AbstractIntegrationTest;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Base64;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +39,18 @@ class ProgressFlowIntegrationTest extends AbstractIntegrationTest {
 
 	@Autowired
 	MockMvc mockMvc;
+
+	@Autowired
+	VocabularyRepository vocabulary;
+
+	@Autowired
+	PracticeWordProgressRepository wordProgress;
+
+	@Autowired
+	ReviewProgressRepository reviewProgress;
+
+	@Autowired
+	UserProgressRepository userProgress;
 
 	private static final String U0 = "$.levels[0].units[0]";
 
@@ -52,6 +78,14 @@ class ProgressFlowIntegrationTest extends AbstractIntegrationTest {
 				.andExpect(status().isCreated())
 				.andReturn().getResponse().getContentAsString();
 		return JsonPath.read(body, "$.id");
+	}
+
+	/** Reads the JWT {@code sub} claim (userId) straight out of the access token, unsigned —
+	 * fine for a test assertion, no verification needed since we just minted it ourselves. */
+	private UUID userIdFrom(String auth) {
+		String jwt = auth.substring("Bearer ".length());
+		String payloadJson = new String(Base64.getUrlDecoder().decode(jwt.split("\\.")[1]));
+		return UUID.fromString(JsonPath.read(payloadJson, "$.sub"));
 	}
 
 	@Test
@@ -126,5 +160,402 @@ class ProgressFlowIntegrationTest extends AbstractIntegrationTest {
 						.contentType(MediaType.APPLICATION_JSON).content(batch))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.xp").value(20));
+	}
+
+	/**
+	 * OF5 (doc 93 §5): a {@code PRACTICE_ANSWER} sync event — the shape OF4's offline Kotlin
+	 * client buffers — must award XP via {@link com.shikhi.progress.service.ProgressService}
+	 * AND advance mastery/the review ladder via
+	 * {@link com.shikhi.practice.service.WordProgressService}, both through the real
+	 * {@code POST /v1/progress/sync} endpoint against real Postgres, and honor the optional
+	 * {@code answeredAt} instead of stamping sync time.
+	 */
+	@Test
+	void syncAppliesPracticeAnswerEventsUpdatingXpAndWordMasteryAndReviewLadder() throws Exception {
+		String auth = token();
+		UUID userId = userIdFrom(auth);
+		UUID vocabularyId = vocabulary.findAll().get(0).getId();
+		Instant answeredAt = Instant.parse("2026-07-16T10:15:00Z"); // two days before "today"
+
+		String batch = "{\"events\":[" + practiceAnswerEvent("pa1", vocabularyId, true, answeredAt)
+				+ "," + practiceAnswerEvent("pa2", vocabularyId, true, answeredAt) + ","
+				+ practiceAnswerEvent("pa3", vocabularyId, true, answeredAt) + "]}";
+
+		// Three correct answers: +10 XP each (recordPracticeAnswer), and — since default
+		// graduation thresholds are mastery>=3/timesCorrect>=2/timesSeen>=3, an unseen word
+		// starting at mastery 2 hits all three on the third correct answer — a review-ladder
+		// row appears too (WordProgressService.recordAnswer), proving both paths ran.
+		mockMvc.perform(post("/v1/progress/sync").header(HttpHeaders.AUTHORIZATION, auth)
+						.contentType(MediaType.APPLICATION_JSON).content(batch))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.xp").value(30))
+				.andExpect(jsonPath("$.hearts").value(5));
+
+		PracticeWordProgress mastery = wordProgress
+				.findById(new PracticeWordProgress.Key(userId, vocabularyId)).orElseThrow();
+		assertThat(mastery.getMasteryScore()).isEqualTo(5); // 2 +1 +1 +1
+		assertThat(mastery.getTimesCorrect()).isEqualTo(3);
+		// answeredAt propagated, not sync-time "now".
+		assertThat(mastery.getLastSeenAt()).isEqualTo(answeredAt);
+
+		ReviewProgress graduated = reviewProgress
+				.findById(new ReviewProgress.Key(userId, vocabularyId)).orElseThrow();
+		assertThat(graduated.getReviewStage()).isEqualTo(1);
+		assertThat(graduated.getDueAt()).isEqualTo(answeredAt.plus(Duration.ofDays(1)));
+
+		// Replaying the same batch is a no-op — XP and mastery do not double.
+		mockMvc.perform(post("/v1/progress/sync").header(HttpHeaders.AUTHORIZATION, auth)
+						.contentType(MediaType.APPLICATION_JSON).content(batch))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.xp").value(30));
+		assertThat(wordProgress.findById(new PracticeWordProgress.Key(userId, vocabularyId))
+				.orElseThrow().getTimesCorrect()).isEqualTo(3);
+	}
+
+	@Test
+	void syncAppliesAWrongPracticeAnswerLosingAHeartAndWeakeningMastery() throws Exception {
+		String auth = token();
+		UUID userId = userIdFrom(auth);
+		UUID vocabularyId = vocabulary.findAll().get(1).getId();
+		Instant answeredAt = Instant.parse("2026-07-17T09:00:00Z");
+
+		String batch = "{\"events\":["
+				+ practiceAnswerEvent("wa1", vocabularyId, false, answeredAt) + "]}";
+
+		mockMvc.perform(post("/v1/progress/sync").header(HttpHeaders.AUTHORIZATION, auth)
+						.contentType(MediaType.APPLICATION_JSON).content(batch))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.xp").value(0))
+				.andExpect(jsonPath("$.hearts").value(4));
+
+		PracticeWordProgress mastery = wordProgress
+				.findById(new PracticeWordProgress.Key(userId, vocabularyId)).orElseThrow();
+		assertThat(mastery.getMasteryScore()).isZero(); // 2 - 2
+		assertThat(mastery.getTimesWrong()).isEqualTo(1);
+	}
+
+	private String practiceAnswerEvent(String idempotencyKey, UUID vocabularyId, boolean correct,
+			Instant answeredAt) {
+		return "{\"idempotencyKey\":\"" + idempotencyKey + "\",\"type\":\"PRACTICE_ANSWER\","
+				+ "\"payload\":{\"vocabularyId\":\"" + vocabularyId + "\",\"correct\":" + correct
+				+ ",\"answeredAt\":\"" + answeredAt + "\"}}";
+	}
+
+	/**
+	 * OF6 (doc 93 §5/§9): empirically proves the design's headline sync claim — the client never
+	 * uploads computed mastery/review state, only {@code (vocabularyId, correct, idempotencyKey)}
+	 * events, so two devices that diverged offline and buffer their own batches for the SAME word
+	 * can sync in either arrival order without state-merge and without losing or double-counting
+	 * either device's answers. Each device mints its own idempotency keys (as the real Android
+	 * outbox does, doc 93 §5) and its own {@code answeredAt} — device B's timestamps predate
+	 * device A's, simulating "device B had been offline with a stale view," even though its batch
+	 * physically arrives at the server second.
+	 *
+	 * <p>The two devices' combined events are one correct + one wrong each — chosen so the
+	 * mastery-score clamp (0..5) is never hit at an intermediate step in either arrival order,
+	 * making the final state byte-identical regardless of order (asserted by the companion test
+	 * below with the order reversed) rather than merely "coherent but order-dependent."
+	 */
+	@Test
+	void twoDevicesSyncingDivergedOfflineBatchesForTheSameWordDeviceAFirst() throws Exception {
+		String auth = token();
+		UUID userId = userIdFrom(auth);
+		UUID vocabularyId = vocabulary.findAll().get(2).getId();
+
+		Instant deviceATime1 = Instant.parse("2026-07-18T09:00:00Z");
+		Instant deviceATime2 = Instant.parse("2026-07-18T09:05:00Z");
+		Instant deviceBTime1 = Instant.parse("2026-07-16T14:00:00Z"); // stale — offline longer
+		Instant deviceBTime2 = Instant.parse("2026-07-16T14:05:00Z");
+
+		String deviceABatch = "{\"events\":[" + practiceAnswerEvent("devA-correct", vocabularyId, true, deviceATime1)
+				+ "," + practiceAnswerEvent("devA-wrong", vocabularyId, false, deviceATime2) + "]}";
+		String deviceBBatch = "{\"events\":[" + practiceAnswerEvent("devB-correct", vocabularyId, true, deviceBTime1)
+				+ "," + practiceAnswerEvent("devB-wrong", vocabularyId, false, deviceBTime2) + "]}";
+
+		// Device A syncs first.
+		mockMvc.perform(post("/v1/progress/sync").header(HttpHeaders.AUTHORIZATION, auth)
+						.contentType(MediaType.APPLICATION_JSON).content(deviceABatch))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.xp").value(10))
+				.andExpect(jsonPath("$.hearts").value(4));
+
+		// Device B syncs second, against the server's state as of that moment — not a merge.
+		mockMvc.perform(post("/v1/progress/sync").header(HttpHeaders.AUTHORIZATION, auth)
+						.contentType(MediaType.APPLICATION_JSON).content(deviceBBatch))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.xp").value(20))
+				.andExpect(jsonPath("$.hearts").value(3));
+
+		PracticeWordProgress mastery = wordProgress
+				.findById(new PracticeWordProgress.Key(userId, vocabularyId)).orElseThrow();
+		assertThat(mastery.getTimesSeen()).isEqualTo(4);
+		assertThat(mastery.getTimesCorrect()).isEqualTo(2);
+		assertThat(mastery.getTimesWrong()).isEqualTo(2);
+		assertThat(mastery.getMasteryScore()).isZero(); // 2 +1 -2 +1 -2
+
+		// Re-delivering device A's already-applied batch (e.g. a retried upload) is a no-op —
+		// neither device's answers are double-counted just because both batches touched the
+		// same word.
+		mockMvc.perform(post("/v1/progress/sync").header(HttpHeaders.AUTHORIZATION, auth)
+						.contentType(MediaType.APPLICATION_JSON).content(deviceABatch))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.xp").value(20));
+		assertThat(wordProgress.findById(new PracticeWordProgress.Key(userId, vocabularyId))
+				.orElseThrow().getTimesSeen()).isEqualTo(4);
+	}
+
+	/**
+	 * UO1: CEFR level is not additive, so a synced {@code SET_LEVEL} event is last-write-wins by
+	 * its {@code changedAt}, not "last to arrive at the server". Device A sets B2 online (server
+	 * stamps {@code changedAt} as now); device B had been offline since before that and syncs an
+	 * older A2 change afterward — the server must reject it and keep B2.
+	 */
+	@Test
+	void olderOfflineSetLevelEventArrivingAfterANewerOnlineChangeIsRejectedByLastWriteWins()
+			throws Exception {
+		String auth = token();
+
+		mockMvc.perform(put("/v1/stats/level").header(HttpHeaders.AUTHORIZATION, auth)
+						.contentType(MediaType.APPLICATION_JSON).content("{\"cefrLevel\":\"B2\"}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.cefrLevel").value("B2"));
+
+		Instant staleChangedAt = Instant.now().minus(Duration.ofDays(2));
+		String batch = "{\"events\":[" + setLevelEvent("devB-level", "A2", staleChangedAt) + "]}";
+
+		mockMvc.perform(post("/v1/progress/sync").header(HttpHeaders.AUTHORIZATION, auth)
+						.contentType(MediaType.APPLICATION_JSON).content(batch))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.cefrLevel").value("B2"));
+
+		mockMvc.perform(get("/v1/stats").header(HttpHeaders.AUTHORIZATION, auth))
+				.andExpect(jsonPath("$.cefrLevel").value("B2"));
+	}
+
+	private String setLevelEvent(String idempotencyKey, String cefrLevel, Instant changedAt) {
+		return "{\"idempotencyKey\":\"" + idempotencyKey + "\",\"type\":\"SET_LEVEL\","
+				+ "\"payload\":{\"cefrLevel\":\"" + cefrLevel + "\",\"changedAt\":\"" + changedAt
+				+ "\"}}";
+	}
+
+	/** Same scenario as above with the two devices' sync calls reversed, proving the final state
+	 * does not depend on which device happened to reconnect first. */
+	@Test
+	void twoDevicesSyncingDivergedOfflineBatchesForTheSameWordDeviceBFirst() throws Exception {
+		String auth = token();
+		UUID userId = userIdFrom(auth);
+		UUID vocabularyId = vocabulary.findAll().get(2).getId();
+
+		Instant deviceATime1 = Instant.parse("2026-07-18T09:00:00Z");
+		Instant deviceATime2 = Instant.parse("2026-07-18T09:05:00Z");
+		Instant deviceBTime1 = Instant.parse("2026-07-16T14:00:00Z");
+		Instant deviceBTime2 = Instant.parse("2026-07-16T14:05:00Z");
+
+		String deviceABatch = "{\"events\":[" + practiceAnswerEvent("devA-correct", vocabularyId, true, deviceATime1)
+				+ "," + practiceAnswerEvent("devA-wrong", vocabularyId, false, deviceATime2) + "]}";
+		String deviceBBatch = "{\"events\":[" + practiceAnswerEvent("devB-correct", vocabularyId, true, deviceBTime1)
+				+ "," + practiceAnswerEvent("devB-wrong", vocabularyId, false, deviceBTime2) + "]}";
+
+		// This time device B (the "stale" device) happens to reconnect first.
+		mockMvc.perform(post("/v1/progress/sync").header(HttpHeaders.AUTHORIZATION, auth)
+						.contentType(MediaType.APPLICATION_JSON).content(deviceBBatch))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.xp").value(10))
+				.andExpect(jsonPath("$.hearts").value(4));
+
+		mockMvc.perform(post("/v1/progress/sync").header(HttpHeaders.AUTHORIZATION, auth)
+						.contentType(MediaType.APPLICATION_JSON).content(deviceABatch))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.xp").value(20))
+				.andExpect(jsonPath("$.hearts").value(3));
+
+		// Identical final state to the device-A-first ordering above: no lost updates, no
+		// double-counting, and — since neither order pushes mastery outside [0,5] at any
+		// intermediate step — no order-dependent clamping artifact either.
+		PracticeWordProgress mastery = wordProgress
+				.findById(new PracticeWordProgress.Key(userId, vocabularyId)).orElseThrow();
+		assertThat(mastery.getTimesSeen()).isEqualTo(4);
+		assertThat(mastery.getTimesCorrect()).isEqualTo(2);
+		assertThat(mastery.getTimesWrong()).isEqualTo(2);
+		assertThat(mastery.getMasteryScore()).isZero();
+	}
+
+	// ---- UO5: GET /progress/snapshot -----------------------------------------------------------
+
+	private String completeLessonEvent(String idempotencyKey, String lessonId, int score) {
+		return "{\"idempotencyKey\":\"" + idempotencyKey + "\",\"type\":\"COMPLETE_LESSON\","
+				+ "\"payload\":{\"lessonId\":\"" + lessonId + "\",\"score\":" + score + "}}";
+	}
+
+	private void sync(String auth, String batch) throws Exception {
+		mockMvc.perform(post("/v1/progress/sync").header(HttpHeaders.AUTHORIZATION, auth)
+						.contentType(MediaType.APPLICATION_JSON).content(batch))
+				.andExpect(status().isOk());
+	}
+
+	@Test
+	void snapshotRequiresAuth() throws Exception {
+		mockMvc.perform(get("/v1/progress/snapshot")).andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void snapshotForABrandNewUserReturnsEmptyListsAndDefaultStats() throws Exception {
+		String auth = token();
+
+		mockMvc.perform(get("/v1/progress/snapshot").header(HttpHeaders.AUTHORIZATION, auth))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.stats.xp").value(0))
+				.andExpect(jsonPath("$.stats.hearts").value(5))
+				.andExpect(jsonPath("$.stats.currentStreak").value(0))
+				.andExpect(jsonPath("$.stats.longestStreak").value(0))
+				.andExpect(jsonPath("$.stats.cefrLevel").value("A1"))
+				.andExpect(jsonPath("$.wordProgress", hasSize(0)))
+				.andExpect(jsonPath("$.reviewProgress", hasSize(0)))
+				.andExpect(jsonPath("$.completedLessons", hasSize(0)))
+				.andExpect(jsonPath("$.serverTime").exists());
+	}
+
+	/**
+	 * A learner plays online — completes a lesson and answers a word correctly three times
+	 * (graduating it onto the review ladder) — and {@code GET /snapshot} must return exactly
+	 * that state: the same mastery/review rows and stats already persisted server-side, with no
+	 * side effects of its own (a repeat call returns byte-identical data).
+	 */
+	@Test
+	void snapshotReturnsRecordedMasteryReviewCompletionsAndStats() throws Exception {
+		String auth = token();
+		UUID userId = userIdFrom(auth);
+		String lesson0 = JsonPath.read(curriculum(auth), U0 + ".lessons[0].id");
+		UUID vocabularyId = vocabulary.findAll().get(3).getId();
+		Instant answeredAt = Instant.parse("2026-07-20T08:00:00Z");
+
+		sync(auth, "{\"events\":[" + completeLessonEvent("snap-complete", lesson0, 3) + "]}");
+		sync(auth, "{\"events\":[" + practiceAnswerEvent("snap-pa1", vocabularyId, true, answeredAt)
+				+ "," + practiceAnswerEvent("snap-pa2", vocabularyId, true, answeredAt) + ","
+				+ practiceAnswerEvent("snap-pa3", vocabularyId, true, answeredAt) + "]}");
+
+		UserProgress completedRow = userProgress.findByUserId(userId).get(0);
+		// lesson score (3) * 10 XP-per-correct + three correct practice answers * 10 XP each.
+		int expectedXp = 3 * 10 + 3 * 10;
+
+		String response = mockMvc.perform(get("/v1/progress/snapshot")
+						.header(HttpHeaders.AUTHORIZATION, auth))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.stats.xp").value(expectedXp))
+				.andExpect(jsonPath("$.stats.hearts").value(5))
+				.andExpect(jsonPath("$.stats.cefrLevel").value("A1"))
+				.andExpect(jsonPath("$.wordProgress", hasSize(1)))
+				.andExpect(jsonPath("$.wordProgress[0].vocabularyId").value(vocabularyId.toString()))
+				.andExpect(jsonPath("$.wordProgress[0].timesSeen").value(3))
+				.andExpect(jsonPath("$.wordProgress[0].timesCorrect").value(3))
+				.andExpect(jsonPath("$.wordProgress[0].timesWrong").value(0))
+				.andExpect(jsonPath("$.wordProgress[0].masteryScore").value(5))
+				.andExpect(jsonPath("$.wordProgress[0].lastSeenAt").value(answeredAt.toString()))
+				.andExpect(jsonPath("$.reviewProgress", hasSize(1)))
+				.andExpect(jsonPath("$.reviewProgress[0].vocabularyId").value(vocabularyId.toString()))
+				.andExpect(jsonPath("$.reviewProgress[0].reviewStage").value(1))
+				.andExpect(jsonPath("$.reviewProgress[0].dueAt")
+						.value(answeredAt.plus(Duration.ofDays(1)).toString()))
+				.andExpect(jsonPath("$.completedLessons", hasSize(1)))
+				.andExpect(jsonPath("$.completedLessons[0].lessonId").value(lesson0))
+				.andExpect(jsonPath("$.completedLessons[0].contentVersionId")
+						.value(completedRow.getContentVersionId().toString()))
+				.andExpect(jsonPath("$.completedLessons[0].score").value(3))
+				.andExpect(jsonPath("$.serverTime").exists())
+				.andReturn().getResponse().getContentAsString();
+
+		// Read-only: repeating the call changes nothing.
+		mockMvc.perform(get("/v1/progress/snapshot").header(HttpHeaders.AUTHORIZATION, auth))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.stats.xp").value(expectedXp))
+				.andExpect(jsonPath("$.wordProgress", hasSize(1)));
+		assertThat(response).isNotBlank();
+	}
+
+	/**
+	 * {@code ?since=} narrows every list to rows touched strictly after the cursor (the wire
+	 * contract, UO5 design point 5) — a row stamped at exactly the cursor is excluded, not
+	 * included, so a boundary row is exercised for both the word-mastery and review-ladder
+	 * lists. {@code PracticeWordProgress}/{@code ReviewProgress} timestamps are set directly via
+	 * their own domain methods, on their own fixed timeline, so the boundary can be asserted
+	 * exactly. {@code completedLessons} can't share that timeline: {@code UserProgress#complete}
+	 * always stamps {@code Instant.now()} with no way to inject a fixed clock, so that list is
+	 * exercised separately, cursored on the real, persisted timestamp of the first of two
+	 * sequential completions (JPA {@code Instant} columns carry microsecond precision, ample
+	 * margin for two real, sequential HTTP calls to differ).
+	 */
+	@Test
+	void sinceCursorExcludesRowsAtOrBeforeItAndIncludesOnlyStrictlyNewerRows() throws Exception {
+		String auth = token();
+		UUID userId = userIdFrom(auth);
+		UUID vocabOld = vocabulary.findAll().get(4).getId();
+		UUID vocabAtCursor = vocabulary.findAll().get(5).getId();
+		UUID vocabNew = vocabulary.findAll().get(6).getId();
+
+		Instant oldTime = Instant.parse("2026-07-01T00:00:00Z");
+		Instant cursor = Instant.parse("2026-07-15T00:00:00Z");
+		Instant newTime = Instant.parse("2026-07-20T00:00:00Z");
+
+		PracticeWordProgress wordBeforeCursor = new PracticeWordProgress(userId, vocabOld);
+		wordBeforeCursor.recordAnswer(true, oldTime);
+		wordProgress.save(wordBeforeCursor);
+
+		PracticeWordProgress wordAtCursor = new PracticeWordProgress(userId, vocabAtCursor);
+		wordAtCursor.recordAnswer(true, cursor);
+		wordProgress.save(wordAtCursor);
+
+		PracticeWordProgress wordAfterCursor = new PracticeWordProgress(userId, vocabNew);
+		wordAfterCursor.recordAnswer(true, newTime);
+		wordProgress.save(wordAfterCursor);
+
+		ReviewProgress reviewBeforeCursor = new ReviewProgress(userId, vocabOld, 0,
+				oldTime.plus(Duration.ofDays(1)));
+		reviewBeforeCursor.promote(oldTime, Duration.ofDays(1));
+		reviewProgress.save(reviewBeforeCursor);
+
+		ReviewProgress reviewAtCursor = new ReviewProgress(userId, vocabAtCursor, 0,
+				cursor.plus(Duration.ofDays(1)));
+		reviewAtCursor.promote(cursor, Duration.ofDays(1));
+		reviewProgress.save(reviewAtCursor);
+
+		ReviewProgress reviewAfterCursor = new ReviewProgress(userId, vocabNew, 0,
+				newTime.plus(Duration.ofDays(1)));
+		reviewAfterCursor.promote(newTime, Duration.ofDays(1));
+		reviewProgress.save(reviewAfterCursor);
+
+		// since = cursor (the word/review timeline set up above): strictly-after excludes the
+		// before- and at-cursor rows and includes only the after-cursor one.
+		mockMvc.perform(get("/v1/progress/snapshot").header(HttpHeaders.AUTHORIZATION, auth)
+						.param("since", cursor.toString()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.wordProgress", hasSize(1)))
+				.andExpect(jsonPath("$.wordProgress[0].vocabularyId").value(vocabNew.toString()))
+				.andExpect(jsonPath("$.reviewProgress", hasSize(1)))
+				.andExpect(jsonPath("$.reviewProgress[0].vocabularyId").value(vocabNew.toString()));
+
+		// completedLessons runs on the real wall clock (UserProgress#complete stamps
+		// Instant.now() with no way to inject a fixed clock), so it gets its own timeline: two
+		// real, sequential completions, cursored on the first one's own persisted timestamp.
+		String lesson0 = JsonPath.read(curriculum(auth), U0 + ".lessons[0].id");
+		String lesson1 = JsonPath.read(curriculum(auth), U0 + ".lessons[1].id");
+		sync(auth, "{\"events\":[" + completeLessonEvent("since-c0", lesson0, 1) + "]}");
+		List<UserProgress> afterFirst = userProgress.findByUserId(userId);
+		Instant firstCompletedAt = afterFirst.get(0).getCompletedAt();
+		sync(auth, "{\"events\":[" + completeLessonEvent("since-c1", lesson1, 1) + "]}");
+
+		// since = the first completion's own timestamp: strictly-after excludes it, and (since
+		// real wall-clock time elapsed between the two sequential sync calls) includes the second.
+		mockMvc.perform(get("/v1/progress/snapshot").header(HttpHeaders.AUTHORIZATION, auth)
+						.param("since", firstCompletedAt.toString()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.completedLessons", hasSize(1)))
+				.andExpect(jsonPath("$.completedLessons[0].lessonId").value(lesson1));
+
+		// Omitting since returns everything, proving the filter is opt-in.
+		mockMvc.perform(get("/v1/progress/snapshot").header(HttpHeaders.AUTHORIZATION, auth))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.wordProgress", hasSize(3)))
+				.andExpect(jsonPath("$.reviewProgress", hasSize(3)))
+				.andExpect(jsonPath("$.completedLessons", hasSize(2)));
 	}
 }

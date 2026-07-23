@@ -16,6 +16,7 @@ import com.shikhi.progress.domain.UserStats;
 import com.shikhi.progress.repo.UserProgressRepository;
 import com.shikhi.progress.repo.UserStatsRepository;
 import com.shikhi.progress.web.Stats;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.HashSet;
@@ -163,8 +164,15 @@ public class ProgressService implements CurriculumProgressOverlay {
 	/** Set the learner's CEFR band (self-placement or an accepted level-up, US-12.1/12.7). */
 	@Transactional
 	public Stats setLevel(UUID userId, String cefrLevel) {
+		return setLevel(userId, cefrLevel, Instant.now());
+	}
+
+	/** Same as {@link #setLevel(UUID, String)}, but last-write-wins by {@code changedAt} (UO1) —
+	 * for a synced offline event, which may be stale relative to a later online change. */
+	@Transactional
+	public Stats setLevel(UUID userId, String cefrLevel, Instant changedAt) {
 		UserStats s = getOrCreate(userId);
-		s.setCefrLevel(cefrLevel);
+		s.setCefrLevel(cefrLevel, changedAt);
 		return Stats.from(stats.save(s));
 	}
 

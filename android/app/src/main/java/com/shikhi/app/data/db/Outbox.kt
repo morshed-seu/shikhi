@@ -24,8 +24,11 @@ data class OutboxEventEntity(
 
 @Dao
 interface OutboxDao {
+	// UO4: returns the generated rowid (Room auto-supports this for an autoincrement PK) so
+	// LocalLessonSource.complete() can stamp LocalLessonCompletion.firstCompletionEventId with
+	// the exact id of the event it just enqueued — see that entity's doc comment for why.
 	@Insert
-	suspend fun insert(event: OutboxEventEntity)
+	suspend fun insert(event: OutboxEventEntity): Long
 
 	@Query("SELECT * FROM outbox_events ORDER BY id")
 	suspend fun all(): List<OutboxEventEntity>
@@ -35,12 +38,32 @@ interface OutboxDao {
 }
 
 @Database(
-	entities = [OutboxEventEntity::class, CachedPayload::class],
-	version = 2,
+	entities = [
+		OutboxEventEntity::class,
+		CachedPayload::class,
+		LocalWordProgress::class,
+		LocalReviewProgress::class,
+		LocalPracticeSession::class,
+		LocalPracticeExercise::class,
+		LocalStatsProjection::class,
+		LocalLessonCompletion::class,
+	],
+	version = 5,
 	exportSchema = false,
 )
 abstract class ShikhiDatabase : RoomDatabase() {
 	abstract fun outboxDao(): OutboxDao
 
 	abstract fun contentCacheDao(): ContentCacheDao
+
+	/** OF4: local practice/mastery state — see [MIGRATION_2_3]. */
+	abstract fun wordProgressDao(): WordProgressDao
+
+	abstract fun localPracticeSessionDao(): LocalPracticeSessionDao
+
+	/** UO2: durable per-user stats projection — see [MIGRATION_3_4]. */
+	abstract fun localStatsProjectionDao(): LocalStatsProjectionDao
+
+	/** UO4: local mirror of the server's per-lesson first-completion gate — see [MIGRATION_4_5]. */
+	abstract fun localLessonCompletionDao(): LocalLessonCompletionDao
 }

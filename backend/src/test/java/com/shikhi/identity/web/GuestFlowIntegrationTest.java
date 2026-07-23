@@ -7,13 +7,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import com.shikhi.content.repo.VocabularyRepository;
 import com.shikhi.identity.domain.Locale;
 import com.shikhi.identity.domain.Role;
 import com.shikhi.identity.domain.User;
 import com.shikhi.identity.domain.UserStatus;
 import com.shikhi.identity.repo.UserRepository;
 import com.shikhi.practice.domain.PracticeExercise;
+import com.shikhi.practice.domain.PracticeWordProgress;
 import com.shikhi.practice.repo.PracticeExerciseRepository;
+import com.shikhi.practice.repo.PracticeWordProgressRepository;
 import com.shikhi.support.AbstractIntegrationTest;
 import java.time.Instant;
 import java.util.List;
@@ -41,6 +44,12 @@ class GuestFlowIntegrationTest extends AbstractIntegrationTest {
 
 	@Autowired
 	PracticeExerciseRepository exercises;
+
+	@Autowired
+	PracticeWordProgressRepository wordProgress;
+
+	@Autowired
+	VocabularyRepository vocabulary;
 
 	@Autowired
 	UserRepository users;
@@ -145,6 +154,61 @@ class GuestFlowIntegrationTest extends AbstractIntegrationTest {
 						.header(HttpHeaders.AUTHORIZATION, bearer(JsonPath.read(loggedIn, "$.accessToken"))))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.id").value(userId));
+	}
+
+	/**
+	 * OF6 (doc 93 §9 risk 3): the concrete offline scenario the design's open-risk note names —
+	 * a guest plays offline (buffering {@code PRACTICE_ANSWER} outbox events minted under the
+	 * guest's user id, per doc 93 §5), then claims their account, then reconnects and syncs.
+	 * Because ADR-0011's claim is an in-place upgrade (same {@code users.id}, just rotated
+	 * tokens), the buffered batch — synced here with the POST-claim access token, exactly as the
+	 * real Android {@code OutboxRepository} would after a claim mid-session — must land on the
+	 * very same account rather than being orphaned against an id that no longer resolves.
+	 */
+	@Test
+	void offlinePracticeAnswersBufferedAsAGuestSyncCorrectlyAfterClaiming() throws Exception {
+		String guestTokens = startGuest();
+		String guestAuth = bearer(JsonPath.read(guestTokens, "$.accessToken"));
+		String guestId = mockMvc.perform(get("/v1/me").header(HttpHeaders.AUTHORIZATION, guestAuth))
+				.andExpect(status().isOk())
+				.andReturn().getResponse().getContentAsString();
+		String userId = JsonPath.read(guestId, "$.id");
+
+		UUID vocabularyId = vocabulary.findAll().get(0).getId();
+		Instant answeredWhileOfflineAsGuest = Instant.now().minusSeconds(3600);
+		String bufferedBatch = "{\"events\":[{\"idempotencyKey\":\"guest-offline-1\","
+				+ "\"type\":\"PRACTICE_ANSWER\",\"payload\":{\"vocabularyId\":\"" + vocabularyId
+				+ "\",\"correct\":true,\"answeredAt\":\"" + answeredWhileOfflineAsGuest + "\"}}]}";
+
+		// Claim BEFORE the buffered batch ever syncs — the outbox event was minted while
+		// anonymous, but the device only regains connectivity (and drains the outbox) after the
+		// claim has already rotated the tokens.
+		String email = uniqueEmail();
+		String claimed = mockMvc.perform(post("/v1/auth/claim")
+						.header(HttpHeaders.AUTHORIZATION, guestAuth)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"email\":\"" + email + "\",\"password\":\"s3cretpassword\"}"))
+				.andExpect(status().isOk())
+				.andReturn().getResponse().getContentAsString();
+		String claimedAuth = bearer(JsonPath.read(claimed, "$.accessToken"));
+
+		// Sync the guest-minted batch using the post-claim token — this is what the real device
+		// does once it reconnects.
+		mockMvc.perform(post("/v1/progress/sync").header(HttpHeaders.AUTHORIZATION, claimedAuth)
+						.contentType(MediaType.APPLICATION_JSON).content(bufferedBatch))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.xp").value(10)); // not orphaned/dropped: the XP landed.
+
+		// And it landed on the SAME account the guest was — visible under /me, not some other
+		// dangling id.
+		mockMvc.perform(get("/v1/me").header(HttpHeaders.AUTHORIZATION, claimedAuth))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.id").value(userId));
+
+		PracticeWordProgress mastery = wordProgress
+				.findById(new PracticeWordProgress.Key(UUID.fromString(userId), vocabularyId))
+				.orElseThrow();
+		assertThat(mastery.getTimesCorrect()).isEqualTo(1);
 	}
 
 	@Test
