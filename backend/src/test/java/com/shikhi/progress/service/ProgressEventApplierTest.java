@@ -11,6 +11,7 @@ import com.shikhi.practice.schedule.ReviewProgress;
 import com.shikhi.practice.schedule.ReviewProgressRepository;
 import com.shikhi.practice.service.WordProgressService;
 import com.shikhi.progress.domain.ProcessedEvent;
+import com.shikhi.progress.domain.UserStats;
 import com.shikhi.progress.repo.ProcessedEventRepository;
 import com.shikhi.progress.web.Stats;
 import com.shikhi.progress.web.SyncEvent;
@@ -20,6 +21,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -171,6 +173,36 @@ class ProgressEventApplierTest {
 		assertThat(graduated.getDueAt()).isEqualTo(answeredAt.plus(Duration.ofDays(1)));
 	}
 
+	// ---- SET_LEVEL / last-write-wins (UO1) ---------------------------------------------------
+
+	@Test
+	void setLevelEventAppliesANewLevel() {
+		apply("SET_LEVEL", Map.of("cefrLevel", "B2", "changedAt", CLOCK_NOW.toString()));
+
+		assertThat(progressService.currentLevel(userId)).isEqualTo("B2");
+	}
+
+	@Test
+	void setLevelEventWithAnOlderChangedAtThanStoredIsRejectedByLastWriteWins() {
+		Instant older = CLOCK_NOW.minus(Duration.ofDays(2));
+
+		apply("SET_LEVEL", Map.of("cefrLevel", "B2", "changedAt", CLOCK_NOW.toString()));
+		apply("SET_LEVEL", Map.of("cefrLevel", "A2", "changedAt", older.toString()));
+
+		assertThat(progressService.currentLevel(userId)).isEqualTo("B2");
+	}
+
+	@Test
+	void idempotentReplayOfASetLevelEventIsANoOp() {
+		SyncEvent event = new SyncEvent("set-level-1", "SET_LEVEL",
+				Map.of("cefrLevel", "B2", "changedAt", CLOCK_NOW.toString()));
+
+		applier.applyIfNew(userId, event);
+		applier.applyIfNew(userId, event);
+
+		assertThat(progressService.setLevelCalls).hasSize(1);
+	}
+
 	// ---- fixtures -------------------------------------------------------------------------------
 
 	private Map<String, Object> correctPayload() {
@@ -202,6 +234,8 @@ class ProgressEventApplierTest {
 	private static class FakeProgressService extends ProgressService {
 
 		final List<Object[]> practiceAnswerCalls = new ArrayList<>();
+		final List<Object[]> setLevelCalls = new ArrayList<>();
+		private final Map<UUID, UserStats> statsByUser = new HashMap<>();
 
 		FakeProgressService() {
 			super(null, null, null, null, null, null, null);
@@ -211,6 +245,18 @@ class ProgressEventApplierTest {
 		public Stats recordPracticeAnswer(UUID userId, boolean correct) {
 			practiceAnswerCalls.add(new Object[] { userId, correct });
 			return new Stats(0, 0, 0, 0, 5, 10, "A1", Map.of());
+		}
+
+		@Override
+		public Stats setLevel(UUID userId, String cefrLevel, Instant changedAt) {
+			setLevelCalls.add(new Object[] { userId, cefrLevel, changedAt });
+			UserStats s = statsByUser.computeIfAbsent(userId, UserStats::new);
+			s.setCefrLevel(cefrLevel, changedAt);
+			return new Stats(0, 0, 0, 0, 5, 10, s.getCefrLevel(), Map.of());
+		}
+
+		String currentLevel(UUID userId) {
+			return statsByUser.get(userId).getCefrLevel();
 		}
 	}
 
@@ -225,7 +271,8 @@ class ProgressEventApplierTest {
 
 		@Override
 		public boolean existsByUserIdAndIdempotencyKey(UUID userId, String idempotencyKey) {
-			return false; // this test only ever applies fresh, never-before-seen events
+			return findAll().stream().anyMatch(e -> e.getUserId().equals(userId)
+					&& e.getIdempotencyKey().equals(idempotencyKey));
 		}
 	}
 

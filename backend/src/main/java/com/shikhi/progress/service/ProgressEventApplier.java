@@ -47,6 +47,7 @@ public class ProgressEventApplier {
 			case "ANSWER" -> progress.recordAnswer(userId, boolOf(payload.get("correct")));
 			case "COMPLETE_LESSON" -> completeLesson(userId, payload);
 			case "PRACTICE_ANSWER" -> practiceAnswer(userId, payload);
+			case "SET_LEVEL" -> setLevel(userId, payload);
 			default -> {
 				// Unknown event type: ignore its effect but still mark it processed.
 			}
@@ -70,6 +71,16 @@ public class ProgressEventApplier {
 		progress.recordPracticeAnswer(userId, correct);
 		wordProgressService.recordAnswer(userId, vocabularyId, correct,
 				instantOf(payload.get("answeredAt")));
+	}
+
+	/** Offline CEFR level change (UO1); {@code changedAt} lets {@link ProgressService#setLevel}
+	 * apply last-write-wins instead of blindly overwriting a newer online change. */
+	private void setLevel(UUID userId, Map<String, Object> payload) {
+		Object cefrLevel = payload.get("cefrLevel");
+		if (cefrLevel == null) {
+			return;
+		}
+		progress.setLevel(userId, cefrLevel.toString(), instantOf(payload.get("changedAt")));
 	}
 
 	private void completeLesson(UUID userId, Map<String, Object> payload) {

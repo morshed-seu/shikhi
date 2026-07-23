@@ -3,6 +3,7 @@ package com.shikhi.progress.web;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -294,6 +295,40 @@ class ProgressFlowIntegrationTest extends AbstractIntegrationTest {
 				.andExpect(jsonPath("$.xp").value(20));
 		assertThat(wordProgress.findById(new PracticeWordProgress.Key(userId, vocabularyId))
 				.orElseThrow().getTimesSeen()).isEqualTo(4);
+	}
+
+	/**
+	 * UO1: CEFR level is not additive, so a synced {@code SET_LEVEL} event is last-write-wins by
+	 * its {@code changedAt}, not "last to arrive at the server". Device A sets B2 online (server
+	 * stamps {@code changedAt} as now); device B had been offline since before that and syncs an
+	 * older A2 change afterward — the server must reject it and keep B2.
+	 */
+	@Test
+	void olderOfflineSetLevelEventArrivingAfterANewerOnlineChangeIsRejectedByLastWriteWins()
+			throws Exception {
+		String auth = token();
+
+		mockMvc.perform(put("/v1/stats/level").header(HttpHeaders.AUTHORIZATION, auth)
+						.contentType(MediaType.APPLICATION_JSON).content("{\"cefrLevel\":\"B2\"}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.cefrLevel").value("B2"));
+
+		Instant staleChangedAt = Instant.now().minus(Duration.ofDays(2));
+		String batch = "{\"events\":[" + setLevelEvent("devB-level", "A2", staleChangedAt) + "]}";
+
+		mockMvc.perform(post("/v1/progress/sync").header(HttpHeaders.AUTHORIZATION, auth)
+						.contentType(MediaType.APPLICATION_JSON).content(batch))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.cefrLevel").value("B2"));
+
+		mockMvc.perform(get("/v1/stats").header(HttpHeaders.AUTHORIZATION, auth))
+				.andExpect(jsonPath("$.cefrLevel").value("B2"));
+	}
+
+	private String setLevelEvent(String idempotencyKey, String cefrLevel, Instant changedAt) {
+		return "{\"idempotencyKey\":\"" + idempotencyKey + "\",\"type\":\"SET_LEVEL\","
+				+ "\"payload\":{\"cefrLevel\":\"" + cefrLevel + "\",\"changedAt\":\"" + changedAt
+				+ "\"}}";
 	}
 
 	/** Same scenario as above with the two devices' sync calls reversed, proving the final state
