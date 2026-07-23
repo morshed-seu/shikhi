@@ -90,6 +90,19 @@ class StatsProjectionRepository @Inject constructor(
 	}
 
 	/**
+	 * UO3: optimistically overwrites just [LocalStatsProjection.cefrLevel] for a local
+	 * (not-yet-synced) level change, preserving every other field of the existing row — unlike
+	 * [reconcile], this is NOT server truth yet, just the learner's own in-progress choice.
+	 * Seeds a fresh row via [ensureRow] first so this is safe to call even before the projection
+	 * has ever been reconciled (e.g. a brand-new guest changing level before their first sync).
+	 */
+	suspend fun setLevel(userId: String, level: String) {
+		ensureRow(userId)
+		val existing = dao.get(userId)!!
+		dao.upsert(existing.copy(cefrLevel = level, updatedAt = System.currentTimeMillis()))
+	}
+
+	/**
 	 * Decodes one outbox event's contribution to un-synced XP. `COMPLETE_LESSON` -> `score * 10`
 	 * for every event (first-completion gating against already-awarded XP is deferred to `UO4` —
 	 * not implemented here). `PRACTICE_ANSWER` -> `+10` only when `correct == true`. Everything

@@ -14,6 +14,7 @@ import com.shikhi.app.data.connectivity.ConnectivityChecker
 import com.shikhi.app.data.practice.LocalPracticeSource
 import com.shikhi.app.data.practice.PracticeGradeOutcome
 import com.shikhi.app.data.practice.RemotePracticeSource
+import com.shikhi.app.data.progress.LevelRepository
 import com.shikhi.app.ui.util.Pronouncer
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -64,6 +65,7 @@ class PracticeViewModelTest {
 	private lateinit var connectivity: ConnectivityChecker
 	private lateinit var authRepository: AuthRepository
 	private lateinit var progressApi: ProgressApi
+	private lateinit var levelRepository: LevelRepository
 	private lateinit var pronouncer: Pronouncer
 
 	@Before
@@ -83,6 +85,7 @@ class PracticeViewModelTest {
 		// emissions to exactly Loading + Playing so turbine's `.test { }` blocks don't need to
 		// account for a third "hearts updated" emission they don't care about.
 		coEvery { progressApi.stats() } throws RuntimeException("stats not needed in these tests")
+		levelRepository = mockk()
 		pronouncer = mockk()
 		every { pronouncer.isAvailable } returns MutableStateFlow(true)
 		every { pronouncer.speak(any()) } just runs
@@ -92,7 +95,7 @@ class PracticeViewModelTest {
 	fun tearDown() = Dispatchers.resetMain()
 
 	private fun viewModel(appScope: kotlinx.coroutines.CoroutineScope = TestScope(dispatcher)) =
-		PracticeViewModel(remoteSource, localSource, connectivity, authRepository, progressApi, pronouncer, appScope)
+		PracticeViewModel(remoteSource, localSource, connectivity, authRepository, progressApi, levelRepository, pronouncer, appScope)
 
 	@Test
 	fun `online device starts the remote source and never touches the local source`() = runTest(dispatcher) {
@@ -226,6 +229,46 @@ class PracticeViewModelTest {
 		val vm = viewModel()
 
 		assertEquals(true, vm.speechAvailable.value)
+	}
+
+	// ---- UO3: acceptLevelUp routed through LevelRepository, no network round trip ------------
+
+	@Test
+	fun `acceptLevelUp sets the new level via LevelRepository and applies it locally without any progressApi call`() = runTest(dispatcher) {
+		val roundWithLevelUp = round.copy(levelUpEligible = true)
+		every { connectivity.isOnline() } returns true
+		coEvery { remoteSource.start() } returns roundWithLevelUp
+		coEvery { levelRepository.setLevel("A2") } returns Unit
+
+		val vm = viewModel()
+		vm.state.test { awaitItem(); awaitItem() } // Loading + Playing
+		vm.next() // the fixture round has exactly 1 exercise -> straight to RoundDone
+
+		vm.acceptLevelUp()
+		dispatcher.scheduler.advanceUntilIdle()
+
+		val state = vm.state.value as PracticeUiState.RoundDone
+		assertEquals("A2", state.leveledUpTo)
+		coVerify(exactly = 1) { levelRepository.setLevel("A2") }
+		coVerify(exactly = 0) { progressApi.setLevel(any()) }
+	}
+
+	@Test
+	fun `acceptLevelUp does not crash and leaves leveledUpTo unset when LevelRepository fails`() = runTest(dispatcher) {
+		val roundWithLevelUp = round.copy(levelUpEligible = true)
+		every { connectivity.isOnline() } returns true
+		coEvery { remoteSource.start() } returns roundWithLevelUp
+		coEvery { levelRepository.setLevel(any()) } throws RuntimeException("local write should not throw in practice, but must not crash the VM if it did")
+
+		val vm = viewModel()
+		vm.state.test { awaitItem(); awaitItem() }
+		vm.next()
+
+		vm.acceptLevelUp()
+		dispatcher.scheduler.advanceUntilIdle()
+
+		val state = vm.state.value as PracticeUiState.RoundDone
+		assertEquals(null, state.leveledUpTo)
 	}
 }
 

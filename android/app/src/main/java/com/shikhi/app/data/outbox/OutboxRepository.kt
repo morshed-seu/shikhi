@@ -47,6 +47,16 @@ object OutboxEventType {
 	 * OF4.
 	 */
 	const val RETRY_PRACTICE_SUBMIT = "RETRY_PRACTICE_SUBMIT"
+
+	/**
+	 * UO3 (`~/.claude/plans/unified-offline-online/UO3.md`): a learner-initiated CEFR level
+	 * change, emitted by [com.shikhi.app.data.progress.LevelRepository.setLevel] instead of the
+	 * old network-only `PUT /stats/level`. Payload shape `{cefrLevel, changedAt}` matches exactly
+	 * what UO1's backend `ProgressEventApplier` already expects. Contributes `0` to
+	 * [com.shikhi.app.data.progress.StatsProjectionRepository.displayXp] — a level change never
+	 * awards XP.
+	 */
+	const val SET_LEVEL = "SET_LEVEL"
 }
 
 /**

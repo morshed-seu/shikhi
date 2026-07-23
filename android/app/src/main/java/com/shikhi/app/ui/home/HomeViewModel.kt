@@ -3,13 +3,12 @@ package com.shikhi.app.ui.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shikhi.app.data.api.AuthApi
-import com.shikhi.app.data.api.ProgressApi
 import com.shikhi.app.data.api.dto.CurriculumTree
-import com.shikhi.app.data.api.dto.SetLevelRequest
 import com.shikhi.app.data.api.dto.Stats
 import com.shikhi.app.data.auth.AuthRepository
 import com.shikhi.app.data.auth.SessionState
 import com.shikhi.app.data.content.CachedContentRepository
+import com.shikhi.app.data.progress.LevelRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
@@ -41,7 +40,7 @@ class HomeViewModel @Inject constructor(
 	private val authRepository: AuthRepository,
 	private val authApi: AuthApi,
 	private val content: CachedContentRepository,
-	private val progressApi: ProgressApi,
+	private val levelRepository: LevelRepository,
 ) : ViewModel() {
 
 	private val _state = MutableStateFlow(HomeUiState())
@@ -59,13 +58,21 @@ class HomeViewModel @Inject constructor(
 		}
 	}
 
-	/** Self-placement from the practice hero's level picker (PUT /stats/level). */
+	/**
+	 * Self-placement from the practice hero's level picker. UO3: routed entirely through
+	 * [LevelRepository] (durable projection + `"stats"` cache write + a buffered
+	 * [com.shikhi.app.data.outbox.OutboxEventType.SET_LEVEL] outbox event) instead of a direct
+	 * `PUT /stats/level` call, so it works offline — the outbox
+	 * worker delivers it to the server whenever connectivity allows. [LevelRepository.setLevel]
+	 * makes no network call, so it should not realistically fail from a reachable UI state, but
+	 * the `runCatching`/`onFailure` shape is kept for symmetry with the rest of this class.
+	 */
 	fun setLevel(level: String) {
 		if (_state.value.savingLevel) return
 		_state.update { it.copy(savingLevel = true, levelError = false) }
 		viewModelScope.launch {
-			runCatching { progressApi.setLevel(SetLevelRequest(level)) }
-				.onSuccess { stats -> _state.update { it.copy(stats = stats, levelError = false) } }
+			runCatching { levelRepository.setLevel(level) }
+				.onSuccess { _state.update { s -> s.copy(stats = s.stats?.copy(cefrLevel = level), levelError = false) } }
 				.onFailure { _state.update { it.copy(levelError = true) } }
 			_state.update { it.copy(savingLevel = false) }
 		}

@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.shikhi.app.data.api.ProgressApi
 import com.shikhi.app.data.api.dto.PracticeResult
 import com.shikhi.app.data.api.dto.PracticeRound
-import com.shikhi.app.data.api.dto.SetLevelRequest
 import com.shikhi.app.data.api.dto.Verdict
 import com.shikhi.app.data.api.dto.nextLevel
 import com.shikhi.app.data.auth.AuthRepository
@@ -14,6 +13,7 @@ import com.shikhi.app.data.connectivity.ConnectivityChecker
 import com.shikhi.app.data.practice.LocalPracticeSource
 import com.shikhi.app.data.practice.PracticePlaySource
 import com.shikhi.app.data.practice.RemotePracticeSource
+import com.shikhi.app.data.progress.LevelRepository
 import com.shikhi.app.ui.util.Pronouncer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineScope
@@ -86,6 +86,7 @@ class PracticeViewModel @Inject constructor(
 	private val connectivity: ConnectivityChecker,
 	private val authRepository: AuthRepository,
 	private val progressApi: ProgressApi,
+	private val levelRepository: LevelRepository,
 	private val pronouncer: Pronouncer,
 	private val appScope: CoroutineScope,
 ) : ViewModel() {
@@ -250,13 +251,21 @@ class PracticeViewModel @Inject constructor(
 		}
 	}
 
+	/**
+	 * UO3: routed through [LevelRepository] (durable projection + `"stats"` cache write + a
+	 * buffered `SET_LEVEL` outbox event) instead of a direct `PUT /stats/level` call — `round.
+	 * levelUpEligible` is only ever true from [RemotePracticeSource] today ([LocalPracticeSource]
+	 * always reports it false), but the network can still drop between round start and
+	 * completion, so this path must not depend on the request reaching the server to know the new
+	 * level: it was already set locally, so [leveledUpTo] is applied directly on success.
+	 */
 	fun acceptLevelUp() {
 		val s = _state.value as? PracticeUiState.RoundDone ?: return
 		val upTo = s.offerLevelUpTo ?: return
 		viewModelScope.launch {
-			runCatching { progressApi.setLevel(SetLevelRequest(upTo)) }.onSuccess { stats ->
+			runCatching { levelRepository.setLevel(upTo) }.onSuccess {
 				_state.update { cur ->
-					(cur as? PracticeUiState.RoundDone)?.copy(leveledUpTo = stats.cefrLevel) ?: cur
+					(cur as? PracticeUiState.RoundDone)?.copy(leveledUpTo = upTo) ?: cur
 				}
 			}
 		}
