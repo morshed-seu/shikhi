@@ -28,6 +28,7 @@ import com.shikhi.app.R
 import com.shikhi.app.data.api.ApiErrorCodes
 import com.shikhi.app.data.api.apiError
 import com.shikhi.app.data.auth.AuthRepository
+import com.shikhi.app.data.auth.SessionState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -57,6 +58,10 @@ data class GuestBannerUiState(
 	val serverWarming: Boolean = false,
 	/** GF3: sign-in is lossy (ADR-0011, no cross-account merge) — require explicit confirmation. */
 	val confirmingDiscard: Boolean = false,
+	/** OG4 (docs/94 §3.4): true while [AuthRepository.session] is [SessionState.LocalGuest] —
+	 * there is no server account yet to claim or discard, so both actions are disabled (not
+	 * hidden, so the layout doesn't shift once [GuestRegistrationWorker] completes). */
+	val localGuest: Boolean = false,
 )
 
 @HiltViewModel
@@ -67,13 +72,27 @@ class GuestBannerViewModel @Inject constructor(
 	private val _state = MutableStateFlow(GuestBannerUiState())
 	val state: StateFlow<GuestBannerUiState> = _state
 
+	init {
+		// OG4: a LocalGuest has no server account yet — nothing to claim or discard. Track the
+		// session so both actions can be disabled until GuestRegistrationWorker flips to Active,
+		// and so an open form collapses back rather than submitting into a void.
+		viewModelScope.launch {
+			authRepository.session.collect { session ->
+				val local = session is SessionState.LocalGuest
+				_state.update { if (local) it.copy(localGuest = true, open = false, confirmingDiscard = false) else it.copy(localGuest = false) }
+			}
+		}
+	}
+
 	fun open() = _state.update {
-		it.copy(open = true, mode = GuestBannerMode.CLAIM, error = null, emailTaken = false, serverWarming = false, confirmingDiscard = false)
+		if (it.localGuest) it
+		else it.copy(open = true, mode = GuestBannerMode.CLAIM, error = null, emailTaken = false, serverWarming = false, confirmingDiscard = false)
 	}
 
 	/** GF3: switch the (already-open, or not-yet-open) form to the sign-in path. */
 	fun selectSignIn() = _state.update {
-		it.copy(open = true, mode = GuestBannerMode.SIGN_IN, error = null, emailTaken = false, serverWarming = false, confirmingDiscard = false)
+		if (it.localGuest) it
+		else it.copy(open = true, mode = GuestBannerMode.SIGN_IN, error = null, emailTaken = false, serverWarming = false, confirmingDiscard = false)
 	}
 
 	fun setEmail(v: String) = _state.update { it.copy(email = v) }
@@ -87,7 +106,7 @@ class GuestBannerViewModel @Inject constructor(
 
 	fun submit() {
 		val s = _state.value
-		if (s.submitting || s.email.isBlank() || s.password.length < 8) return
+		if (s.localGuest || s.submitting || s.email.isBlank() || s.password.length < 8) return
 		when (s.mode) {
 			GuestBannerMode.CLAIM -> {
 				_state.update { it.copy(submitting = true, emailTaken = false, serverWarming = false, error = null) }
@@ -122,6 +141,7 @@ class GuestBannerViewModel @Inject constructor(
 	/** GF3: the user confirmed the discard warning — actually activate the other account. */
 	fun confirmDiscardAndSignIn() {
 		val s = _state.value
+		if (s.localGuest) return
 		_state.update { it.copy(submitting = true, confirmingDiscard = false, serverWarming = false, error = null) }
 		viewModelScope.launch {
 			try {
@@ -166,9 +186,23 @@ fun GuestBanner(viewModel: GuestBannerViewModel = hiltViewModel()) {
 			Text(stringResource(R.string.guest_lead), style = MaterialTheme.typography.bodyMedium)
 			Spacer(Modifier.height(12.dp))
 			if (!s.open) {
-				OutlinedButton(onClick = viewModel::open) { Text(stringResource(R.string.guest_save)) }
+				OutlinedButton(onClick = viewModel::open, enabled = !s.localGuest) {
+					Text(stringResource(R.string.guest_save))
+				}
 				Spacer(Modifier.height(8.dp))
-				TextButton(onClick = viewModel::selectSignIn) { Text(stringResource(R.string.guest_signin_cta)) }
+				TextButton(onClick = viewModel::selectSignIn, enabled = !s.localGuest) {
+					Text(stringResource(R.string.guest_signin_cta))
+				}
+				if (s.localGuest) {
+					// OG4 (docs/94 §3.4): disabled, not hidden — the layout must not shift when
+					// GuestRegistrationWorker finishes and the actions become live.
+					Spacer(Modifier.height(8.dp))
+					Text(
+						stringResource(R.string.guest_local_pending),
+						color = MaterialTheme.colorScheme.onSurfaceVariant,
+						style = MaterialTheme.typography.bodySmall,
+					)
+				}
 			} else {
 				if (s.mode == GuestBannerMode.CLAIM) {
 					OutlinedTextField(

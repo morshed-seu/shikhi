@@ -116,6 +116,7 @@
     <string name="guest_email_taken">That email already has an account. Log in instead — your guest progress from this session won\'t be saved.</string>
     <string name="guest_signin_cta">Sign in to an existing account</string>
     <string name="guest_signin_submit">Sign in</string>
+    <string name="guest_local_pending">We\'re still setting up your account — you can save your progress once you\'re online.</string>
     <string name="auth_signin_discard_title">Sign in?</string>
     <string name="auth_signin_discard_warning">Signing in will discard your guest progress on this device — continue?</string>
     <string name="error_server_warming">The server may be waking up — please try again in a few seconds.</string>

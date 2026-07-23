@@ -117,6 +117,7 @@
     <string name="guest_email_taken">এই ইমেইলে ইতিমধ্যে একটি অ্যাকাউন্ট আছে। বরং লগ ইন করুন — এই সেশনের অতিথি অগ্রগতি সংরক্ষিত হবে না।</string>
     <string name="guest_signin_cta">বিদ্যমান অ্যাকাউন্টে সাইন ইন করুন</string>
     <string name="guest_signin_submit">সাইন ইন করুন</string>
+    <string name="guest_local_pending">আপনার অ্যাকাউন্ট এখনও তৈরি হচ্ছে — অনলাইনে এলেই অগ্রগতি সংরক্ষণ করতে পারবেন।</string>
     <string name="auth_signin_discard_title">সাইন ইন করবেন?</string>
     <string name="auth_signin_discard_warning">সাইন ইন করলে এই ডিভাইসে আপনার অতিথি হিসেবে অর্জিত অগ্রগতি বাদ যাবে — এগিয়ে যেতে চান?</string>
     <string name="error_server_warming">সার্ভার হয়তো চালু হচ্ছে — কিছুক্ষণ পর আবার চেষ্টা করুন।</string>
